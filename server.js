@@ -33,15 +33,18 @@ let users = savedData.users;
 let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 
+// ========== АККАУНТ АССИСТЕНТА ==========
+// Теперь ассистент — обычный пользователь со своим номером и паролем
 if (!users["assistant"]) {
     users["assistant"] = {
-        password: "bot123",
-        phone: "+70000000000",
+        phone: "+79999999999",
+        password: "assistant123",
         name: "ИИ Ассистент",
         username: "assistant",
         avatar: "🤖",
         avatarType: "emoji",
-        bio: "Искусственный интеллект помощник",
+        avatarData: null,
+        bio: "Искусственный интеллект помощник. Напиши 'помощь' для списка команд.",
         status: "online",
         isBot: true,
         lastSeen: new Date()
@@ -647,7 +650,7 @@ function renderBots() {
     const ud = window.usersProfiles || {};
     document.getElementById('botsList').innerHTML = allBots.map(bot => {
         const b = ud[bot] || {};
-        return '<div class="user-item' + (currentChat === 'user:' + bot ? ' active' : '') + '" onclick="startPrivateChat(\\'' + bot + '\\')">' +
+        return '<div class="user-item' + (currentChat === 'user:' + bot ? ' active' : '') + '" onclick="startPrivateChat(\\'' + bot + '\\")">' +
             renderAvatar(b.avatarData, b.avatarType, 'small') +
             '<span>' + (b.name || bot) + '</span>' +
             '<span style="margin-left:auto; color:#a78bfa;">🤖</span></div>';
@@ -992,5 +995,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log('🚀 ATOMGRAM с входом по телефону запущен на порту ' + PORT);
-    console.log('🤖 Бот assistant доступен');
+    console.log('🤖 Аккаунт ассистента: +79999999999 / assistant123');
 });
