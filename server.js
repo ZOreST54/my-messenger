@@ -239,6 +239,24 @@ app.get('/', (req, res) => {
             50% { transform: scale(1.1); opacity: 0.7; }
             100% { transform: scale(1); opacity: 1; }
         }
+        /* Уведомление */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #667eea;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
         @media (max-width: 768px) {
             .sidebar { display: none; }
         }
@@ -300,6 +318,25 @@ app.get('/', (req, res) => {
         let allRooms = [];
         let allUsers = [];
         
+        // Уведомления
+        function showNotification(title, body) {
+            // Браузерное уведомление
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: '🔔' });
+            }
+            // Внутреннее уведомление
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.innerHTML = '<strong>' + title + '</strong><br>' + body;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+        }
+        
+        // Запрос разрешения на уведомления
+        if (Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        
         // Голосовые сообщения
         let mediaRecorder = null;
         let audioChunks = [];
@@ -336,8 +373,9 @@ app.get('/', (req, res) => {
                 
                 mediaRecorder.start();
                 isRecording = true;
-                document.getElementById('voiceBtn').classList.add('recording');
-                document.getElementById('voiceBtn').innerHTML = '⏹️';
+                const btn = document.getElementById('voiceBtn');
+                btn.classList.add('recording');
+                btn.innerHTML = '⏹️';
             } catch (err) {
                 console.error('Ошибка микрофона:', err);
                 alert('Нет доступа к микрофону');
@@ -348,13 +386,17 @@ app.get('/', (req, res) => {
             if (mediaRecorder && isRecording) {
                 mediaRecorder.stop();
                 isRecording = false;
-                document.getElementById('voiceBtn').classList.remove('recording');
-                document.getElementById('voiceBtn').innerHTML = '🎤';
+                const btn = document.getElementById('voiceBtn');
+                btn.classList.remove('recording');
+                btn.innerHTML = '🎤';
             }
         }
         
         function sendVoiceMessage(base64Audio) {
-            if (!currentChat) return;
+            if (!currentChat) {
+                alert('Выберите чат');
+                return;
+            }
             socket.emit('voice message', {
                 type: currentChatType,
                 target: currentChatTarget,
@@ -496,6 +538,14 @@ app.get('/', (req, res) => {
                 addMessage(msg);
                 scrollToBottom();
             }
+            // Уведомление, если сообщение не от текущего пользователя и не в активном чате
+            if (msg.from !== currentUser) {
+                if (msg.type === 'private') {
+                    showNotification(msg.from, msg.text);
+                } else if (msg.type === 'room' && currentChatTarget !== msg.room) {
+                    showNotification('Чат ' + msg.room, msg.from + ': ' + msg.text);
+                }
+            }
         });
         
         socket.on('voice message', (data) => {
@@ -504,6 +554,10 @@ app.get('/', (req, res) => {
             if (shouldShow) {
                 addVoiceMessage(data);
                 scrollToBottom();
+            }
+            // Уведомление о голосовом
+            if (data.from !== currentUser && data.type === 'private') {
+                showNotification(data.from, '🎤 Голосовое сообщение');
             }
         });
         
