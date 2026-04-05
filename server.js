@@ -9,81 +9,20 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling']
 });
 
-// ========== БАЗА ДАННЫХ ==========
-const users = {};
+// ========== БАЗА ДАННЫХ (ПУСТАЯ) ==========
+const users = {};           // Никого нет, всё через регистрацию
 const usersOnline = new Map();
 const privateChats = {};
 const publicRooms = {};
 
-// Предустановленные данные
-users["alex"] = { 
-    password: "123", 
-    firstName: "Алексей", 
-    lastName: "Иванов",
-    username: "alex",
-    avatar: "😎",
-    bio: "Люблю программировать и чай ☕\nРаботаю в IT компании",
-    status: "online",
-    lastSeen: new Date(),
-    phone: "+7 (999) 123-45-67",
-    location: "Москва",
-    birthDate: "15.03.1990"
-};
-users["maria"] = { 
-    password: "456", 
-    firstName: "Мария", 
-    lastName: "Петрова",
-    username: "maria",
-    avatar: "👩",
-    bio: "Дизайнер и фотограф 📸\nЛюблю путешествовать",
-    status: "online",
-    lastSeen: new Date(),
-    phone: "+7 (888) 765-43-21",
-    location: "Санкт-Петербург",
-    birthDate: "22.07.1995"
-};
-users["bot_weather"] = {
-    password: "bot123",
-    firstName: "Погода",
-    lastName: "Бот",
-    username: "bot_weather",
-    avatar: "🌤️",
-    bio: "Бот для прогноза погоды\nНапишите город и получите прогноз",
-    status: "online",
-    lastSeen: new Date(),
-    isBot: true
-};
-users["bot_news"] = {
-    password: "bot123",
-    firstName: "Новости",
-    lastName: "Бот",
-    username: "bot_news",
-    avatar: "📰",
-    bio: "Бот для последних новостей\nПрисылает главные новости дня",
-    status: "online",
-    lastSeen: new Date(),
-    isBot: true
-};
-users["bot_reminder"] = {
-    password: "bot123",
-    firstName: "Напоминалка",
-    lastName: "Бот",
-    username: "bot_reminder",
-    avatar: "⏰",
-    bio: "Бот для напоминаний\nНапишите 'напомни через 5 минут'",
-    status: "online",
-    lastSeen: new Date(),
-    isBot: true
-};
-
+// Только один общий чат по умолчанию
 publicRooms["general"] = { messages: [], users: [] };
-publicRooms["bots"] = { messages: [], users: [] };
 
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Просмотр профилей и боты</title>
+    <title>ATOMGRAM - Чат</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -144,6 +83,7 @@ app.get('/', (req, res) => {
             border: 1px solid #667eea !important;
         }
         .error-msg { color: #ff6b6b; margin-top: 10px; font-size: 14px; }
+        .success-msg { color: #4ade80; margin-top: 10px; font-size: 14px; }
         
         #mainApp {
             display: none;
@@ -152,7 +92,7 @@ app.get('/', (req, res) => {
             display: flex;
         }
         .sidebar {
-            width: 300px;
+            width: 280px;
             background: #1a1a2e;
             border-right: 1px solid rgba(255,255,255,0.1);
             display: flex;
@@ -165,7 +105,6 @@ app.get('/', (req, res) => {
             align-items: center;
             gap: 12px;
             cursor: pointer;
-            transition: background 0.2s;
         }
         .sidebar-header:hover { background: rgba(102,126,234,0.1); }
         .avatar {
@@ -186,12 +125,12 @@ app.get('/', (req, res) => {
             color: #667eea;
             text-transform: uppercase;
         }
-        .rooms-list, .users-list, .bots-list {
+        .rooms-list, .users-list {
             padding: 10px;
             overflow-y: auto;
             max-height: 200px;
         }
-        .room-item, .user-item, .bot-item {
+        .room-item, .user-item {
             padding: 10px 15px;
             margin: 4px 0;
             border-radius: 15px;
@@ -201,17 +140,11 @@ app.get('/', (req, res) => {
             align-items: center;
             gap: 10px;
         }
-        .room-item:hover, .user-item:hover, .bot-item:hover { background: rgba(102,126,234,0.2); }
-        .room-item.active, .user-item.active, .bot-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .room-item:hover, .user-item:hover { background: rgba(102,126,234,0.2); }
+        .room-item.active, .user-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .user-avatar { font-size: 24px; }
-        .user-status {
-            font-size: 10px;
-            margin-left: auto;
-        }
+        .user-status { font-size: 10px; margin-left: auto; }
         .status-online { color: #4ade80; }
-        .status-away { color: #fbbf24; }
-        .status-busy { color: #ff6b6b; }
-        .status-bot { color: #a78bfa; }
         .new-room {
             padding: 15px;
             border-top: 1px solid rgba(255,255,255,0.1);
@@ -247,15 +180,6 @@ app.get('/', (req, res) => {
             display: flex;
             align-items: center;
             gap: 10px;
-            cursor: pointer;
-        }
-        .chat-header:hover { background: rgba(102,126,234,0.05); }
-        .chat-header-avatar { font-size: 35px; }
-        .typing-indicator {
-            font-size: 11px;
-            color: #888;
-            margin-top: 5px;
-            font-style: italic;
         }
         .messages-area {
             flex: 1;
@@ -281,18 +205,6 @@ app.get('/', (req, res) => {
         .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 4px; cursor: pointer; }
         .message-username:hover { text-decoration: underline; }
         .message-text { font-size: 14px; }
-        .voice-message {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .voice-message button {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-        }
         .message-time {
             font-size: 9px;
             color: #888;
@@ -321,18 +233,6 @@ app.get('/', (req, res) => {
             border-radius: 30px;
             cursor: pointer;
         }
-        .voice-record-btn {
-            background: #ff6b6b !important;
-        }
-        .voice-record-btn.recording {
-            animation: pulse 1s infinite;
-            background: #ff4444 !important;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
-        }
         .notification {
             position: fixed;
             bottom: 20px;
@@ -349,7 +249,6 @@ app.get('/', (req, res) => {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-        /* Модальное окно профиля */
         .modal {
             position: fixed;
             top: 0;
@@ -390,7 +289,6 @@ app.get('/', (req, res) => {
         .profile-avatar-section {
             text-align: center;
             padding: 30px;
-            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
         }
         .profile-avatar {
             font-size: 80px;
@@ -402,6 +300,7 @@ app.get('/', (req, res) => {
             align-items: center;
             justify-content: center;
             margin: 0 auto;
+            cursor: pointer;
         }
         .profile-field {
             padding: 15px 20px;
@@ -414,10 +313,6 @@ app.get('/', (req, res) => {
             margin-bottom: 5px;
             text-transform: uppercase;
         }
-        .profile-field .value {
-            color: white;
-            font-size: 16px;
-        }
         .profile-field input, .profile-field textarea {
             width: 100%;
             padding: 10px;
@@ -426,7 +321,6 @@ app.get('/', (req, res) => {
             border-radius: 15px;
             color: white;
             font-size: 16px;
-            font-family: inherit;
         }
         .profile-field textarea { resize: none; height: 60px; }
         .avatar-picker {
@@ -444,25 +338,13 @@ app.get('/', (req, res) => {
             cursor: pointer;
             padding: 5px;
             border-radius: 50%;
-            transition: transform 0.2s;
         }
-        .avatar-option:hover { transform: scale(1.1); background: #3a3a4e; }
-        .status-select {
-            width: 100%;
-            padding: 10px;
-            background: #2a2a3e;
-            border: none;
-            border-radius: 15px;
-            color: white;
-            font-size: 14px;
-        }
+        .avatar-option:hover { background: #3a3a4e; }
         .modal-footer {
             padding: 20px;
-            display: flex;
-            gap: 10px;
         }
         .save-btn {
-            flex: 1;
+            width: 100%;
             padding: 14px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -470,13 +352,6 @@ app.get('/', (req, res) => {
             border-radius: 25px;
             font-size: 16px;
             cursor: pointer;
-        }
-        .bot-badge {
-            background: #a78bfa;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 20px;
-            margin-left: 8px;
         }
         @media (max-width: 768px) {
             .sidebar { display: none; }
@@ -488,16 +363,15 @@ app.get('/', (req, res) => {
         <div class="auth-card">
             <h1>⚡ ATOMGRAM</h1>
             <div id="authForm">
-                <input type="text" id="login" placeholder="Логин (username)">
+                <input type="text" id="login" placeholder="Логин">
                 <input type="password" id="password" placeholder="Пароль">
                 <button onclick="login()">Войти</button>
                 <button class="switch-btn" onclick="showRegister()">Создать аккаунт</button>
             </div>
             <div id="registerForm" style="display:none">
-                <input type="text" id="regLogin" placeholder="Логин (username)">
+                <input type="text" id="regLogin" placeholder="Логин">
                 <input type="password" id="regPassword" placeholder="Пароль">
-                <input type="text" id="regFirstName" placeholder="Имя">
-                <input type="text" id="regLastName" placeholder="Фамилия">
+                <input type="text" id="regName" placeholder="Ваше имя">
                 <button onclick="register()">Зарегистрироваться</button>
                 <button class="switch-btn" onclick="showLogin()">Назад</button>
             </div>
@@ -507,7 +381,7 @@ app.get('/', (req, res) => {
 
     <div id="mainApp">
         <div class="sidebar">
-            <div class="sidebar-header" onclick="openMyProfileModal()">
+            <div class="sidebar-header" onclick="openProfileModal()">
                 <div class="avatar" id="userAvatar">👤</div>
                 <div class="user-info-header">
                     <h3 id="userDisplayName">Загрузка...</h3>
@@ -516,38 +390,31 @@ app.get('/', (req, res) => {
             </div>
             <div class="section-title">📢 ОБЩИЕ ЧАТЫ</div>
             <div class="rooms-list" id="roomsList"></div>
-            <div class="section-title">💬 ЛИЧНЫЕ СООБЩЕНИЯ</div>
+            <div class="section-title">💬 ОНЛАЙН</div>
             <div class="users-list" id="usersList"></div>
-            <div class="section-title">🤖 БОТЫ</div>
-            <div class="bots-list" id="botsList"></div>
             <div class="new-room">
                 <input type="text" id="newRoomName" placeholder="Название чата">
                 <button onclick="createRoom()">+ Создать общий чат</button>
             </div>
         </div>
         <div class="chat-area">
-            <div class="chat-header" id="chatHeader" onclick="openCurrentChatProfile()">
-                <span id="chatHeaderAvatar" class="chat-header-avatar">👤</span>
-                <div>
-                    <div id="currentChatTitle">Выберите чат</div>
-                    <div id="typingIndicator" class="typing-indicator" style="display:none"></div>
-                </div>
+            <div class="chat-header" id="chatHeader">
+                <span id="currentChatTitle">Выберите чат</span>
             </div>
             <div class="messages-area" id="messages"></div>
             <div class="input-area">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
-                <button id="voiceBtn" class="voice-record-btn" onclick="toggleRecording()">🎤</button>
                 <button onclick="sendMessage()">📤</button>
             </div>
         </div>
     </div>
 
-    <!-- Модальное окно своего профиля -->
-    <div id="myProfileModal" class="modal" style="display:none">
+    <!-- Модальное окно профиля -->
+    <div id="profileModal" class="modal" style="display:none">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Мой профиль</h3>
-                <button class="close-modal" onclick="closeMyProfileModal()">✕</button>
+                <button class="close-modal" onclick="closeProfileModal()">✕</button>
             </div>
             <div class="profile-avatar-section">
                 <div class="profile-avatar" id="profileAvatar" onclick="toggleAvatarPicker()">👤</div>
@@ -560,29 +427,15 @@ app.get('/', (req, res) => {
                     <div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
                     <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div>
                     <div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
-                    <div class="avatar-option" onclick="selectAvatar('🎮')">🎮</div>
-                    <div class="avatar-option" onclick="selectAvatar('📷')">📷</div>
                 </div>
             </div>
             <div class="profile-field">
                 <label>Имя</label>
-                <input type="text" id="editFirstName" placeholder="Имя">
-            </div>
-            <div class="profile-field">
-                <label>Фамилия</label>
-                <input type="text" id="editLastName" placeholder="Фамилия">
+                <input type="text" id="editName" placeholder="Ваше имя">
             </div>
             <div class="profile-field">
                 <label>О себе</label>
                 <textarea id="editBio" placeholder="Расскажите о себе..."></textarea>
-            </div>
-            <div class="profile-field">
-                <label>Статус</label>
-                <select id="editStatus" class="status-select">
-                    <option value="online">🟢 В сети</option>
-                    <option value="away">🌙 Отошёл</option>
-                    <option value="busy">🔴 Занят</option>
-                </select>
             </div>
             <div class="profile-field">
                 <label>Новый пароль (оставьте пустым)</label>
@@ -590,38 +443,6 @@ app.get('/', (req, res) => {
             </div>
             <div class="modal-footer">
                 <button class="save-btn" onclick="saveProfile()">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Модальное окно чужого профиля -->
-    <div id="userProfileModal" class="modal" style="display:none">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="userProfileTitle">Профиль</h3>
-                <button class="close-modal" onclick="closeUserProfileModal()">✕</button>
-            </div>
-            <div class="profile-avatar-section">
-                <div class="profile-avatar" id="userProfileAvatar">👤</div>
-            </div>
-            <div class="profile-field">
-                <label>Имя</label>
-                <div class="value" id="userProfileName">-</div>
-            </div>
-            <div class="profile-field">
-                <label>Username</label>
-                <div class="value" id="userProfileUsername">-</div>
-            </div>
-            <div class="profile-field">
-                <label>О себе</label>
-                <div class="value" id="userProfileBio">-</div>
-            </div>
-            <div class="profile-field">
-                <label>Статус</label>
-                <div class="value" id="userProfileStatus">-</div>
-            </div>
-            <div class="modal-footer">
-                <button class="save-btn" onclick="startChatFromProfile()">💬 Написать</button>
             </div>
         </div>
     </div>
@@ -636,8 +457,6 @@ app.get('/', (req, res) => {
         let currentChatTarget = null;
         let allRooms = [];
         let allUsers = [];
-        let allBots = [];
-        let typingTimeout = null;
         let selectedAvatar = '👤';
         
         function showNotification(title, body) {
@@ -655,79 +474,18 @@ app.get('/', (req, res) => {
             Notification.requestPermission();
         }
         
-        // Голосовые сообщения
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        
-        async function toggleRecording() {
-            if (isRecording) { stopRecording(); } 
-            else { startRecording(); }
-        }
-        
-        async function startRecording() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    const reader = new FileReader();
-                    reader.onloadend = () => sendVoiceMessage(reader.result);
-                    reader.readAsDataURL(audioBlob);
-                    stream.getTracks().forEach(t => t.stop());
-                };
-                mediaRecorder.start();
-                isRecording = true;
-                const btn = document.getElementById('voiceBtn');
-                btn.classList.add('recording');
-                btn.innerHTML = '⏹️';
-            } catch(err) { alert('Нет доступа к микрофону'); }
-        }
-        
-        function stopRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
-                isRecording = false;
-                const btn = document.getElementById('voiceBtn');
-                btn.classList.remove('recording');
-                btn.innerHTML = '🎤';
-            }
-        }
-        
-        function sendVoiceMessage(base64Audio) {
-            if (!currentChat) { alert('Выберите чат'); return; }
-            socket.emit('voice message', { type: currentChatType, target: currentChatTarget, audio: base64Audio });
-        }
-        
-        // Индикатор печати
-        function sendTyping() {
-            if (currentChatType === 'private' && currentChatTarget) {
-                socket.emit('typing', { to: currentChatTarget });
-                if (typingTimeout) clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    socket.emit('stop typing', { to: currentChatTarget });
-                }, 1000);
-            }
-        }
-        
-        document.getElementById('messageInput').addEventListener('input', sendTyping);
-        
         // Профиль
-        function openMyProfileModal() {
-            document.getElementById('editFirstName').value = currentUserData?.firstName || '';
-            document.getElementById('editLastName').value = currentUserData?.lastName || '';
+        function openProfileModal() {
+            document.getElementById('editName').value = currentUserData?.name || '';
             document.getElementById('editBio').value = currentUserData?.bio || '';
-            document.getElementById('editStatus').value = currentUserData?.status || 'online';
             document.getElementById('editPassword').value = '';
             document.getElementById('profileAvatar').innerHTML = currentUserData?.avatar || '👤';
             selectedAvatar = currentUserData?.avatar || '👤';
-            document.getElementById('myProfileModal').style.display = 'flex';
+            document.getElementById('profileModal').style.display = 'flex';
         }
         
-        function closeMyProfileModal() {
-            document.getElementById('myProfileModal').style.display = 'none';
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
             document.getElementById('avatarPicker').style.display = 'none';
         }
         
@@ -745,10 +503,8 @@ app.get('/', (req, res) => {
         function saveProfile() {
             const data = {
                 login: currentUser,
-                firstName: document.getElementById('editFirstName').value.trim(),
-                lastName: document.getElementById('editLastName').value.trim(),
+                name: document.getElementById('editName').value.trim(),
                 bio: document.getElementById('editBio').value.trim(),
-                status: document.getElementById('editStatus').value,
                 avatar: selectedAvatar
             };
             const newPassword = document.getElementById('editPassword').value.trim();
@@ -758,76 +514,26 @@ app.get('/', (req, res) => {
                 if (res.success) {
                     currentUserData = res.userData;
                     updateProfileUI();
-                    closeMyProfileModal();
+                    closeProfileModal();
                     showNotification('Профиль', 'Данные сохранены');
                 } else { alert(res.error); }
             });
         }
         
         function updateProfileUI() {
-            const fullName = currentUserData?.firstName + ' ' + (currentUserData?.lastName || '');
-            document.getElementById('userDisplayName').innerText = fullName.trim() || currentUserData?.username;
-            document.getElementById('userUsername').innerText = '@' + (currentUserData?.username || currentUser);
+            document.getElementById('userDisplayName').innerText = currentUserData?.name || currentUser;
+            document.getElementById('userUsername').innerText = '@' + currentUser;
             document.getElementById('userAvatar').innerHTML = currentUserData?.avatar || '👤';
-        }
-        
-        // Просмотр чужого профиля
-        function viewUserProfile(username) {
-            socket.emit('getUserProfile', username, (profile) => {
-                if (profile) {
-                    document.getElementById('userProfileTitle').innerText = profile.firstName + ' ' + (profile.lastName || '');
-                    document.getElementById('userProfileAvatar').innerHTML = profile.avatar || '👤';
-                    document.getElementById('userProfileName').innerText = profile.firstName + ' ' + (profile.lastName || '');
-                    document.getElementById('userProfileUsername').innerText = '@' + profile.username;
-                    document.getElementById('userProfileBio').innerText = profile.bio || 'Нет информации';
-                    let statusText = '';
-                    if (profile.isBot) statusText = '🤖 Бот';
-                    else if (profile.status === 'online') statusText = '🟢 В сети';
-                    else if (profile.status === 'away') statusText = '🌙 Отошёл';
-                    else if (profile.status === 'busy') statusText = '🔴 Занят';
-                    else statusText = '⚫ Не в сети';
-                    document.getElementById('userProfileStatus').innerHTML = statusText;
-                    window.viewedProfileUsername = username;
-                    document.getElementById('userProfileModal').style.display = 'flex';
-                }
-            });
-        }
-        
-        function closeUserProfileModal() {
-            document.getElementById('userProfileModal').style.display = 'none';
-        }
-        
-        function startChatFromProfile() {
-            if (window.viewedProfileUsername) {
-                closeUserProfileModal();
-                startPrivateChat(window.viewedProfileUsername);
-            }
-        }
-        
-        function openCurrentChatProfile() {
-            if (currentChatType === 'private' && currentChatTarget) {
-                viewUserProfile(currentChatTarget);
-            }
-        }
-        
-        function getStatusClass(status, isBot) {
-            if (isBot) return 'status-bot';
-            if (status === 'online') return 'status-online';
-            if (status === 'away') return 'status-away';
-            return 'status-busy';
-        }
-        
-        function getStatusIcon(status, isBot) {
-            if (isBot) return '🤖';
-            if (status === 'online') return '🟢';
-            if (status === 'away') return '🌙';
-            return '🔴';
         }
         
         // Авторизация
         function login() {
             const login = document.getElementById('login').value.trim();
             const password = document.getElementById('password').value.trim();
+            if (!login || !password) {
+                document.getElementById('authError').innerText = 'Заполните все поля';
+                return;
+            }
             socket.emit('login', { login, password }, (res) => {
                 if (res.success) {
                     currentUser = login;
@@ -836,35 +542,45 @@ app.get('/', (req, res) => {
                     document.getElementById('mainApp').style.display = 'flex';
                     updateProfileUI();
                     loadData();
-                } else { document.getElementById('authError').innerText = res.error; }
+                } else {
+                    document.getElementById('authError').innerText = res.error;
+                }
             });
         }
         
         function register() {
             const login = document.getElementById('regLogin').value.trim();
             const password = document.getElementById('regPassword').value.trim();
-            const firstName = document.getElementById('regFirstName').value.trim();
-            const lastName = document.getElementById('regLastName').value.trim();
+            const name = document.getElementById('regName').value.trim();
             if (!login || !password) {
                 document.getElementById('authError').innerText = 'Заполните логин и пароль';
                 return;
             }
-            socket.emit('register', { login, password, firstName, lastName }, (res) => {
+            socket.emit('register', { login, password, name }, (res) => {
                 if (res.success) {
+                    document.getElementById('authError').className = 'success-msg';
+                    document.getElementById('authError').innerText = '✅ Регистрация успешна! Теперь войдите.';
                     showLogin();
-                    document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.';
-                } else { document.getElementById('authError').innerText = res.error; }
+                    document.getElementById('regLogin').value = '';
+                    document.getElementById('regPassword').value = '';
+                    document.getElementById('regName').value = '';
+                } else {
+                    document.getElementById('authError').className = 'error-msg';
+                    document.getElementById('authError').innerText = res.error;
+                }
             });
         }
         
         function showRegister() {
             document.getElementById('authForm').style.display = 'none';
             document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('authError').innerText = '';
         }
         
         function showLogin() {
             document.getElementById('authForm').style.display = 'block';
             document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('authError').innerText = '';
         }
         
         function loadData() {
@@ -872,11 +588,9 @@ app.get('/', (req, res) => {
                 allRooms = rooms;
                 renderRooms();
             });
-            socket.emit('getUsers', (data) => {
-                allUsers = data.users || [];
-                allBots = data.bots || [];
+            socket.emit('getUsers', (users) => {
+                allUsers = users.filter(u => u !== currentUser);
                 renderUsers();
-                renderBots();
             });
         }
         
@@ -889,34 +603,21 @@ app.get('/', (req, res) => {
         
         function renderUsers() {
             const container = document.getElementById('usersList');
+            const usersData = window.usersProfiles || {};
             container.innerHTML = allUsers.map(user => {
-                const userData = window.userProfiles?.[user] || {};
+                const userData = usersData[user] || {};
                 return '<div class="user-item' + (currentChat === 'user:' + user ? ' active' : '') + '" onclick="startPrivateChat(\\'' + user + '\\')">' +
                     '<span class="user-avatar">' + (userData.avatar || '👤') + '</span>' +
-                    '<span>' + (userData.firstName ? userData.firstName + ' ' + (userData.lastName || '') : user) + '</span>' +
-                    '<span class="user-status ' + getStatusClass(userData.status, false) + '">' + getStatusIcon(userData.status, false) + '</span></div>';
+                    '<span>' + (userData.name || user) + '</span>' +
+                    '<span class="user-status status-online">🟢</span></div>';
             }).join('');
         }
         
-        function renderBots() {
-            const container = document.getElementById('botsList');
-            container.innerHTML = allBots.map(bot => {
-                const botData = window.userProfiles?.[bot] || {};
-                return '<div class="bot-item' + (currentChat === 'user:' + bot ? ' active' : '') + '" onclick="startPrivateChat(\\'' + bot + '\\')">' +
-                    '<span class="user-avatar">' + (botData.avatar || '🤖') + '</span>' +
-                    '<span>' + (botData.firstName ? botData.firstName + ' ' + (botData.lastName || '') : bot) + '</span>' +
-                    '<span class="bot-badge">бот</span>' +
-                    '<span class="user-status status-bot">🤖</span></div>';
-            }).join('');
-        }
-        
-        window.userProfiles = {};
+        window.usersProfiles = {};
         socket.on('users list with profiles', (profiles) => {
-            profiles.forEach(p => { window.userProfiles[p.username] = p; });
-            allUsers = profiles.filter(p => !p.isBot && p.username !== currentUser).map(p => p.username);
-            allBots = profiles.filter(p => p.isBot && p.username !== currentUser).map(p => p.username);
+            profiles.forEach(p => { window.usersProfiles[p.username] = p; });
+            allUsers = profiles.filter(p => p.username !== currentUser).map(p => p.username);
             renderUsers();
-            renderBots();
         });
         
         function joinRoom(roomName) {
@@ -925,9 +626,7 @@ app.get('/', (req, res) => {
             currentChatTarget = roomName;
             socket.emit('joinRoom', roomName);
             document.getElementById('currentChatTitle').innerHTML = '# ' + roomName;
-            document.getElementById('chatHeaderAvatar').innerHTML = '📢';
-            document.getElementById('typingIndicator').style.display = 'none';
-            renderRooms(); renderUsers(); renderBots();
+            renderRooms(); renderUsers();
         }
         
         function startPrivateChat(userName) {
@@ -935,12 +634,9 @@ app.get('/', (req, res) => {
             currentChatType = 'private';
             currentChatTarget = userName;
             socket.emit('joinPrivate', userName);
-            const userData = window.userProfiles[userName] || {};
-            const displayName = userData.firstName ? userData.firstName + ' ' + (userData.lastName || '') : userName;
-            document.getElementById('currentChatTitle').innerHTML = displayName;
-            document.getElementById('chatHeaderAvatar').innerHTML = userData.avatar || (userData.isBot ? '🤖' : '👤');
-            document.getElementById('typingIndicator').style.display = 'none';
-            renderRooms(); renderUsers(); renderBots();
+            const userData = window.usersProfiles[userName] || {};
+            document.getElementById('currentChatTitle').innerHTML = '💬 ' + (userData.name || userName);
+            renderRooms(); renderUsers();
         }
         
         function createRoom() {
@@ -965,57 +661,11 @@ app.get('/', (req, res) => {
                 socket.emit('chat message', { type: 'private', target: currentChatTarget, text });
             }
             input.value = '';
-            if (typingTimeout) clearTimeout(typingTimeout);
-            socket.emit('stop typing', { to: currentChatTarget });
         }
         
         document.getElementById('messageInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
-        
-        // Обработка индикатора печати
-        socket.on('user typing', (data) => {
-            if (currentChatType === 'private' && currentChatTarget === data.from) {
-                const userData = window.userProfiles[data.from] || {};
-                const name = userData.firstName || data.from;
-                document.getElementById('typingIndicator').innerHTML = name + ' печатает...';
-                document.getElementById('typingIndicator').style.display = 'block';
-                setTimeout(() => {
-                    document.getElementById('typingIndicator').style.display = 'none';
-                }, 2000);
-            }
-        });
-        
-        socket.on('user stop typing', (data) => {
-            if (currentChatType === 'private' && currentChatTarget === data.from) {
-                document.getElementById('typingIndicator').style.display = 'none';
-            }
-        });
-        
-        // Обработка ботов
-        function handleBotCommand(message, botUsername) {
-            const lowerMsg = message.toLowerCase();
-            if (botUsername === 'bot_weather') {
-                if (lowerMsg.includes('погода') || lowerMsg.includes('weather')) {
-                    const cityMatch = message.match(/в (\w+)/i);
-                    const city = cityMatch ? cityMatch[1] : 'Москве';
-                    return '🌤️ Прогноз погоды в ' + city + ': +18°C, облачно, без осадков.';
-                }
-                return '🤖 Бот погоды. Напишите "погода в Москве" чтобы узнать прогноз.';
-            }
-            if (botUsername === 'bot_news') {
-                return '📰 Последние новости:\n1. AI развивается быстрее ожидаемого\n2. Новый мессенджер ATOMGRAM набирает популярность\n3. Завтра ожидается солнечная погода';
-            }
-            if (botUsername === 'bot_reminder') {
-                const remindMatch = message.match(/напомни через (\d+) (минут|минуту|мин)/i);
-                if (remindMatch) {
-                    const minutes = parseInt(remindMatch[1]);
-                    return '⏰ Напомню через ' + minutes + ' минут(ы). Отправлю сообщение с напоминанием!';
-                }
-                return '🤖 Бот напоминаний. Напишите "напомни через 5 минут" чтобы установить напоминание.';
-            }
-            return null;
-        }
         
         socket.on('chat history', (data) => {
             if ((currentChatType === 'room' && data.type === 'room' && data.room === currentChatTarget) ||
@@ -1036,24 +686,10 @@ app.get('/', (req, res) => {
                 scrollToBottom();
             }
             if (msg.from !== currentUser) {
-                const userData = window.userProfiles[msg.from] || {};
-                const name = userData.firstName || msg.from;
+                const userData = window.usersProfiles[msg.from] || {};
+                const name = userData.name || msg.from;
                 if (msg.type === 'private') showNotification(name, msg.text);
                 else if (msg.type === 'room' && currentChatTarget !== msg.room) showNotification('Чат ' + msg.room, name + ': ' + msg.text);
-            }
-        });
-        
-        socket.on('voice message', (data) => {
-            let shouldShow = false;
-            if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) shouldShow = true;
-            if (shouldShow) {
-                addVoiceMessage(data);
-                scrollToBottom();
-            }
-            if (data.from !== currentUser && data.type === 'private') {
-                const userData = window.userProfiles[data.from] || {};
-                const name = userData.firstName || data.from;
-                showNotification(name, '🎤 Голосовое сообщение');
             }
         });
         
@@ -1062,35 +698,15 @@ app.get('/', (req, res) => {
             const div = document.createElement('div');
             div.className = 'message';
             if (msg.from === currentUser) div.className += ' my-message';
-            const userData = window.userProfiles[msg.from] || {};
-            const displayName = userData.firstName ? userData.firstName + ' ' + (userData.lastName || '') : msg.from;
-            div.innerHTML = '<div class="message-content"><div class="message-username" onclick="viewUserProfile(\\'' + msg.from + '\\')">' + escapeHtml(displayName) + '</div><div class="message-text">' + escapeHtml(msg.text) + '</div><div class="message-time">' + msg.time + '</div></div>';
+            const userData = window.usersProfiles[msg.from] || {};
+            const displayName = userData.name || msg.from;
+            div.innerHTML = '<div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div><div class="message-text">' + escapeHtml(msg.text) + '</div><div class="message-time">' + msg.time + '</div></div>';
             messagesDiv.appendChild(div);
         }
         
-        function addVoiceMessage(data) {
-            const messagesDiv = document.getElementById('messages');
-            const div = document.createElement('div');
-            div.className = 'message';
-            if (data.from === currentUser) div.className += ' my-message';
-            const userData = window.userProfiles[data.from] || {};
-            const displayName = userData.firstName ? userData.firstName + ' ' + (userData.lastName || '') : data.from;
-            div.innerHTML = '<div class="message-content"><div class="message-username" onclick="viewUserProfile(\\'' + data.from + '\\')">' + escapeHtml(displayName) + '</div><div class="voice-message"><button onclick="playAudio(this)" data-audio="' + data.audio + '">▶️</button><span>Голосовое сообщение</span></div><div class="message-time">' + data.time + '</div></div>';
-            messagesDiv.appendChild(div);
-        }
-        
-        function playAudio(btn) {
-            const audio = new Audio(btn.getAttribute('data-audio'));
-            audio.play();
-            btn.innerHTML = '⏸️';
-            audio.onended = () => { btn.innerHTML = '▶️'; };
-        }
-        
-        socket.on('users update', (data) => {
-            allUsers = data.users || [];
-            allBots = data.bots || [];
+        socket.on('users update', (users) => {
+            allUsers = users.filter(u => u !== currentUser);
             renderUsers();
-            renderBots();
         });
         
         socket.on('rooms update', (rooms) => {
@@ -1103,10 +719,9 @@ app.get('/', (req, res) => {
                 currentUserData = data;
                 updateProfileUI();
             }
-            if (window.userProfiles[data.username]) {
-                window.userProfiles[data.username] = data;
+            if (window.usersProfiles[data.username]) {
+                window.usersProfiles[data.username] = data;
                 renderUsers();
-                renderBots();
             }
         });
         
@@ -1131,44 +746,58 @@ io.on('connection', (socket) => {
     let currentUser = null;
     let currentRoom = null;
 
+    // РЕГИСТРАЦИЯ
     socket.on('register', (data, callback) => {
-        if (users[data.login]) {
-            callback({ success: false, error: 'Логин уже существует' });
+        const { login, password, name } = data;
+        
+        if (!login || !password) {
+            callback({ success: false, error: 'Заполните логин и пароль' });
+            return;
+        }
+        
+        if (users[login]) {
+            callback({ success: false, error: 'Пользователь с таким логином уже существует' });
         } else {
-            users[data.login] = { 
-                password: data.password, 
-                firstName: data.firstName || data.login,
-                lastName: data.lastName || '',
-                username: data.login,
+            users[login] = { 
+                password: password, 
+                name: name || login,
+                username: login,
                 avatar: '👤',
                 bio: '',
                 status: 'online',
                 lastSeen: new Date()
             };
+            console.log('✅ Новый пользователь: ' + login);
             callback({ success: true });
+            sendProfileList();
         }
     });
 
+    // ВХОД
     socket.on('login', (data, callback) => {
-        if (users[data.login] && users[data.login].password === data.password) {
-            currentUser = data.login;
+        const { login, password } = data;
+        
+        if (!users[login]) {
+            callback({ success: false, error: 'Пользователь не найден' });
+        } else if (users[login].password !== password) {
+            callback({ success: false, error: 'Неверный пароль' });
+        } else {
+            currentUser = login;
             usersOnline.set(socket.id, currentUser);
-            users[data.login].status = 'online';
-            users[data.login].lastSeen = new Date();
-            callback({ success: true, userData: users[data.login] });
+            users[login].status = 'online';
+            users[login].lastSeen = new Date();
+            console.log('🔐 Вход: ' + login);
+            callback({ success: true, userData: users[login] });
             sendUserList();
             sendProfileList();
-        } else {
-            callback({ success: false, error: 'Неверный логин или пароль' });
         }
     });
 
+    // ОБНОВЛЕНИЕ ПРОФИЛЯ
     socket.on('update profile', (data, callback) => {
         if (users[data.login]) {
-            if (data.firstName !== undefined) users[data.login].firstName = data.firstName;
-            if (data.lastName !== undefined) users[data.login].lastName = data.lastName;
+            if (data.name !== undefined) users[data.login].name = data.name;
             if (data.bio !== undefined) users[data.login].bio = data.bio;
-            if (data.status !== undefined) users[data.login].status = data.status;
             if (data.avatar !== undefined) users[data.login].avatar = data.avatar;
             if (data.password) users[data.login].password = data.password;
             callback({ success: true, userData: users[data.login] });
@@ -1179,18 +808,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('getUserProfile', (username, callback) => {
-        if (users[username]) {
-            callback(users[username]);
-        } else {
-            callback(null);
-        }
-    });
-
     function sendUserList() {
-        const onlineUsers = Array.from(usersOnline.values());
-        const allBots = Object.keys(users).filter(u => users[u].isBot);
-        io.emit('users update', { users: onlineUsers, bots: allBots });
+        io.emit('users update', Array.from(usersOnline.values()));
     }
 
     function sendProfileList() {
@@ -1203,9 +822,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('getUsers', (callback) => {
-        const onlineUsers = Array.from(usersOnline.values());
-        const allBots = Object.keys(users).filter(u => users[u].isBot);
-        callback({ users: onlineUsers, bots: allBots });
+        callback(Array.from(usersOnline.values()));
     });
 
     socket.on('createRoom', (roomName, callback) => {
@@ -1242,27 +859,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    socket.on('typing', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) {
-            targetSocket.emit('user typing', { from: currentUser });
-        }
-    });
-
-    socket.on('stop typing', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) {
-            targetSocket.emit('user stop typing', { from: currentUser });
-        }
-    });
-
-    function getSocketByUsername(username) {
-        for (let [id, user] of usersOnline.entries()) {
-            if (user === username) return io.sockets.sockets.get(id);
-        }
-        return null;
-    }
-
     socket.on('chat message', (data) => {
         const { type, target, text } = data;
         const msg = {
@@ -1272,39 +868,6 @@ io.on('connection', (socket) => {
             time: new Date().toLocaleTimeString(),
             type: type
         };
-
-        // Обработка команд ботов
-        if (type === 'private' && users[target] && users[target].isBot) {
-            let botResponse = null;
-            if (target === 'bot_weather') {
-                if (text.toLowerCase().includes('погода')) {
-                    botResponse = '🌤️ Прогноз погоды: +18°C, солнечно. Хорошего дня!';
-                } else {
-                    botResponse = '🤖 Я бот погоды. Напишите "погода" чтобы узнать прогноз.';
-                }
-            } else if (target === 'bot_news') {
-                botResponse = '📰 Главные новости:\n• ИИ продолжает развиваться\n• ATOMGRAM становится популярнее\n• Хорошего дня!';
-            } else if (target === 'bot_reminder') {
-                botResponse = '⏰ Бот напоминаний активен. Напишите "напомни через X минут" чтобы установить напоминание.';
-            }
-            
-            if (botResponse) {
-                setTimeout(() => {
-                    const botMsg = {
-                        id: Date.now() + 1,
-                        from: target,
-                        text: botResponse,
-                        time: new Date().toLocaleTimeString(),
-                        type: 'private',
-                        to: currentUser
-                    };
-                    const chatId = [currentUser, target].sort().join('_');
-                    if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
-                    privateChats[chatId].messages.push(botMsg);
-                    io.emit('chat message', botMsg);
-                }, 500);
-            }
-        }
 
         if (type === 'room') {
             msg.room = target;
@@ -1325,24 +888,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('voice message', (data) => {
-        const { type, target, audio } = data;
-        const msg = {
-            id: Date.now(),
-            from: currentUser,
-            audio: audio,
-            time: new Date().toLocaleTimeString(),
-            type: type
-        };
-        if (type === 'private') {
-            msg.to = target;
-            const chatId = [currentUser, target].sort().join('_');
-            if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
-            privateChats[chatId].messages.push(msg);
-            io.emit('voice message', msg);
-        }
-    });
-
     socket.on('disconnect', () => {
         if (currentUser) {
             usersOnline.delete(socket.id);
@@ -1350,13 +895,13 @@ io.on('connection', (socket) => {
             users[currentUser].lastSeen = new Date();
             sendUserList();
             sendProfileList();
+            console.log('❌ Отключение: ' + currentUser);
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM с профилями и ботами запущен на порту ' + PORT);
-    console.log('📋 Тестовые пользователи: alex/123, maria/456');
-    console.log('🤖 Боты: bot_weather/bot123, bot_news/bot123, bot_reminder/bot123');
+    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
+    console.log('📝 База пользователей пустая. Регистрируйтесь!');
 });
