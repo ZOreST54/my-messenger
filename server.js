@@ -39,7 +39,7 @@ if (!users["assistant"]) {
         name: "ИИ Ассистент",
         username: "assistant",
         avatar: "🤖",
-        bio: "Искусственный интеллект помощник. Напиши 'помощь' для списка команд.",
+        bio: "Искусственный интеллект помощник",
         status: "online",
         isBot: true,
         lastSeen: new Date()
@@ -51,24 +51,14 @@ setInterval(saveData, 30000);
 
 function aiBotResponse(message, userName) {
     const msg = message.toLowerCase();
-    if (msg.match(/привет|здравствуй|хай|hello|hi/)) {
-        return `Привет, ${userName}! 👋 Я ИИ-помощник ATOMGRAM. Напиши "помощь" для списка команд.`;
-    }
-    if (msg.match(/помощь|help|что умеешь/)) {
-        return `🤖 *Команды:*\n• Погода в [городе]\n• Новости\n• Шутка\n• Время\n• Кто ты\n• Спасибо\n• Пока`;
-    }
-    if (msg.includes('погода')) {
-        return `🌤️ Прогноз: +18°C, солнечно ☀️`;
-    }
-    if (msg.includes('новости')) {
-        return `📰 ATOMGRAM теперь с видеокружками и файлами!`;
-    }
-    if (msg.includes('шутк')) {
-        return `Почему программисты не любят природу? Слишком много багов 🐛`;
-    }
-    if (msg.includes('время')) {
-        return `⏰ ${new Date().toLocaleTimeString('ru-RU')}`;
-    }
+    if (msg.match(/привет|здравствуй|хай|hello|hi/)) return `Привет, ${userName}! 👋 Напиши "помощь" для списка команд.`;
+    if (msg.match(/помощь|help|что умеешь/)) return `🤖 Команды:\n• погода\n• новости\n• шутка\n• время\n• кто ты\n• спасибо\n• пока`;
+    if (msg.includes('погода')) return `🌤️ Прогноз: +18°C, солнечно ☀️`;
+    if (msg.includes('новости')) return `📰 ATOMGRAM теперь с видеокружками и ответами на сообщения!`;
+    if (msg.includes('шутк')) return `Почему программисты не любят природу? Слишком много багов 🐛`;
+    if (msg.includes('время')) return `⏰ ${new Date().toLocaleTimeString('ru-RU')}`;
+    if (msg.includes('спасиб')) return `Пожалуйста, ${userName}! 😊`;
+    if (msg.includes('пока')) return `До свидания, ${userName}! 👋`;
     return `Напиши "помощь" чтобы узнать мои команды 🤖`;
 }
 
@@ -76,7 +66,7 @@ app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Видеокружки и файлы</title>
+    <title>ATOMGRAM - Видеокружки, голосовые, ответы</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <style>
@@ -192,18 +182,60 @@ app.get('/', (req, res) => {
         .chat-header-avatar { font-size: 36px; }
         .menu-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 5px; }
         .messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
-        .message { margin-bottom: 15px; display: flex; align-items: flex-start; gap: 10px; animation: fadeIn 0.2s ease; }
-        .message-avatar { font-size: 36px; min-width: 40px; text-align: center; }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            animation: fadeIn 0.2s ease;
+            position: relative;
+        }
+        .message-avatar { font-size: 36px; min-width: 40px; text-align: center; cursor: pointer; }
         .message-bubble { flex: 1; max-width: 70%; }
-        .message-content { padding: 10px 16px; border-radius: 20px; background: #2a2a3e; color: white; }
+        .message-content {
+            padding: 10px 16px;
+            border-radius: 20px;
+            background: #2a2a3e;
+            color: white;
+            position: relative;
+        }
         .message.my-message { flex-direction: row-reverse; }
+        .message.my-message .message-bubble { align-items: flex-end; text-align: right; }
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 4px; }
+        
+        /* Ответ на сообщение (reply) */
+        .reply-preview {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 10px;
+            border-radius: 12px;
+            margin-bottom: 5px;
+            font-size: 12px;
+            border-left: 3px solid #667eea;
+        }
+        .reply-preview .reply-name { color: #a0a0c0; }
+        .reply-preview .reply-text { color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        
+        .reply-indicator {
+            position: absolute;
+            bottom: 100%;
+            left: 20px;
+            background: #2a2a3e;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .reply-indicator button { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 16px; }
+        
+        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 4px; cursor: pointer; }
         .message-text { font-size: 14px; word-wrap: break-word; }
         .voice-message { display: flex; align-items: center; gap: 10px; }
         .voice-message button { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
         
-        /* Видеокружок */
         .video-circle {
             width: 150px;
             height: 150px;
@@ -224,15 +256,16 @@ app.get('/', (req, res) => {
         
         .message-time { font-size: 9px; color: #888; margin-top: 4px; }
         .typing-indicator { font-size: 11px; color: #888; padding: 5px 20px; font-style: italic; }
+        
         .input-area { display: flex; padding: 15px 20px; background: #1a1a2e; border-top: 1px solid rgba(255,255,255,0.1); gap: 10px; flex-wrap: wrap; }
         .input-area input { flex: 1; padding: 12px 18px; border: none; border-radius: 25px; background: #2a2a3e; color: white; font-size: 16px; }
         .input-area button { padding: 12px 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
         .attach-btn { background: #2a2a3e !important; }
+        .voice-record-btn { background: #ff6b6b !important; }
+        .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         .video-record-btn { background: #ff6b6b !important; }
-        .video-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         
-        /* Модальное окно записи видео */
         .video-modal {
             position: fixed;
             top: 0;
@@ -248,7 +281,7 @@ app.get('/', (req, res) => {
         }
         .video-preview { width: 100%; max-width: 400px; border-radius: 50%; overflow: hidden; }
         video { width: 100%; border-radius: 50%; }
-        .video-controls { margin-top: 20px; display: flex; gap: 20px; }
+        .video-controls { margin-top: 20px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
         .video-controls button { padding: 15px 30px; border-radius: 40px; border: none; font-size: 16px; cursor: pointer; }
         .start-record { background: #ff6b6b; color: white; }
         .stop-record { background: #ff4444; color: white; }
@@ -330,9 +363,14 @@ app.get('/', (req, res) => {
             <div class="messages-area" id="messages"></div>
             <div class="typing-indicator" id="typingIndicator" style="display:none"></div>
             <div class="input-area">
+                <div id="replyIndicator" class="reply-indicator" style="display:none">
+                    <span id="replyPreview"></span>
+                    <button onclick="cancelReply()">✕</button>
+                </div>
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
                 <button class="attach-btn" onclick="document.getElementById('fileInput').click()">📎</button>
                 <input type="file" id="fileInput" style="display:none" onchange="sendFile()">
+                <button id="voiceBtn" class="voice-record-btn" onclick="toggleRecording()">🎤</button>
                 <button id="videoBtn" class="video-record-btn" onclick="startVideoRecording()">🎥</button>
                 <button onclick="sendMessage()">📤</button>
             </div>
@@ -381,14 +419,26 @@ app.get('/', (req, res) => {
         let mediaRecorder = null, audioChunks = [], isRecording = false;
         let videoStream = null, videoRecorder = null, videoChunks = [];
         let recordedVideoBlob = null;
+        let replyToMessage = null; // { id, from, text }
         
-        // Видеокружки
+        // ========== ОТВЕТ НА СООБЩЕНИЕ ==========
+        function setReply(msgId, from, text) {
+            replyToMessage = { id: msgId, from: from, text: text.substring(0, 50) };
+            document.getElementById('replyPreview').innerHTML = '📎 Ответ ' + from + ': ' + text.substring(0, 40);
+            document.getElementById('replyIndicator').style.display = 'flex';
+        }
+        
+        function cancelReply() {
+            replyToMessage = null;
+            document.getElementById('replyIndicator').style.display = 'none';
+        }
+        
+        // ========== ВИДЕОКРУЖКИ ==========
         async function startVideoRecording() {
             document.getElementById('videoModal').style.display = 'flex';
             try {
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                const videoPreview = document.getElementById('videoPreview');
-                videoPreview.srcObject = videoStream;
+                document.getElementById('videoPreview').srcObject = videoStream;
             } catch(err) { alert('Нет доступа к камере'); closeVideoModal(); }
         }
         
@@ -434,7 +484,7 @@ app.get('/', (req, res) => {
             document.getElementById('sendVideoBtn').style.display = 'none';
         }
         
-        // Файлы
+        // ========== ФАЙЛЫ ==========
         function sendFile() {
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
@@ -453,10 +503,11 @@ app.get('/', (req, res) => {
             reader.readAsDataURL(file);
         }
         
-        // Голосовые
+        // ========== ГОЛОСОВЫЕ ==========
         async function toggleRecording() {
-            if (isRecording) { stopRecording(); } else { startAudioRecording(); }
+            if (isRecording) { stopAudioRecording(); } else { startAudioRecording(); }
         }
+        
         async function startAudioRecording() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -473,22 +524,27 @@ app.get('/', (req, res) => {
                 mediaRecorder.start();
                 isRecording = true;
                 const btn = document.getElementById('voiceBtn');
-                if(btn) { btn.classList.add('recording'); btn.innerHTML = '⏹️'; }
+                btn.classList.add('recording');
+                btn.innerHTML = '⏹️';
             } catch(err) { alert('Нет доступа к микрофону'); }
         }
+        
         function stopAudioRecording() {
             if (mediaRecorder && isRecording) {
                 mediaRecorder.stop();
                 isRecording = false;
                 const btn = document.getElementById('voiceBtn');
-                if(btn) { btn.classList.remove('recording'); btn.innerHTML = '🎤'; }
+                btn.classList.remove('recording');
+                btn.innerHTML = '🎤';
             }
         }
+        
         function sendVoiceMessage(base64Audio) {
             if (!currentChat) { alert('Выберите чат'); return; }
             socket.emit('voice message', { type: currentChatType, target: currentChatTarget, audio: base64Audio });
         }
         
+        // ========== UI ==========
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('sidebarOverlay').classList.toggle('open');
@@ -628,6 +684,7 @@ app.get('/', (req, res) => {
             socket.emit('joinRoom', roomName);
             document.getElementById('currentChatTitle').innerHTML = '# ' + roomName;
             document.getElementById('chatHeaderAvatar').innerHTML = '📢';
+            cancelReply();
             renderRooms(); renderUsers(); renderBots();
             closeSidebar();
         }
@@ -637,6 +694,7 @@ app.get('/', (req, res) => {
             const userData = window.usersProfiles[userName] || {};
             document.getElementById('currentChatTitle').innerHTML = '💬 ' + (userData.name || userName);
             document.getElementById('chatHeaderAvatar').innerHTML = userData.avatar || (userData.isBot ? '🤖' : '👤');
+            cancelReply();
             renderRooms(); renderUsers(); renderBots();
             closeSidebar();
         }
@@ -648,16 +706,23 @@ app.get('/', (req, res) => {
                 else alert('Чат существует');
             });
         }
+        
         function sendMessage() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
             if (!text || !currentChat) return;
-            if (currentChatType === 'room') socket.emit('chat message', { type: 'room', target: currentChatTarget, text });
-            else socket.emit('chat message', { type: 'private', target: currentChatTarget, text });
+            const reply = replyToMessage;
+            cancelReply();
+            if (currentChatType === 'room') {
+                socket.emit('chat message', { type: 'room', target: currentChatTarget, text, reply: reply });
+            } else {
+                socket.emit('chat message', { type: 'private', target: currentChatTarget, text, reply: reply });
+            }
             input.value = '';
             if (typingTimeout) clearTimeout(typingTimeout);
             socket.emit('stop typing', { to: currentChatTarget });
         }
+        
         document.getElementById('messageInput').addEventListener('input', sendTyping);
         document.getElementById('messageInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
         
@@ -722,9 +787,17 @@ app.get('/', (req, res) => {
             const userData = window.usersProfiles[msg.from] || {};
             const avatar = userData.avatar || (userData.isBot ? '🤖' : '👤');
             const displayName = userData.name || msg.from;
-            div.innerHTML = '<div class="message-avatar">' + avatar + '</div>' +
-                '<div class="message-bubble"><div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div>' +
-                '<div class="message-text">' + escapeHtml(msg.text) + '</div><div class="message-time">' + msg.time + '</div></div></div>';
+            
+            let replyHtml = '';
+            if (msg.replyTo) {
+                replyHtml = '<div class="reply-preview"><div class="reply-name">↩️ Ответ ' + msg.replyTo.from + '</div><div class="reply-text">' + escapeHtml(msg.replyTo.text) + '</div></div>';
+            }
+            
+            div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + msg.from + '\')">' + avatar + '</div>' +
+                '<div class="message-bubble"><div class="message-content">' + replyHtml +
+                '<div class="message-username" onclick="viewUserProfile(\'' + msg.from + '\')">' + escapeHtml(displayName) + '</div>' +
+                '<div class="message-text" ondblclick="setReply(' + msg.id + ', \'' + escapeHtml(displayName) + '\', \'' + escapeHtml(msg.text) + '\')">' + escapeHtml(msg.text) + '</div>' +
+                '<div class="message-time">' + msg.time + '</div></div></div>';
             messagesDiv.appendChild(div);
         }
         
@@ -735,9 +808,9 @@ app.get('/', (req, res) => {
             const userData = window.usersProfiles[data.from] || {};
             const avatar = userData.avatar || '👤';
             const displayName = userData.name || data.from;
-            div.innerHTML = '<div class="message-avatar">' + avatar + '</div>' +
-                '<div class="message-bubble"><div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div>' +
-                '<div class="voice-message"><button onclick="playAudio(this)" data-audio="' + data.audio + '">▶️</button><span>Голосовое</span></div>' +
+            div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + data.from + '\')">' + avatar + '</div>' +
+                '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + data.from + '\')">' + escapeHtml(displayName) + '</div>' +
+                '<div class="voice-message"><button onclick="playAudio(this)" data-audio="' + data.audio + '">▶️</button><span>Голосовое сообщение</span></div>' +
                 '<div class="message-time">' + data.time + '</div></div></div>';
             messagesDiv.appendChild(div);
         }
@@ -749,8 +822,8 @@ app.get('/', (req, res) => {
             const userData = window.usersProfiles[data.from] || {};
             const avatar = userData.avatar || '👤';
             const displayName = userData.name || data.from;
-            div.innerHTML = '<div class="message-avatar">' + avatar + '</div>' +
-                '<div class="message-bubble"><div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div>' +
+            div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + data.from + '\')">' + avatar + '</div>' +
+                '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + data.from + '\')">' + escapeHtml(displayName) + '</div>' +
                 '<video class="video-circle" controls loop src="' + data.video + '"></video>' +
                 '<div class="message-time">' + data.time + '</div></div></div>';
             messagesDiv.appendChild(div);
@@ -764,8 +837,8 @@ app.get('/', (req, res) => {
             const avatar = userData.avatar || '👤';
             const displayName = userData.name || data.from;
             const fileIcon = data.fileType.startsWith('image/') ? '🖼️' : '📄';
-            div.innerHTML = '<div class="message-avatar">' + avatar + '</div>' +
-                '<div class="message-bubble"><div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div>' +
+            div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + data.from + '\')">' + avatar + '</div>' +
+                '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + data.from + '\')">' + escapeHtml(displayName) + '</div>' +
                 '<div class="file-attachment"><span>' + fileIcon + '</span><a href="' + data.fileData + '" download="' + data.fileName + '">' + data.fileName + '</a></div>' +
                 '<div class="message-time">' + data.time + '</div></div></div>';
             messagesDiv.appendChild(div);
@@ -776,6 +849,11 @@ app.get('/', (req, res) => {
             audio.play();
             btn.innerHTML = '⏸️';
             audio.onended = () => { btn.innerHTML = '▶️'; };
+        }
+        
+        function viewUserProfile(username) {
+            const userData = window.usersProfiles[username] || {};
+            alert('👤 ' + (userData.name || username) + '\n📝 ' + (userData.bio || 'Нет описания'));
         }
         
         socket.on('users update', (users) => { allUsers = users.filter(u => u !== currentUser); renderUsers(); });
@@ -867,8 +945,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('chat message', (data) => {
-        const { type, target, text } = data;
+        const { type, target, text, reply } = data;
         const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type };
+        if (reply) msg.replyTo = reply;
+        
         if (type === 'room') {
             msg.room = target;
             if (publicRooms[target]) { publicRooms[target].messages.push(msg); if (publicRooms[target].messages.length > 200) publicRooms[target].messages.shift(); io.to(target).emit('chat message', msg); saveData(); }
@@ -927,7 +1007,9 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM с видеокружками и файлами запущен на порту ' + PORT);
+    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
     console.log('🤖 Бот assistant доступен');
-    console.log('📁 Данные сохраняются в data.json');
+    console.log('🎥 Видеокружки: кнопка 🎥');
+    console.log('🎤 Голосовые: кнопка 🎤');
+    console.log('💬 Ответ на сообщение: двойной клик по сообщению');
 });
