@@ -5,12 +5,8 @@ const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    },
-    transports: ['websocket', 'polling'],
-    allowEIO3: true
+    cors: { origin: "*" },
+    transports: ['websocket', 'polling']
 });
 
 app.get('/', (req, res) => {
@@ -18,52 +14,229 @@ app.get('/', (req, res) => {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Мой Мессенджер</title>
+    <title>ATOMGRAM</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial; background: #e5e5e5; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .login-card { background: white; padding: 40px; border-radius: 20px; text-align: center; width: 90%; max-width: 350px; }
-        .login-card input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; }
-        .login-card button { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; }
-        #chatContainer { display: none; width: 100%; max-width: 600px; height: 90vh; background: white; border-radius: 20px; flex-direction: column; overflow: hidden; }
-        .chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
-        .messages-area { flex: 1; overflow-y: auto; padding: 20px; background: #f8f9fa; }
-        .message { margin-bottom: 15px; }
-        .message-content { display: inline-block; max-width: 70%; padding: 10px 15px; border-radius: 18px; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .message.my-message { text-align: right; }
-        .message.my-message .message-content { background: #667eea; color: white; }
-        .message-username { font-size: 12px; font-weight: bold; color: #667eea; }
-        .message-time { font-size: 10px; opacity: 0.7; margin-top: 5px; }
-        .system-message { text-align: center; color: #999; font-style: italic; margin: 10px 0; }
-        .input-area { display: flex; padding: 20px; background: white; border-top: 1px solid #ddd; }
-        .input-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 25px; }
-        .input-area button { padding: 12px 20px; margin-left: 10px; background: #667eea; color: white; border: none; border-radius: 25px; cursor: pointer; }
-        .online-list { position: fixed; right: 10px; top: 60px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-size: 12px; max-width: 150px; }
-        .online-list h4 { margin-bottom: 5px; color: #667eea; }
-        .online-list div { color: green; margin: 3px 0; }
-        @media (max-width: 768px) { .online-list { display: none; } }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #0a0a0a; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        /* Экран входа */
+        #loginScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .login-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 30px;
+            text-align: center;
+            width: 90%;
+            max-width: 350px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .login-card h1 {
+            font-size: 32px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+        }
+        .login-card input {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+            text-align: left;
+            direction: ltr;
+        }
+        .login-card button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        /* Чат */
+        #chatContainer {
+            display: none;
+            width: 100%;
+            max-width: 800px;
+            height: 95vh;
+            background: #1e1e2e;
+            border-radius: 30px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .chat-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .chat-header span {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .message-content {
+            max-width: 70%;
+            padding: 10px 16px;
+            border-radius: 20px;
+            background: #2a2a3e;
+            color: white;
+            word-wrap: break-word;
+            text-align: left;
+            direction: ltr;
+        }
+        .message.my-message {
+            align-items: flex-end;
+        }
+        .message.my-message .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .message-username {
+            font-size: 12px;
+            font-weight: bold;
+            color: #a0a0c0;
+            margin-bottom: 4px;
+        }
+        .message-text {
+            font-size: 15px;
+            line-height: 1.4;
+            text-align: left;
+            direction: ltr;
+        }
+        .message-time {
+            font-size: 10px;
+            color: #888;
+            margin-top: 4px;
+            text-align: right;
+        }
+        .system-message {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        .input-area {
+            display: flex;
+            padding: 20px;
+            background: #1a1a2e;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .input-area input {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 30px;
+            font-size: 15px;
+            background: #2a2a3e;
+            color: white;
+            text-align: left;
+            direction: ltr;
+        }
+        .input-area input::placeholder {
+            color: #888;
+        }
+        .input-area button {
+            padding: 14px 28px;
+            margin-left: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .online-list {
+            position: fixed;
+            right: 20px;
+            top: 100px;
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            min-width: 150px;
+            font-size: 13px;
+        }
+        .online-list h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .online-list div {
+            color: #4ade80;
+            margin: 5px 0;
+            padding: 5px;
+        }
+        @media (max-width: 768px) {
+            .online-list { display: none; }
+        }
     </style>
 </head>
 <body>
     <div id="loginScreen">
         <div class="login-card">
-            <h1>Мой Мессенджер</h1>
-            <input type="text" id="username" placeholder="Введите ваше имя">
+            <h1>⚡ ATOMGRAM</h1>
+            <input type="text" id="username" placeholder="Введите ваше имя" autocomplete="off">
             <button onclick="join()">Войти</button>
         </div>
     </div>
+    
     <div id="chatContainer">
-        <div class="chat-header">📱 Мой Мессенджер</div>
-        <div class="online-list" id="onlineList"><h4>Онлайн</h4><div id="usersList"></div></div>
+        <div class="chat-header">
+            ⚡ <span>ATOMGRAM</span>
+        </div>
+        <div class="online-list" id="onlineList">
+            <h4>📱 Онлайн</h4>
+            <div id="usersList"></div>
+        </div>
         <div class="messages-area" id="messages"></div>
         <div class="input-area">
-            <input type="text" id="messageInput" placeholder="Введите сообщение...">
+            <input type="text" id="messageInput" placeholder="Введите сообщение..." autocomplete="off">
             <button onclick="sendMessage()">Отправить</button>
         </div>
     </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io({
@@ -72,12 +245,15 @@ app.get('/', (req, res) => {
         let myName = '';
         
         socket.on('connect', () => {
-            console.log('✅ Подключено к серверу');
+            console.log('✅ Подключено к ATOMGRAM');
         });
         
         function join() {
             const name = document.getElementById('username').value.trim();
-            if (!name) { alert('Введите имя!'); return; }
+            if (!name) {
+                alert('Введите имя!');
+                return;
+            }
             myName = name;
             socket.emit('user join', name);
             document.getElementById('loginScreen').style.display = 'none';
@@ -161,7 +337,7 @@ const messages = [];
 const users = new Map();
 
 io.on('connection', (socket) => {
-    console.log('✅ Пользователь подключился, ID:', socket.id);
+    console.log('✅ Пользователь подключился к ATOMGRAM');
     
     socket.on('user join', (username) => {
         socket.username = username;
@@ -169,7 +345,7 @@ io.on('connection', (socket) => {
         socket.emit('chat history', messages);
         io.emit('user joined', username);
         io.emit('user list', Array.from(users.values()));
-        console.log('👤 ' + username + ' вошёл, всего пользователей: ' + users.size);
+        console.log('👤 ' + username + ' вошёл в ATOMGRAM');
     });
     
     socket.on('chat message', (text) => {
@@ -190,12 +366,12 @@ io.on('connection', (socket) => {
             users.delete(socket.id);
             io.emit('user left', socket.username);
             io.emit('user list', Array.from(users.values()));
-            console.log('❌ ' + socket.username + ' вышел, осталось: ' + users.size);
+            console.log('❌ ' + socket.username + ' покинул ATOMGRAM');
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 Сервер запущен на порту ' + PORT);
+    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
 });
