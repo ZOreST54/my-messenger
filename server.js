@@ -9,20 +9,19 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling']
 });
 
-// ========== БАЗА ДАННЫХ (ПУСТАЯ) ==========
-const users = {};           // Никого нет, всё через регистрацию
+// ========== БАЗА ДАННЫХ ==========
+const users = {};
 const usersOnline = new Map();
 const privateChats = {};
 const publicRooms = {};
 
-// Только один общий чат по умолчанию
 publicRooms["general"] = { messages: [], users: [] };
 
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Чат</title>
+    <title>ATOMGRAM - Голосовые сообщения</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -177,9 +176,6 @@ app.get('/', (req, res) => {
             border-bottom: 1px solid rgba(255,255,255,0.1);
             color: white;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
         .messages-area {
             flex: 1;
@@ -205,6 +201,18 @@ app.get('/', (req, res) => {
         .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 4px; cursor: pointer; }
         .message-username:hover { text-decoration: underline; }
         .message-text { font-size: 14px; }
+        .voice-message {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .voice-message button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
         .message-time {
             font-size: 9px;
             color: #888;
@@ -232,6 +240,18 @@ app.get('/', (req, res) => {
             border: none;
             border-radius: 30px;
             cursor: pointer;
+        }
+        .voice-record-btn {
+            background: #ff6b6b !important;
+        }
+        .voice-record-btn.recording {
+            animation: pulse 1s infinite;
+            background: #ff4444 !important;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
         }
         .notification {
             position: fixed;
@@ -398,12 +418,11 @@ app.get('/', (req, res) => {
             </div>
         </div>
         <div class="chat-area">
-            <div class="chat-header" id="chatHeader">
-                <span id="currentChatTitle">Выберите чат</span>
-            </div>
+            <div class="chat-header" id="currentChatTitle">Выберите чат</div>
             <div class="messages-area" id="messages"></div>
             <div class="input-area">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
+                <button id="voiceBtn" class="voice-record-btn" onclick="toggleRecording()">🎤</button>
                 <button onclick="sendMessage()">📤</button>
             </div>
         </div>
@@ -458,6 +477,73 @@ app.get('/', (req, res) => {
         let allRooms = [];
         let allUsers = [];
         let selectedAvatar = '👤';
+        
+        // Голосовые сообщения
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64Audio = reader.result;
+                        sendVoiceMessage(base64Audio);
+                    };
+                    reader.readAsDataURL(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                const btn = document.getElementById('voiceBtn');
+                btn.classList.add('recording');
+                btn.innerHTML = '⏹️';
+            } catch (err) {
+                console.error('Ошибка микрофона:', err);
+                alert('Нет доступа к микрофону');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                const btn = document.getElementById('voiceBtn');
+                btn.classList.remove('recording');
+                btn.innerHTML = '🎤';
+            }
+        }
+        
+        function sendVoiceMessage(base64Audio) {
+            if (!currentChat) {
+                alert('Выберите чат');
+                return;
+            }
+            socket.emit('voice message', {
+                type: currentChatType,
+                target: currentChatTarget,
+                audio: base64Audio
+            });
+        }
         
         function showNotification(title, body) {
             if (Notification.permission === 'granted') {
@@ -693,6 +779,20 @@ app.get('/', (req, res) => {
             }
         });
         
+        socket.on('voice message', (data) => {
+            let shouldShow = false;
+            if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) shouldShow = true;
+            if (shouldShow) {
+                addVoiceMessage(data);
+                scrollToBottom();
+            }
+            if (data.from !== currentUser && data.type === 'private') {
+                const userData = window.usersProfiles[data.from] || {};
+                const name = userData.name || data.from;
+                showNotification(name, '🎤 Голосовое сообщение');
+            }
+        });
+        
         function addMessage(msg) {
             const messagesDiv = document.getElementById('messages');
             const div = document.createElement('div');
@@ -702,6 +802,25 @@ app.get('/', (req, res) => {
             const displayName = userData.name || msg.from;
             div.innerHTML = '<div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div><div class="message-text">' + escapeHtml(msg.text) + '</div><div class="message-time">' + msg.time + '</div></div>';
             messagesDiv.appendChild(div);
+        }
+        
+        function addVoiceMessage(data) {
+            const messagesDiv = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'message';
+            if (data.from === currentUser) div.className += ' my-message';
+            const userData = window.usersProfiles[data.from] || {};
+            const displayName = userData.name || data.from;
+            div.innerHTML = '<div class="message-content"><div class="message-username">' + escapeHtml(displayName) + '</div><div class="voice-message"><button onclick="playAudio(this)" data-audio="' + data.audio + '">▶️</button><span>Голосовое сообщение</span></div><div class="message-time">' + data.time + '</div></div>';
+            messagesDiv.appendChild(div);
+        }
+        
+        function playAudio(btn) {
+            const audioBase64 = btn.getAttribute('data-audio');
+            const audio = new Audio(audioBase64);
+            audio.play();
+            btn.innerHTML = '⏸️';
+            audio.onended = () => { btn.innerHTML = '▶️'; };
         }
         
         socket.on('users update', (users) => {
@@ -746,7 +865,6 @@ io.on('connection', (socket) => {
     let currentUser = null;
     let currentRoom = null;
 
-    // РЕГИСТРАЦИЯ
     socket.on('register', (data, callback) => {
         const { login, password, name } = data;
         
@@ -773,7 +891,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ВХОД
     socket.on('login', (data, callback) => {
         const { login, password } = data;
         
@@ -793,7 +910,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ОБНОВЛЕНИЕ ПРОФИЛЯ
     socket.on('update profile', (data, callback) => {
         if (users[data.login]) {
             if (data.name !== undefined) users[data.login].name = data.name;
@@ -888,6 +1004,24 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('voice message', (data) => {
+        const { type, target, audio } = data;
+        const msg = {
+            id: Date.now(),
+            from: currentUser,
+            audio: audio,
+            time: new Date().toLocaleTimeString(),
+            type: type
+        };
+        if (type === 'private') {
+            msg.to = target;
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
+            privateChats[chatId].messages.push(msg);
+            io.emit('voice message', msg);
+        }
+    });
+
     socket.on('disconnect', () => {
         if (currentUser) {
             usersOnline.delete(socket.id);
@@ -902,6 +1036,6 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
+    console.log('🚀 ATOMGRAM с голосовыми сообщениями запущен на порту ' + PORT);
     console.log('📝 База пользователей пустая. Регистрируйтесь!');
 });
