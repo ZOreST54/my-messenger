@@ -20,11 +20,12 @@ users["alex"] = "123";
 users["maria"] = "456";
 publicRooms["general"] = { messages: [], users: [] };
 
+// ========== HTML ИНТЕРФЕЙС ==========
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Чат и голосовые</title>
+    <title>ATOMGRAM - Звонки и голосовые</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -128,9 +129,22 @@ app.get('/', (req, res) => {
             border-radius: 15px;
             cursor: pointer;
             color: #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .room-item:hover, .user-item:hover { background: rgba(102,126,234,0.2); }
         .room-item.active, .user-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .call-btn {
+            background: none;
+            border: none;
+            color: #4ade80;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        .call-btn:hover { background: rgba(74,222,128,0.2); }
         .new-room {
             padding: 15px;
             border-top: 1px solid rgba(255,255,255,0.1);
@@ -163,6 +177,18 @@ app.get('/', (req, res) => {
             border-bottom: 1px solid rgba(255,255,255,0.1);
             color: white;
             font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .call-controls button {
+            background: #2a2a3e;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: white;
+            margin-left: 10px;
+            cursor: pointer;
         }
         .messages-area {
             flex: 1;
@@ -198,6 +224,10 @@ app.get('/', (req, res) => {
             color: white;
             font-size: 20px;
             cursor: pointer;
+        }
+        .voice-timer {
+            font-size: 12px;
+            color: #888;
         }
         .message-time {
             font-size: 9px;
@@ -239,24 +269,31 @@ app.get('/', (req, res) => {
             50% { transform: scale(1.1); opacity: 0.7; }
             100% { transform: scale(1); opacity: 1; }
         }
-        /* Уведомление */
-        .notification {
+        
+        /* Модальное окно звонка */
+        .call-modal {
             position: fixed;
-            bottom: 20px;
+            bottom: 100px;
             right: 20px;
-            background: #667eea;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 25px;
-            font-size: 14px;
+            background: #1a1a2e;
+            border-radius: 20px;
+            padding: 20px;
+            width: 280px;
+            border: 1px solid #667eea;
             z-index: 1000;
-            animation: slideIn 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: none;
         }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        .call-modal h4 { color: white; margin-bottom: 15px; }
+        .call-modal button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
         }
+        .answer-btn { background: #4ade80; color: white; }
+        .reject-btn { background: #ff6b6b; color: white; }
+        .end-call-btn { background: #ff6b6b; color: white; width: 100%; margin-top: 10px; }
         @media (max-width: 768px) {
             .sidebar { display: none; }
         }
@@ -298,7 +335,12 @@ app.get('/', (req, res) => {
             </div>
         </div>
         <div class="chat-area">
-            <div class="chat-header" id="currentChatTitle">Выберите чат</div>
+            <div class="chat-header">
+                <span id="currentChatTitle">Выберите чат</span>
+                <div class="call-controls" id="callControls" style="display:none">
+                    <button onclick="startCall()">📞 Позвонить</button>
+                </div>
+            </div>
             <div class="messages-area" id="messages"></div>
             <div class="input-area">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
@@ -306,6 +348,16 @@ app.get('/', (req, res) => {
                 <button onclick="sendMessage()">📤</button>
             </div>
         </div>
+    </div>
+
+    <!-- Модальное окно звонка -->
+    <div id="callModal" class="call-modal">
+        <h4 id="callStatus">Входящий звонок...</h4>
+        <div id="callButtons">
+            <button class="answer-btn" onclick="answerCall()">Ответить</button>
+            <button class="reject-btn" onclick="rejectCall()">Отклонить</button>
+        </div>
+        <button id="endCallBtn" class="end-call-btn" style="display:none" onclick="endCall()">Завершить</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -318,24 +370,18 @@ app.get('/', (req, res) => {
         let allRooms = [];
         let allUsers = [];
         
-        // Уведомления
-        function showNotification(title, body) {
-            // Браузерное уведомление
-            if (Notification.permission === 'granted') {
-                new Notification(title, { body: body, icon: '🔔' });
-            }
-            // Внутреннее уведомление
-            const notif = document.createElement('div');
-            notif.className = 'notification';
-            notif.innerHTML = '<strong>' + title + '</strong><br>' + body;
-            document.body.appendChild(notif);
-            setTimeout(() => notif.remove(), 3000);
-        }
+        // WebRTC
+        let localStream = null;
+        let peerConnection = null;
+        let callWith = null;
+        let isCallActive = false;
         
-        // Запрос разрешения на уведомления
-        if (Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        const configuration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
         
         // Голосовые сообщения
         let mediaRecorder = null;
@@ -373,9 +419,8 @@ app.get('/', (req, res) => {
                 
                 mediaRecorder.start();
                 isRecording = true;
-                const btn = document.getElementById('voiceBtn');
-                btn.classList.add('recording');
-                btn.innerHTML = '⏹️';
+                document.getElementById('voiceBtn').classList.add('recording');
+                document.getElementById('voiceBtn').innerHTML = '⏹️';
             } catch (err) {
                 console.error('Ошибка микрофона:', err);
                 alert('Нет доступа к микрофону');
@@ -386,22 +431,110 @@ app.get('/', (req, res) => {
             if (mediaRecorder && isRecording) {
                 mediaRecorder.stop();
                 isRecording = false;
-                const btn = document.getElementById('voiceBtn');
-                btn.classList.remove('recording');
-                btn.innerHTML = '🎤';
+                document.getElementById('voiceBtn').classList.remove('recording');
+                document.getElementById('voiceBtn').innerHTML = '🎤';
             }
         }
         
         function sendVoiceMessage(base64Audio) {
-            if (!currentChat) {
-                alert('Выберите чат');
-                return;
-            }
+            if (!currentChat) return;
             socket.emit('voice message', {
                 type: currentChatType,
                 target: currentChatTarget,
-                audio: base64Audio
+                audio: base64Audio,
+                duration: 0
             });
+        }
+        
+        // Звонки
+        async function startCall() {
+            if (!currentChatTarget || currentChatType !== 'private') {
+                alert('Выберите личный чат для звонка');
+                return;
+            }
+            
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                peerConnection = new RTCPeerConnection(configuration);
+                
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc signal', {
+                            to: currentChatTarget,
+                            signal: { type: 'candidate', candidate: event.candidate }
+                        });
+                    }
+                };
+                
+                peerConnection.ontrack = (event) => {
+                    const remoteAudio = new Audio();
+                    remoteAudio.srcObject = event.streams[0];
+                    remoteAudio.play();
+                };
+                
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                socket.emit('webrtc signal', {
+                    to: currentChatTarget,
+                    signal: { type: 'offer', offer: offer }
+                });
+                
+                callWith = currentChatTarget;
+                showCallModal('Звонок...', true);
+                isCallActive = true;
+            } catch (err) {
+                console.error('Ошибка звонка:', err);
+                alert('Не удалось начать звонок');
+            }
+        }
+        
+        function answerCall() {
+            document.getElementById('callButtons').style.display = 'none';
+            document.getElementById('endCallBtn').style.display = 'block';
+            document.getElementById('callStatus').innerText = 'Разговор...';
+            
+            socket.emit('call answer', { to: callWith });
+        }
+        
+        function rejectCall() {
+            socket.emit('call reject', { to: callWith });
+            closeCallModal();
+        }
+        
+        function endCall() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            socket.emit('call end', { to: callWith });
+            closeCallModal();
+            isCallActive = false;
+        }
+        
+        function showCallModal(message, isOutgoing = false) {
+            const modal = document.getElementById('callModal');
+            document.getElementById('callStatus').innerText = message;
+            if (isOutgoing) {
+                document.getElementById('callButtons').style.display = 'none';
+                document.getElementById('endCallBtn').style.display = 'block';
+            } else {
+                document.getElementById('callButtons').style.display = 'block';
+                document.getElementById('endCallBtn').style.display = 'none';
+            }
+            modal.style.display = 'block';
+        }
+        
+        function closeCallModal() {
+            document.getElementById('callModal').style.display = 'none';
         }
         
         // Авторизация
@@ -465,8 +598,14 @@ app.get('/', (req, res) => {
         function renderUsers() {
             const container = document.getElementById('usersList');
             container.innerHTML = allUsers.map(user => 
-                '<div class="user-item' + (currentChat === 'user:' + user ? ' active' : '') + '" onclick="startPrivateChat(\\'' + user + '\\')">👤 ' + user + '</div>'
+                '<div class="user-item' + (currentChat === 'user:' + user ? ' active' : '') + '"><span onclick="startPrivateChat(\\'' + user + '\\')">👤 ' + user + '</span><button class="call-btn" onclick="callUser(\\'' + user + '\\')">📞</button></div>'
             ).join('');
+        }
+        
+        function callUser(user) {
+            currentChatTarget = user;
+            currentChatType = 'private';
+            startCall();
         }
         
         function joinRoom(roomName) {
@@ -475,6 +614,7 @@ app.get('/', (req, res) => {
             currentChatTarget = roomName;
             socket.emit('joinRoom', roomName);
             document.getElementById('currentChatTitle').innerHTML = '# ' + roomName;
+            document.getElementById('callControls').style.display = 'none';
             renderRooms();
             renderUsers();
         }
@@ -485,6 +625,7 @@ app.get('/', (req, res) => {
             currentChatTarget = userName;
             socket.emit('joinPrivate', userName);
             document.getElementById('currentChatTitle').innerHTML = '💬 ' + userName;
+            document.getElementById('callControls').style.display = 'block';
             renderRooms();
             renderUsers();
         }
@@ -538,14 +679,6 @@ app.get('/', (req, res) => {
                 addMessage(msg);
                 scrollToBottom();
             }
-            // Уведомление, если сообщение не от текущего пользователя и не в активном чате
-            if (msg.from !== currentUser) {
-                if (msg.type === 'private') {
-                    showNotification(msg.from, msg.text);
-                } else if (msg.type === 'room' && currentChatTarget !== msg.room) {
-                    showNotification('Чат ' + msg.room, msg.from + ': ' + msg.text);
-                }
-            }
         });
         
         socket.on('voice message', (data) => {
@@ -554,10 +687,6 @@ app.get('/', (req, res) => {
             if (shouldShow) {
                 addVoiceMessage(data);
                 scrollToBottom();
-            }
-            // Уведомление о голосовом
-            if (data.from !== currentUser && data.type === 'private') {
-                showNotification(data.from, '🎤 Голосовое сообщение');
             }
         });
         
@@ -595,6 +724,62 @@ app.get('/', (req, res) => {
         socket.on('rooms update', (rooms) => {
             allRooms = rooms;
             renderRooms();
+        });
+        
+        // WebRTC сигналы
+        socket.on('incoming call', (data) => {
+            callWith = data.from;
+            showCallModal('Входящий звонок от ' + data.from);
+        });
+        
+        socket.on('call answered', async (data) => {
+            document.getElementById('callStatus').innerText = 'Разговор...';
+        });
+        
+        socket.on('call rejected', () => {
+            alert('Звонок отклонён');
+            endCall();
+        });
+        
+        socket.on('call ended', () => {
+            endCall();
+        });
+        
+        socket.on('webrtc signal', async (data) => {
+            if (!peerConnection) {
+                peerConnection = new RTCPeerConnection(configuration);
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                peerConnection.ontrack = (event) => {
+                    const remoteAudio = new Audio();
+                    remoteAudio.srcObject = event.streams[0];
+                    remoteAudio.play();
+                };
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc signal', {
+                            to: callWith,
+                            signal: { type: 'candidate', candidate: event.candidate }
+                        });
+                    }
+                };
+            }
+            
+            if (data.signal.type === 'offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('webrtc signal', {
+                    to: callWith,
+                    signal: { type: 'answer', answer: answer }
+                });
+            } else if (data.signal.type === 'answer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
+            } else if (data.signal.type === 'candidate') {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+            }
         });
         
         function scrollToBottom() {
@@ -713,11 +898,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('voice message', (data) => {
-        const { type, target, audio } = data;
+        const { type, target, audio, duration } = data;
         const msg = {
             id: Date.now(),
             from: currentUser,
             audio: audio,
+            duration: duration,
             time: new Date().toLocaleTimeString(),
             type: type
         };
@@ -730,6 +916,43 @@ io.on('connection', (socket) => {
         }
     });
 
+    // WebRTC сигналы для звонков
+    socket.on('webrtc signal', (data) => {
+        const targetSocket = getSocketByUsername(data.to);
+        if (targetSocket) {
+            targetSocket.emit('webrtc signal', { from: currentUser, signal: data.signal });
+        }
+    });
+
+    socket.on('call start', (data) => {
+        const targetSocket = getSocketByUsername(data.to);
+        if (targetSocket) {
+            targetSocket.emit('incoming call', { from: currentUser });
+        }
+    });
+
+    socket.on('call answer', (data) => {
+        const targetSocket = getSocketByUsername(data.to);
+        if (targetSocket) targetSocket.emit('call answered');
+    });
+
+    socket.on('call reject', (data) => {
+        const targetSocket = getSocketByUsername(data.to);
+        if (targetSocket) targetSocket.emit('call rejected');
+    });
+
+    socket.on('call end', (data) => {
+        const targetSocket = getSocketByUsername(data.to);
+        if (targetSocket) targetSocket.emit('call ended');
+    });
+
+    function getSocketByUsername(username) {
+        for (let [id, user] of usersOnline.entries()) {
+            if (user === username) return io.sockets.sockets.get(id);
+        }
+        return null;
+    }
+
     socket.on('disconnect', () => {
         if (currentUser) {
             usersOnline.delete(socket.id);
@@ -740,6 +963,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
-    console.log('📋 Тестовые пользователи: alex/123, maria/456');
+    console.log('🚀 ATOMGRAM с голосовыми и звонками запущен на порту ' + PORT);
 });
