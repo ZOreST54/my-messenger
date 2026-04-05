@@ -1,31 +1,7 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: { origin: "*" },
-    transports: ['websocket', 'polling']
-});
-
-// ========== БАЗА ДАННЫХ ==========
-const users = {};
-const usersOnline = new Map();
-const privateChats = {};
-const publicRooms = {};
-
-// Предустановленные данные
-users["alex"] = "123";
-users["maria"] = "456";
-publicRooms["general"] = { messages: [], users: [] };
-
-// ========== HTML ИНТЕРФЕЙС ==========
-app.get('/', (req, res) => {
-    res.send(`<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Звонки и голосовые</title>
+    <title>ATOMGRAM - Звонки</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -225,10 +201,6 @@ app.get('/', (req, res) => {
             font-size: 20px;
             cursor: pointer;
         }
-        .voice-timer {
-            font-size: 12px;
-            color: #888;
-        }
         .message-time {
             font-size: 9px;
             color: #888;
@@ -270,7 +242,6 @@ app.get('/', (req, res) => {
             100% { transform: scale(1); opacity: 1; }
         }
         
-        /* Модальное окно звонка */
         .call-modal {
             position: fixed;
             bottom: 100px;
@@ -350,7 +321,6 @@ app.get('/', (req, res) => {
         </div>
     </div>
 
-    <!-- Модальное окно звонка -->
     <div id="callModal" class="call-modal">
         <h4 id="callStatus">Входящий звонок...</h4>
         <div id="callButtons">
@@ -374,12 +344,12 @@ app.get('/', (req, res) => {
         let localStream = null;
         let peerConnection = null;
         let callWith = null;
-        let isCallActive = false;
         
         const configuration = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
             ]
         };
         
@@ -441,8 +411,7 @@ app.get('/', (req, res) => {
             socket.emit('voice message', {
                 type: currentChatType,
                 target: currentChatTarget,
-                audio: base64Audio,
-                duration: 0
+                audio: base64Audio
             });
         }
         
@@ -454,13 +423,22 @@ app.get('/', (req, res) => {
             }
             
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
                 peerConnection = new RTCPeerConnection(configuration);
                 
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
                 
+                // Слушаем входящий аудиопоток
+                peerConnection.ontrack = (event) => {
+                    const remoteAudio = new Audio();
+                    remoteAudio.srcObject = event.streams[0];
+                    remoteAudio.play().catch(e => console.log('Audio play error:', e));
+                };
+                
+                // Отправляем ICE кандидаты
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
                         socket.emit('webrtc signal', {
@@ -470,12 +448,7 @@ app.get('/', (req, res) => {
                     }
                 };
                 
-                peerConnection.ontrack = (event) => {
-                    const remoteAudio = new Audio();
-                    remoteAudio.srcObject = event.streams[0];
-                    remoteAudio.play();
-                };
-                
+                // Создаём offer
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
                 
@@ -486,10 +459,10 @@ app.get('/', (req, res) => {
                 
                 callWith = currentChatTarget;
                 showCallModal('Звонок...', true);
-                isCallActive = true;
+                
             } catch (err) {
                 console.error('Ошибка звонка:', err);
-                alert('Не удалось начать звонок');
+                alert('Не удалось начать звонок: ' + err.message);
             }
         }
         
@@ -504,6 +477,8 @@ app.get('/', (req, res) => {
         function rejectCall() {
             socket.emit('call reject', { to: callWith });
             closeCallModal();
+            if (peerConnection) peerConnection.close();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
         }
         
         function endCall() {
@@ -517,7 +492,6 @@ app.get('/', (req, res) => {
             }
             socket.emit('call end', { to: callWith });
             closeCallModal();
-            isCallActive = false;
         }
         
         function showCallModal(message, isOutgoing = false) {
@@ -732,8 +706,10 @@ app.get('/', (req, res) => {
             showCallModal('Входящий звонок от ' + data.from);
         });
         
-        socket.on('call answered', async (data) => {
+        socket.on('call answered', async () => {
             document.getElementById('callStatus').innerText = 'Разговор...';
+            document.getElementById('callButtons').style.display = 'none';
+            document.getElementById('endCallBtn').style.display = 'block';
         });
         
         socket.on('call rejected', () => {
@@ -746,17 +722,21 @@ app.get('/', (req, res) => {
         });
         
         socket.on('webrtc signal', async (data) => {
-            if (!peerConnection) {
+            if (!peerConnection && data.signal.type === 'offer') {
+                // Создаём peer connection для входящего звонка
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 peerConnection = new RTCPeerConnection(configuration);
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
+                
                 peerConnection.ontrack = (event) => {
                     const remoteAudio = new Audio();
                     remoteAudio.srcObject = event.streams[0];
-                    remoteAudio.play();
+                    remoteAudio.play().catch(e => console.log('Audio play error:', e));
                 };
+                
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
                         socket.emit('webrtc signal', {
@@ -767,18 +747,24 @@ app.get('/', (req, res) => {
                 };
             }
             
-            if (data.signal.type === 'offer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.emit('webrtc signal', {
-                    to: callWith,
-                    signal: { type: 'answer', answer: answer }
-                });
-            } else if (data.signal.type === 'answer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
-            } else if (data.signal.type === 'candidate') {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+            if (peerConnection) {
+                if (data.signal.type === 'offer') {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.offer));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    socket.emit('webrtc signal', {
+                        to: callWith,
+                        signal: { type: 'answer', answer: answer }
+                    });
+                } else if (data.signal.type === 'answer') {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
+                } else if (data.signal.type === 'candidate') {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+                    } catch (e) {
+                        console.log('ICE candidate error:', e);
+                    }
+                }
             }
         });
         
@@ -795,173 +781,3 @@ app.get('/', (req, res) => {
     </script>
 </body>
 </html>
-    `);
-});
-
-// ========== СЕРВЕРНАЯ ЛОГИКА ==========
-io.on('connection', (socket) => {
-    let currentUser = null;
-    let currentRoom = null;
-    let currentPrivateWith = null;
-
-    socket.on('register', (data, callback) => {
-        if (users[data.login]) {
-            callback({ success: false, error: 'Логин уже существует' });
-        } else {
-            users[data.login] = data.password;
-            callback({ success: true });
-        }
-    });
-
-    socket.on('login', (data, callback) => {
-        if (users[data.login] && users[data.login] === data.password) {
-            currentUser = data.login;
-            usersOnline.set(socket.id, currentUser);
-            callback({ success: true });
-            io.emit('users update', Array.from(usersOnline.values()));
-        } else {
-            callback({ success: false, error: 'Неверный логин или пароль' });
-        }
-    });
-
-    socket.on('getRooms', (callback) => {
-        callback(Object.keys(publicRooms));
-    });
-
-    socket.on('getUsers', (callback) => {
-        callback(Array.from(usersOnline.values()));
-    });
-
-    socket.on('createRoom', (roomName, callback) => {
-        if (!publicRooms[roomName]) {
-            publicRooms[roomName] = { messages: [], users: [] };
-            callback(true);
-            io.emit('rooms update', Object.keys(publicRooms));
-        } else {
-            callback(false);
-        }
-    });
-
-    socket.on('joinRoom', (roomName) => {
-        if (currentRoom) socket.leave(currentRoom);
-        currentRoom = roomName;
-        currentPrivateWith = null;
-        socket.join(roomName);
-        socket.emit('chat history', {
-            type: 'room',
-            room: roomName,
-            messages: publicRooms[roomName]?.messages || []
-        });
-    });
-
-    socket.on('joinPrivate', (targetUser) => {
-        currentPrivateWith = targetUser;
-        currentRoom = null;
-        const chatId = [currentUser, targetUser].sort().join('_');
-        if (!privateChats[chatId]) {
-            privateChats[chatId] = { messages: [], users: [currentUser, targetUser] };
-        }
-        socket.emit('chat history', {
-            type: 'private',
-            with: targetUser,
-            messages: privateChats[chatId].messages || []
-        });
-    });
-
-    socket.on('chat message', (data) => {
-        const { type, target, text } = data;
-        const msg = {
-            id: Date.now(),
-            from: currentUser,
-            text: text,
-            time: new Date().toLocaleTimeString(),
-            type: type
-        };
-
-        if (type === 'room') {
-            msg.room = target;
-            if (publicRooms[target]) {
-                publicRooms[target].messages.push(msg);
-                if (publicRooms[target].messages.length > 100) publicRooms[target].messages.shift();
-                io.to(target).emit('chat message', msg);
-            }
-        } else if (type === 'private') {
-            msg.to = target;
-            const chatId = [currentUser, target].sort().join('_');
-            if (!privateChats[chatId]) {
-                privateChats[chatId] = { messages: [], users: [currentUser, target] };
-            }
-            privateChats[chatId].messages.push(msg);
-            if (privateChats[chatId].messages.length > 100) privateChats[chatId].messages.shift();
-            io.emit('chat message', msg);
-        }
-    });
-
-    socket.on('voice message', (data) => {
-        const { type, target, audio, duration } = data;
-        const msg = {
-            id: Date.now(),
-            from: currentUser,
-            audio: audio,
-            duration: duration,
-            time: new Date().toLocaleTimeString(),
-            type: type
-        };
-        if (type === 'private') {
-            msg.to = target;
-            const chatId = [currentUser, target].sort().join('_');
-            if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
-            privateChats[chatId].messages.push(msg);
-            io.emit('voice message', msg);
-        }
-    });
-
-    // WebRTC сигналы для звонков
-    socket.on('webrtc signal', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) {
-            targetSocket.emit('webrtc signal', { from: currentUser, signal: data.signal });
-        }
-    });
-
-    socket.on('call start', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) {
-            targetSocket.emit('incoming call', { from: currentUser });
-        }
-    });
-
-    socket.on('call answer', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) targetSocket.emit('call answered');
-    });
-
-    socket.on('call reject', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) targetSocket.emit('call rejected');
-    });
-
-    socket.on('call end', (data) => {
-        const targetSocket = getSocketByUsername(data.to);
-        if (targetSocket) targetSocket.emit('call ended');
-    });
-
-    function getSocketByUsername(username) {
-        for (let [id, user] of usersOnline.entries()) {
-            if (user === username) return io.sockets.sockets.get(id);
-        }
-        return null;
-    }
-
-    socket.on('disconnect', () => {
-        if (currentUser) {
-            usersOnline.delete(socket.id);
-            io.emit('users update', Array.from(usersOnline.values()));
-        }
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM с голосовыми и звонками запущен на порту ' + PORT);
-});
