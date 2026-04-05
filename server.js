@@ -1,7 +1,30 @@
-<!DOCTYPE html>
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+    cors: { origin: "*" },
+    transports: ['websocket', 'polling']
+});
+
+// ========== БАЗА ДАННЫХ ==========
+const users = {};
+const usersOnline = new Map();
+const privateChats = {};
+const publicRooms = {};
+
+// Предустановленные данные
+users["alex"] = "123";
+users["maria"] = "456";
+publicRooms["general"] = { messages: [], users: [] };
+
+app.get('/', (req, res) => {
+    res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Звонки</title>
+    <title>ATOMGRAM - Чат и голосовые</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -105,22 +128,9 @@
             border-radius: 15px;
             cursor: pointer;
             color: #ccc;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
         .room-item:hover, .user-item:hover { background: rgba(102,126,234,0.2); }
         .room-item.active, .user-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .call-btn {
-            background: none;
-            border: none;
-            color: #4ade80;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 5px 10px;
-            border-radius: 20px;
-        }
-        .call-btn:hover { background: rgba(74,222,128,0.2); }
         .new-room {
             padding: 15px;
             border-top: 1px solid rgba(255,255,255,0.1);
@@ -153,18 +163,6 @@
             border-bottom: 1px solid rgba(255,255,255,0.1);
             color: white;
             font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .call-controls button {
-            background: #2a2a3e;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            color: white;
-            margin-left: 10px;
-            cursor: pointer;
         }
         .messages-area {
             flex: 1;
@@ -241,30 +239,6 @@
             50% { transform: scale(1.1); opacity: 0.7; }
             100% { transform: scale(1); opacity: 1; }
         }
-        
-        .call-modal {
-            position: fixed;
-            bottom: 100px;
-            right: 20px;
-            background: #1a1a2e;
-            border-radius: 20px;
-            padding: 20px;
-            width: 280px;
-            border: 1px solid #667eea;
-            z-index: 1000;
-            display: none;
-        }
-        .call-modal h4 { color: white; margin-bottom: 15px; }
-        .call-modal button {
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-        }
-        .answer-btn { background: #4ade80; color: white; }
-        .reject-btn { background: #ff6b6b; color: white; }
-        .end-call-btn { background: #ff6b6b; color: white; width: 100%; margin-top: 10px; }
         @media (max-width: 768px) {
             .sidebar { display: none; }
         }
@@ -306,12 +280,7 @@
             </div>
         </div>
         <div class="chat-area">
-            <div class="chat-header">
-                <span id="currentChatTitle">Выберите чат</span>
-                <div class="call-controls" id="callControls" style="display:none">
-                    <button onclick="startCall()">📞 Позвонить</button>
-                </div>
-            </div>
+            <div class="chat-header" id="currentChatTitle">Выберите чат</div>
             <div class="messages-area" id="messages"></div>
             <div class="input-area">
                 <input type="text" id="messageInput" placeholder="Введите сообщение...">
@@ -319,15 +288,6 @@
                 <button onclick="sendMessage()">📤</button>
             </div>
         </div>
-    </div>
-
-    <div id="callModal" class="call-modal">
-        <h4 id="callStatus">Входящий звонок...</h4>
-        <div id="callButtons">
-            <button class="answer-btn" onclick="answerCall()">Ответить</button>
-            <button class="reject-btn" onclick="rejectCall()">Отклонить</button>
-        </div>
-        <button id="endCallBtn" class="end-call-btn" style="display:none" onclick="endCall()">Завершить</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -339,19 +299,6 @@
         let currentChatTarget = null;
         let allRooms = [];
         let allUsers = [];
-        
-        // WebRTC
-        let localStream = null;
-        let peerConnection = null;
-        let callWith = null;
-        
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        };
         
         // Голосовые сообщения
         let mediaRecorder = null;
@@ -415,102 +362,6 @@
             });
         }
         
-        // Звонки
-        async function startCall() {
-            if (!currentChatTarget || currentChatType !== 'private') {
-                alert('Выберите личный чат для звонка');
-                return;
-            }
-            
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                peerConnection = new RTCPeerConnection(configuration);
-                
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-                
-                // Слушаем входящий аудиопоток
-                peerConnection.ontrack = (event) => {
-                    const remoteAudio = new Audio();
-                    remoteAudio.srcObject = event.streams[0];
-                    remoteAudio.play().catch(e => console.log('Audio play error:', e));
-                };
-                
-                // Отправляем ICE кандидаты
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('webrtc signal', {
-                            to: currentChatTarget,
-                            signal: { type: 'candidate', candidate: event.candidate }
-                        });
-                    }
-                };
-                
-                // Создаём offer
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                
-                socket.emit('webrtc signal', {
-                    to: currentChatTarget,
-                    signal: { type: 'offer', offer: offer }
-                });
-                
-                callWith = currentChatTarget;
-                showCallModal('Звонок...', true);
-                
-            } catch (err) {
-                console.error('Ошибка звонка:', err);
-                alert('Не удалось начать звонок: ' + err.message);
-            }
-        }
-        
-        function answerCall() {
-            document.getElementById('callButtons').style.display = 'none';
-            document.getElementById('endCallBtn').style.display = 'block';
-            document.getElementById('callStatus').innerText = 'Разговор...';
-            
-            socket.emit('call answer', { to: callWith });
-        }
-        
-        function rejectCall() {
-            socket.emit('call reject', { to: callWith });
-            closeCallModal();
-            if (peerConnection) peerConnection.close();
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
-        }
-        
-        function endCall() {
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            socket.emit('call end', { to: callWith });
-            closeCallModal();
-        }
-        
-        function showCallModal(message, isOutgoing = false) {
-            const modal = document.getElementById('callModal');
-            document.getElementById('callStatus').innerText = message;
-            if (isOutgoing) {
-                document.getElementById('callButtons').style.display = 'none';
-                document.getElementById('endCallBtn').style.display = 'block';
-            } else {
-                document.getElementById('callButtons').style.display = 'block';
-                document.getElementById('endCallBtn').style.display = 'none';
-            }
-            modal.style.display = 'block';
-        }
-        
-        function closeCallModal() {
-            document.getElementById('callModal').style.display = 'none';
-        }
-        
         // Авторизация
         function login() {
             const login = document.getElementById('login').value.trim();
@@ -572,14 +423,8 @@
         function renderUsers() {
             const container = document.getElementById('usersList');
             container.innerHTML = allUsers.map(user => 
-                '<div class="user-item' + (currentChat === 'user:' + user ? ' active' : '') + '"><span onclick="startPrivateChat(\\'' + user + '\\')">👤 ' + user + '</span><button class="call-btn" onclick="callUser(\\'' + user + '\\')">📞</button></div>'
+                '<div class="user-item' + (currentChat === 'user:' + user ? ' active' : '') + '" onclick="startPrivateChat(\\'' + user + '\\')">👤 ' + user + '</div>'
             ).join('');
-        }
-        
-        function callUser(user) {
-            currentChatTarget = user;
-            currentChatType = 'private';
-            startCall();
         }
         
         function joinRoom(roomName) {
@@ -588,7 +433,6 @@
             currentChatTarget = roomName;
             socket.emit('joinRoom', roomName);
             document.getElementById('currentChatTitle').innerHTML = '# ' + roomName;
-            document.getElementById('callControls').style.display = 'none';
             renderRooms();
             renderUsers();
         }
@@ -599,7 +443,6 @@
             currentChatTarget = userName;
             socket.emit('joinPrivate', userName);
             document.getElementById('currentChatTitle').innerHTML = '💬 ' + userName;
-            document.getElementById('callControls').style.display = 'block';
             renderRooms();
             renderUsers();
         }
@@ -700,74 +543,6 @@
             renderRooms();
         });
         
-        // WebRTC сигналы
-        socket.on('incoming call', (data) => {
-            callWith = data.from;
-            showCallModal('Входящий звонок от ' + data.from);
-        });
-        
-        socket.on('call answered', async () => {
-            document.getElementById('callStatus').innerText = 'Разговор...';
-            document.getElementById('callButtons').style.display = 'none';
-            document.getElementById('endCallBtn').style.display = 'block';
-        });
-        
-        socket.on('call rejected', () => {
-            alert('Звонок отклонён');
-            endCall();
-        });
-        
-        socket.on('call ended', () => {
-            endCall();
-        });
-        
-        socket.on('webrtc signal', async (data) => {
-            if (!peerConnection && data.signal.type === 'offer') {
-                // Создаём peer connection для входящего звонка
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                peerConnection = new RTCPeerConnection(configuration);
-                
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-                
-                peerConnection.ontrack = (event) => {
-                    const remoteAudio = new Audio();
-                    remoteAudio.srcObject = event.streams[0];
-                    remoteAudio.play().catch(e => console.log('Audio play error:', e));
-                };
-                
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('webrtc signal', {
-                            to: callWith,
-                            signal: { type: 'candidate', candidate: event.candidate }
-                        });
-                    }
-                };
-            }
-            
-            if (peerConnection) {
-                if (data.signal.type === 'offer') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.offer));
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    socket.emit('webrtc signal', {
-                        to: callWith,
-                        signal: { type: 'answer', answer: answer }
-                    });
-                } else if (data.signal.type === 'answer') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
-                } else if (data.signal.type === 'candidate') {
-                    try {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
-                    } catch (e) {
-                        console.log('ICE candidate error:', e);
-                    }
-                }
-            }
-        });
-        
         function scrollToBottom() {
             const messagesDiv = document.getElementById('messages');
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -781,3 +556,136 @@
     </script>
 </body>
 </html>
+    `);
+});
+
+// ========== СЕРВЕРНАЯ ЛОГИКА ==========
+io.on('connection', (socket) => {
+    let currentUser = null;
+    let currentRoom = null;
+    let currentPrivateWith = null;
+
+    socket.on('register', (data, callback) => {
+        if (users[data.login]) {
+            callback({ success: false, error: 'Логин уже существует' });
+        } else {
+            users[data.login] = data.password;
+            callback({ success: true });
+        }
+    });
+
+    socket.on('login', (data, callback) => {
+        if (users[data.login] && users[data.login] === data.password) {
+            currentUser = data.login;
+            usersOnline.set(socket.id, currentUser);
+            callback({ success: true });
+            io.emit('users update', Array.from(usersOnline.values()));
+        } else {
+            callback({ success: false, error: 'Неверный логин или пароль' });
+        }
+    });
+
+    socket.on('getRooms', (callback) => {
+        callback(Object.keys(publicRooms));
+    });
+
+    socket.on('getUsers', (callback) => {
+        callback(Array.from(usersOnline.values()));
+    });
+
+    socket.on('createRoom', (roomName, callback) => {
+        if (!publicRooms[roomName]) {
+            publicRooms[roomName] = { messages: [], users: [] };
+            callback(true);
+            io.emit('rooms update', Object.keys(publicRooms));
+        } else {
+            callback(false);
+        }
+    });
+
+    socket.on('joinRoom', (roomName) => {
+        if (currentRoom) socket.leave(currentRoom);
+        currentRoom = roomName;
+        currentPrivateWith = null;
+        socket.join(roomName);
+        socket.emit('chat history', {
+            type: 'room',
+            room: roomName,
+            messages: publicRooms[roomName]?.messages || []
+        });
+    });
+
+    socket.on('joinPrivate', (targetUser) => {
+        currentPrivateWith = targetUser;
+        currentRoom = null;
+        const chatId = [currentUser, targetUser].sort().join('_');
+        if (!privateChats[chatId]) {
+            privateChats[chatId] = { messages: [], users: [currentUser, targetUser] };
+        }
+        socket.emit('chat history', {
+            type: 'private',
+            with: targetUser,
+            messages: privateChats[chatId].messages || []
+        });
+    });
+
+    socket.on('chat message', (data) => {
+        const { type, target, text } = data;
+        const msg = {
+            id: Date.now(),
+            from: currentUser,
+            text: text,
+            time: new Date().toLocaleTimeString(),
+            type: type
+        };
+
+        if (type === 'room') {
+            msg.room = target;
+            if (publicRooms[target]) {
+                publicRooms[target].messages.push(msg);
+                if (publicRooms[target].messages.length > 100) publicRooms[target].messages.shift();
+                io.to(target).emit('chat message', msg);
+            }
+        } else if (type === 'private') {
+            msg.to = target;
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) {
+                privateChats[chatId] = { messages: [], users: [currentUser, target] };
+            }
+            privateChats[chatId].messages.push(msg);
+            if (privateChats[chatId].messages.length > 100) privateChats[chatId].messages.shift();
+            io.emit('chat message', msg);
+        }
+    });
+
+    socket.on('voice message', (data) => {
+        const { type, target, audio } = data;
+        const msg = {
+            id: Date.now(),
+            from: currentUser,
+            audio: audio,
+            time: new Date().toLocaleTimeString(),
+            type: type
+        };
+        if (type === 'private') {
+            msg.to = target;
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
+            privateChats[chatId].messages.push(msg);
+            io.emit('voice message', msg);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        if (currentUser) {
+            usersOnline.delete(socket.id);
+            io.emit('users update', Array.from(usersOnline.values()));
+        }
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
+    console.log('📋 Тестовые пользователи: alex/123, maria/456');
+});
