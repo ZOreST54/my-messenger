@@ -895,4 +895,196 @@ app.get('/', (req, res) => {
                 currentUserData = data;
                 updateProfileUI();
             }
-            if (window
+            if (window.userProfiles[data.username]) {
+                window.userProfiles[data.username] = data;
+                renderUsers();
+            }
+        });
+        
+        function scrollToBottom() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+    `);
+});
+
+// ========== СЕРВЕРНАЯ ЛОГИКА ==========
+io.on('connection', (socket) => {
+    let currentUser = null;
+    let currentRoom = null;
+
+    socket.on('register', (data, callback) => {
+        if (users[data.login]) {
+            callback({ success: false, error: 'Логин уже существует' });
+        } else {
+            users[data.login] = { 
+                password: data.password, 
+                firstName: data.firstName || data.login,
+                lastName: data.lastName || '',
+                username: data.login,
+                avatar: '👤',
+                bio: '',
+                status: 'online',
+                lastSeen: new Date()
+            };
+            callback({ success: true });
+        }
+    });
+
+    socket.on('login', (data, callback) => {
+        if (users[data.login] && users[data.login].password === data.password) {
+            currentUser = data.login;
+            usersOnline.set(socket.id, currentUser);
+            users[data.login].status = 'online';
+            users[data.login].lastSeen = new Date();
+            callback({ success: true, userData: users[data.login] });
+            sendUserList();
+            sendProfileList();
+        } else {
+            callback({ success: false, error: 'Неверный логин или пароль' });
+        }
+    });
+
+    socket.on('update profile', (data, callback) => {
+        if (users[data.login]) {
+            if (data.firstName !== undefined) users[data.login].firstName = data.firstName;
+            if (data.lastName !== undefined) users[data.login].lastName = data.lastName;
+            if (data.bio !== undefined) users[data.login].bio = data.bio;
+            if (data.status !== undefined) users[data.login].status = data.status;
+            if (data.avatar !== undefined) users[data.login].avatar = data.avatar;
+            if (data.password) users[data.login].password = data.password;
+            callback({ success: true, userData: users[data.login] });
+            io.emit('profile updated', users[data.login]);
+            sendProfileList();
+            sendTelegramNotification('✏️ ' + data.login + ' обновил профиль');
+        } else {
+            callback({ success: false, error: 'Пользователь не найден' });
+        }
+    });
+
+    function sendUserList() {
+        io.emit('users update', Array.from(usersOnline.values()));
+    }
+
+    function sendProfileList() {
+        const profiles = Object.keys(users).map(login => users[login]);
+        io.emit('users list with profiles', profiles);
+    }
+
+    socket.on('getRooms', (callback) => {
+        callback(Object.keys(publicRooms));
+    });
+
+    socket.on('getUsers', (callback) => {
+        callback(Array.from(usersOnline.values()));
+    });
+
+    socket.on('createRoom', (roomName, callback) => {
+        if (!publicRooms[roomName]) {
+            publicRooms[roomName] = { messages: [], users: [] };
+            callback(true);
+            io.emit('rooms update', Object.keys(publicRooms));
+        } else {
+            callback(false);
+        }
+    });
+
+    socket.on('joinRoom', (roomName) => {
+        if (currentRoom) socket.leave(currentRoom);
+        currentRoom = roomName;
+        socket.join(roomName);
+        socket.emit('chat history', {
+            type: 'room',
+            room: roomName,
+            messages: publicRooms[roomName]?.messages || []
+        });
+    });
+
+    socket.on('joinPrivate', (targetUser) => {
+        currentRoom = null;
+        const chatId = [currentUser, targetUser].sort().join('_');
+        if (!privateChats[chatId]) {
+            privateChats[chatId] = { messages: [], users: [currentUser, targetUser] };
+        }
+        socket.emit('chat history', {
+            type: 'private',
+            with: targetUser,
+            messages: privateChats[chatId].messages || []
+        });
+    });
+
+    socket.on('chat message', (data) => {
+        const { type, target, text } = data;
+        const msg = {
+            id: Date.now(),
+            from: currentUser,
+            text: text,
+            time: new Date().toLocaleTimeString(),
+            type: type
+        };
+
+        if (type === 'room') {
+            msg.room = target;
+            if (publicRooms[target]) {
+                publicRooms[target].messages.push(msg);
+                if (publicRooms[target].messages.length > 100) publicRooms[target].messages.shift();
+                io.to(target).emit('chat message', msg);
+                sendTelegramNotification(`📢 #${target}\n👤 ${currentUser}: ${text}`);
+            }
+        } else if (type === 'private') {
+            msg.to = target;
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) {
+                privateChats[chatId] = { messages: [], users: [currentUser, target] };
+            }
+            privateChats[chatId].messages.push(msg);
+            if (privateChats[chatId].messages.length > 100) privateChats[chatId].messages.shift();
+            io.emit('chat message', msg);
+            sendTelegramNotification(`💬 Личное от ${currentUser} для ${target}\n📝 ${text}`);
+        }
+    });
+
+    socket.on('voice message', (data) => {
+        const { type, target, audio } = data;
+        const msg = {
+            id: Date.now(),
+            from: currentUser,
+            audio: audio,
+            time: new Date().toLocaleTimeString(),
+            type: type
+        };
+        if (type === 'private') {
+            msg.to = target;
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
+            privateChats[chatId].messages.push(msg);
+            io.emit('voice message', msg);
+            sendTelegramNotification(`🎤 Голосовое от ${currentUser} для ${target}`);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        if (currentUser) {
+            usersOnline.delete(socket.id);
+            users[currentUser].status = 'away';
+            users[currentUser].lastSeen = new Date();
+            sendUserList();
+            sendProfileList();
+        }
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('🚀 ATOMGRAM с профилем как в Telegram запущен на порту ' + PORT);
+    console.log('📋 Тестовые пользователи: alex/123, maria/456');
+});
