@@ -33,7 +33,7 @@ let users = savedData.users;
 let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 
-// ========== АССИСТЕНТ (РАБОТАЕТ) ==========
+// ========== АССИСТЕНТ ==========
 if (!users["assistant"]) {
     users["assistant"] = {
         phone: "+79999999999",
@@ -183,10 +183,11 @@ app.get('/', (req, res) => {
         .menu-item { padding: 15px 20px; color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         .menu-item:hover { background: rgba(102,126,234,0.1); }
         .section-title { padding: 15px 20px 5px 20px; font-size: 11px; color: #667eea; text-transform: uppercase; }
-        .rooms-list, .users-list { padding: 10px; overflow-y: auto; max-height: 200px; }
-        .room-item, .user-item { padding: 10px 15px; margin: 4px 0; border-radius: 15px; cursor: pointer; color: #ccc; display: flex; align-items: center; gap: 10px; }
-        .room-item:hover, .user-item:hover { background: rgba(102,126,234,0.2); }
-        .room-item.active, .user-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .friends-list, .rooms-list, .users-list { padding: 10px; overflow-y: auto; max-height: 200px; }
+        .friend-item, .room-item, .user-item { padding: 10px 15px; margin: 4px 0; border-radius: 15px; cursor: pointer; color: #ccc; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+        .friend-item:hover, .room-item:hover, .user-item:hover { background: rgba(102,126,234,0.2); }
+        .friend-item.active, .room-item.active, .user-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .add-friend-btn { background: none; border: none; color: #4ade80; cursor: pointer; font-size: 16px; }
         .user-avatar-small-img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
         .user-avatar-small { font-size: 28px; }
         
@@ -330,13 +331,13 @@ app.get('/', (req, res) => {
             </div>
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Мой профиль</span></div>
-        <div class="menu-item" onclick="createNewChat()"><span>💬</span> <span>Новый чат</span></div>
+        <div class="menu-item" onclick="addFriend()"><span>➕</span> <span>Добавить друга</span></div>
+        <div class="section-title">👥 ДРУЗЬЯ</div>
+        <div class="friends-list" id="friendsList"></div>
         <div class="section-title">📢 ОБЩИЕ ЧАТЫ</div>
         <div class="rooms-list" id="roomsList"></div>
         <div class="section-title">🤖 БОТЫ</div>
         <div class="users-list" id="botsList"></div>
-        <div class="section-title">💬 ПОЛЬЗОВАТЕЛИ</div>
-        <div class="users-list" id="usersList"></div>
         <div class="new-room" style="padding: 15px;">
             <input type="text" id="newRoomName" placeholder="Название чата">
             <button onclick="createRoom()" style="width:100%; padding:10px; background:#2a2a3e; border:1px solid #667eea; border-radius:20px; color:#667eea; margin-top:8px;">+ Создать чат</button>
@@ -404,7 +405,7 @@ app.get('/', (req, res) => {
 const socket = io();
 let currentUser = null, currentUserData = null;
 let currentChat = null, currentChatType = null, currentChatTarget = null;
-let allRooms = [], allUsers = [], allBots = [];
+let allRooms = [], allFriends = [], allBots = [];
 let selectedAvatar = '👤';
 let mediaRecorder = null, audioChunks = [], isRecording = false;
 let videoStream = null, videoRecorder = null, videoChunks = [];
@@ -442,7 +443,30 @@ function renderAvatar(avatarData, avatarType, size) {
     }
 }
 
-// ВИДЕОКРУЖКИ (ИСПРАВЛЕНО)
+// ========== ДРУЗЬЯ ==========
+function addFriend() {
+    const friendPhone = prompt('Введите номер телефона друга (+7XXXXXXXXXX):');
+    if (!friendPhone) return;
+    socket.emit('add friend', { friendPhone: friendPhone }, (res) => {
+        if (res.success) showNotification('Друг', res.message);
+        else showNotification('Ошибка', res.error);
+    });
+}
+
+function renderFriends() {
+    const container = document.getElementById('friendsList');
+    const ud = window.usersProfiles || {};
+    container.innerHTML = allFriends.map(friend => {
+        const f = ud[friend] || {};
+        return '<div class="friend-item" onclick="startPrivateChat(\\'' + friend + '\\')">' +
+            renderAvatar(f.avatarData, f.avatarType, 'small') +
+            '<span>' + (f.name || friend) + '</span>' +
+            '<span style="margin-left:auto; color:#4ade80;">🟢</span></div>';
+    }).join('');
+    if (allFriends.length === 0) container.innerHTML = '<div style="padding:10px; color:#666;">Нет друзей. Нажмите "Добавить друга"</div>';
+}
+
+// ========== ВИДЕОКРУЖКИ ==========
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
     try {
@@ -489,11 +513,12 @@ function sendFile() {
     const reader = new FileReader();
     reader.onloadend = () => {
         socket.emit('file attachment', { type: currentChatType, target: currentChatTarget, fileName: file.name, fileType: file.type, fileData: reader.result });
+        document.getElementById('fileInput').value = '';
     };
     reader.readAsDataURL(file);
 }
 
-// ГОЛОСОВЫЕ (ИСПРАВЛЕНО)
+// ========== ГОЛОСОВЫЕ ==========
 async function toggleRecording() {
     if (isRecording) { stopAudioRecording(); } else { startAudioRecording(); }
 }
@@ -534,13 +559,6 @@ function toggleSidebar() {
 function closeSidebar() {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('open');
-}
-
-function createNewChat() {
-    const userName = prompt('Введите логин пользователя (assistant - бот):');
-    if (userName && userName !== currentUser) startPrivateChat(userName);
-    else if (userName === currentUser) alert('Нельзя начать чат с самим собой');
-    closeSidebar();
 }
 
 function showNotification(title, body) {
@@ -643,20 +661,11 @@ if (savedPhone && savedPassword) { document.getElementById('phone').value = save
 
 function loadData() {
     socket.emit('getRooms', (rooms) => { allRooms = rooms; renderRooms(); });
-    socket.emit('getUsers', (data) => { allUsers = data.users || []; allBots = data.bots || []; renderUsers(); renderBots(); });
+    socket.emit('getFriends', (friends) => { allFriends = friends || []; renderFriends(); });
+    socket.emit('getUsers', (data) => { allBots = data.bots || []; renderBots(); });
 }
 function renderRooms() {
     document.getElementById('roomsList').innerHTML = allRooms.map(room => '<div class="room-item' + (currentChat === 'room:' + room ? ' active' : '') + '" onclick="joinRoom(\\'' + room + '\\')">#' + room + '</div>').join('');
-}
-function renderUsers() {
-    const ud = window.usersProfiles || {};
-    document.getElementById('usersList').innerHTML = allUsers.filter(u => u !== 'assistant').map(user => {
-        const u = ud[user] || {};
-        return '<div class="user-item' + (currentChat === 'user:' + user ? ' active' : '') + '" onclick="startPrivateChat(\\'' + user + '\\')">' +
-            renderAvatar(u.avatarData, u.avatarType, 'small') +
-            '<span>' + (u.name || user) + '</span>' +
-            '<span style="margin-left:auto; color:#4ade80;">🟢</span></div>';
-    }).join('');
 }
 function renderBots() {
     const ud = window.usersProfiles || {};
@@ -672,9 +681,12 @@ function renderBots() {
 window.usersProfiles = {};
 socket.on('users list with profiles', (profiles) => {
     profiles.forEach(p => { window.usersProfiles[p.username] = p; });
-    allUsers = profiles.filter(p => !p.isBot && p.username !== currentUser).map(p => p.username);
     allBots = profiles.filter(p => p.isBot && p.username !== currentUser).map(p => p.username);
-    renderUsers(); renderBots();
+    renderBots();
+});
+socket.on('friends update', (friends) => {
+    allFriends = friends || [];
+    renderFriends();
 });
 
 function joinRoom(roomName) {
@@ -682,7 +694,7 @@ function joinRoom(roomName) {
     socket.emit('joinRoom', roomName);
     document.getElementById('currentChatTitle').innerHTML = '# ' + roomName;
     document.getElementById('chatHeaderAvatar').innerHTML = '📢';
-    renderRooms(); renderUsers(); renderBots();
+    renderRooms(); renderFriends(); renderBots();
     closeSidebar();
 }
 function startPrivateChat(userName) {
@@ -691,7 +703,7 @@ function startPrivateChat(userName) {
     const ud = window.usersProfiles[userName] || {};
     document.getElementById('currentChatTitle').innerHTML = '💬 ' + (ud.name || userName);
     document.getElementById('chatHeaderAvatar').innerHTML = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    renderRooms(); renderUsers(); renderBots();
+    renderRooms(); renderFriends(); renderBots();
     closeSidebar();
 }
 function createRoom() {
@@ -821,11 +833,10 @@ function playAudio(btn) {
     audio.onended = () => { btn.innerHTML = '▶️'; };
 }
 
-socket.on('users update', (users) => { allUsers = users.filter(u => u !== currentUser); renderUsers(); });
 socket.on('rooms update', (rooms) => { allRooms = rooms; renderRooms(); });
 socket.on('profile updated', (data) => {
     if (data.username === currentUser) { currentUserData = data; updateProfileUI(); }
-    if (window.usersProfiles[data.username]) { window.usersProfiles[data.username] = data; renderUsers(); renderBots(); }
+    if (window.usersProfiles[data.username]) { window.usersProfiles[data.username] = data; renderFriends(); renderBots(); }
 });
 
 function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
@@ -856,6 +867,7 @@ io.on('connection', (socket) => {
                 avatarType: 'emoji',
                 avatarData: null,
                 bio: '',
+                friends: [],
                 status: 'online',
                 lastSeen: new Date()
             };
@@ -878,6 +890,37 @@ io.on('connection', (socket) => {
             users[username].status = 'online';
             callback({ success: true, userData: users[username] });
             sendUserList(); sendProfileList();
+            if (users[username].friends) socket.emit('friends update', users[username].friends);
+        }
+    });
+
+    socket.on('add friend', (data, callback) => {
+        const { friendPhone } = data;
+        const friendUsername = friendPhone.replace(/[^0-9]/g, '');
+        if (!users[friendUsername]) {
+            callback({ success: false, error: 'Пользователь не найден' });
+        } else if (friendUsername === currentUser) {
+            callback({ success: false, error: 'Нельзя добавить себя' });
+        } else {
+            if (!users[currentUser].friends) users[currentUser].friends = [];
+            if (users[currentUser].friends.includes(friendUsername)) {
+                callback({ success: false, error: 'Уже в друзьях' });
+            } else {
+                users[currentUser].friends.push(friendUsername);
+                saveData();
+                callback({ success: true, message: 'Друг добавлен!' });
+                socket.emit('friends update', users[currentUser].friends);
+                const friendSocket = getSocketByUsername(friendUsername);
+                if (friendSocket) friendSocket.emit('notification', { from: currentUser, message: 'добавил вас в друзья' });
+            }
+        }
+    });
+
+    socket.on('getFriends', (callback) => {
+        if (users[currentUser] && users[currentUser].friends) {
+            callback(users[currentUser].friends);
+        } else {
+            callback([]);
         }
     });
 
@@ -958,7 +1001,6 @@ io.on('connection', (socket) => {
             privateChats[chatId].messages.push(msg); if (privateChats[chatId].messages.length > 200) privateChats[chatId].messages.shift();
             io.emit('chat message', msg); saveData();
             
-            // АССИСТЕНТ ОТВЕЧАЕТ (РАБОТАЕТ)
             if (target === 'assistant') {
                 const botRes = aiBotResponse(text, users[currentUser]?.name || currentUser);
                 if (botRes) {
@@ -1015,6 +1057,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
     console.log('📱 Вход по номеру телефона');
     console.log('🤖 Ассистент: +79999999999 / assistant123');
-    console.log('🎥 Видеокружки работают');
-    console.log('🎤 Голосовые работают');
+    console.log('👥 Добавление друзей: кнопка "Добавить друга" в меню');
 });
