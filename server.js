@@ -11,7 +11,7 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling']
 });
 
-// ========== СОХРАНЕНИЕ ДАННЫХ ==========
+// ========== ДАННЫЕ ==========
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 function loadData() {
@@ -33,8 +33,7 @@ let users = savedData.users;
 let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 
-// ========== АККАУНТ АССИСТЕНТА ==========
-// Теперь ассистент — обычный пользователь со своим номером и паролем
+// ========== АССИСТЕНТ ==========
 if (!users["assistant"]) {
     users["assistant"] = {
         phone: "+79999999999",
@@ -54,6 +53,7 @@ if (!users["assistant"]) {
 
 setInterval(saveData, 30000);
 
+// ========== ИИ БОТ ==========
 function aiBotResponse(message, userName) {
     const msg = message.toLowerCase();
     if (msg.match(/привет|здравствуй|хай|hello|hi/)) {
@@ -63,7 +63,7 @@ function aiBotResponse(message, userName) {
         return `🤖 Команды:\n• Погода\n• Новости\n• Шутка\n• Время\n• Кто ты\n• Спасибо\n• Пока`;
     }
     if (msg.includes('погода')) return `🌤️ Прогноз: +18°C, солнечно ☀️`;
-    if (msg.includes('новости')) return `📰 ATOMGRAM теперь с фотоаватарами и входом по телефону!`;
+    if (msg.includes('новости')) return `📰 ATOMGRAM работает отлично!`;
     if (msg.includes('шутк')) return `Почему программисты не любят природу? Слишком много багов 🐛`;
     if (msg.includes('время')) return `⏰ ${new Date().toLocaleTimeString('ru-RU')}`;
     if (msg.includes('спасиб')) return `Пожалуйста, ${userName}! 😊`;
@@ -71,12 +71,12 @@ function aiBotResponse(message, userName) {
     return `Напиши "помощь" чтобы узнать мои команды 🤖`;
 }
 
+// ========== HTML ИНТЕРФЕЙС ==========
 app.get('/', (req, res) => {
-    res.send(`
-<!DOCTYPE html>
+    res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Вход по телефону</title>
+    <title>ATOMGRAM</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <style>
@@ -361,10 +361,14 @@ app.get('/', (req, res) => {
         <div class="profile-avatar-section">
             <div id="profileAvatarContainer"></div>
             <div id="avatarPicker" class="avatar-picker" style="display:none; margin-top:15px;">
-                <div class="avatar-option" onclick="selectAvatar('😀')">😀</div><div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
-                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div><div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
-                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div><div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
-                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div><div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
+                <div class="avatar-option" onclick="selectAvatar('😀')">😀</div>
+                <div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
+                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div>
+                <div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
+                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div>
+                <div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
+                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div>
+                <div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
                 <div class="avatar-option" onclick="selectAvatar('🤖')">🤖</div>
             </div>
             <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
@@ -823,7 +827,7 @@ function escapeHtml(text) { const div = document.createElement('div'); div.textC
     `);
 });
 
-// ========== СЕРВЕР ==========
+// ========== СОКЕТЫ ==========
 const usersOnline = new Map();
 
 io.on('connection', (socket) => {
@@ -994,6 +998,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM с входом по телефону запущен на порту ' + PORT);
-    console.log('🤖 Аккаунт ассистента: +79999999999 / assistant123');
+    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
+    console.log('📱 Вход по номеру телефона');
+    console.log('🤖 Ассистент: +79999999999 / assistant123');
 });
