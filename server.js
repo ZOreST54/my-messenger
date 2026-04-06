@@ -134,18 +134,6 @@ app.get('/', (req, res) => {
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; font-size: 14px; }
         .success-msg { color: #4ade80; margin-top: 10px; font-size: 14px; }
-        .password-container { position: relative; }
-        .password-container input { padding-right: 50px; }
-        .toggle-password {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            font-size: 18px;
-            background: none;
-            border: none;
-        }
         
         #mainApp {
             display: none;
@@ -308,20 +296,14 @@ app.get('/', (req, res) => {
         <h1>⚡ ATOMGRAM</h1>
         <div id="authForm">
             <input type="text" id="loginUsername" placeholder="Username">
-            <div class="password-container">
-                <input type="password" id="loginPassword" placeholder="Пароль">
-                <button class="toggle-password" onclick="togglePassword('loginPassword')">👁️</button>
-            </div>
+            <input type="password" id="loginPassword" placeholder="Пароль">
             <button onclick="login()">Войти</button>
             <button class="switch-btn" onclick="showRegister()">Создать аккаунт</button>
         </div>
         <div id="registerForm" style="display:none">
             <input type="text" id="regUsername" placeholder="Username">
             <input type="text" id="regName" placeholder="Ваше имя">
-            <div class="password-container">
-                <input type="password" id="regPassword" placeholder="Пароль">
-                <button class="toggle-password" onclick="togglePassword('regPassword')">👁️</button>
-            </div>
+            <input type="password" id="regPassword" placeholder="Пароль">
             <button onclick="register()">Зарегистрироваться</button>
             <button class="switch-btn" onclick="showLogin()">Назад</button>
         </div>
@@ -391,7 +373,7 @@ app.get('/', (req, res) => {
         </div>
         <div class="profile-field"><label>Имя</label><input type="text" id="editName"></div>
         <div class="profile-field"><label>О себе</label><textarea id="editBio"></textarea></div>
-        <div class="profile-field"><label>Новый пароль</label><div class="password-container"><input type="password" id="editPassword" placeholder="Оставьте пустым"><button class="toggle-password" onclick="togglePassword('editPassword')">👁️</button></div></div>
+        <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
         <div class="modal-footer">
             <button class="upload-btn" onclick="document.getElementById('avatarUpload').click()">📷 Загрузить фото</button>
             <button class="save-btn" onclick="saveProfile()">Сохранить</button>
@@ -422,12 +404,6 @@ let recordedVideoBlob = null;
 
 const savedUsername = localStorage.getItem('atomgram_username');
 const savedPassword = localStorage.getItem('atomgram_password');
-
-function togglePassword(fieldId) {
-    const field = document.getElementById(fieldId);
-    if (field.type === 'password') field.type = 'text';
-    else field.type = 'password';
-}
 
 function renderAvatar(avatarData, avatarType, size) {
     if (avatarType === 'image' && avatarData) {
