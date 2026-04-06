@@ -25,7 +25,7 @@ function loadData() {
 
 function saveData() {
     fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, publicRooms, channels }, null, 2));
-    console.log('💾 Данные сохранены');
+    console.log('Данные сохранены');
 }
 
 let savedData = loadData();
@@ -34,7 +34,6 @@ let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 let channels = savedData.channels || {};
 
-// ========== АССИСТЕНТ ==========
 if (!users["assistant"]) {
     users["assistant"] = {
         username: "assistant",
@@ -47,17 +46,17 @@ if (!users["assistant"]) {
         status: "online",
         isBot: true,
         friends: [],
+        friendRequests: [],
         banned: [],
         lastSeen: new Date()
     };
     saveData();
 }
 
-// ========== КАНАЛ ПО УМОЛЧАНИЮ ==========
 if (!channels["announcements"]) {
     channels["announcements"] = {
         name: "announcements",
-        title: "📢 ОБЪЯВЛЕНИЯ",
+        title: "ОБЪЯВЛЕНИЯ",
         messages: [],
         subscribers: [],
         isChannel: true,
@@ -68,36 +67,29 @@ if (!channels["announcements"]) {
 
 setInterval(saveData, 30000);
 
-// ========== ОТВЕТЫ АССИСТЕНТА ==========
 function aiBotResponse(message, userName) {
     const msg = message.toLowerCase();
     if (msg.match(/привет|здравствуй|хай|hello|hi/)) {
-        return `Привет, ${userName}! 👋 Я ИИ-помощник ATOMGRAM. Напиши "помощь" для списка команд.`;
+        return `Привет, ${userName}! Я ИИ-помощник ATOMGRAM. Напиши "помощь" для списка команд.`;
     }
     if (msg.match(/помощь|help|что умеешь/)) {
-        return `🤖 Команды:\n• Погода\n• Новости\n• Шутка\n• Время\n• Кто ты\n• Спасибо\n• Пока\n• Создай канал [название]\n• Подпишись на [канал]`;
+        return `Команды:\n- Погода\n- Новости\n- Шутка\n- Время\n- Кто ты\n- Спасибо\n- Пока\n- Создай канал [название]`;
     }
-    if (msg.includes('погода')) return `🌤️ Прогноз: +18°C, солнечно ☀️`;
-    if (msg.includes('новости')) return `📰 ATOMGRAM: теперь с каналами и сменой темы!`;
-    if (msg.includes('шутк')) return `Почему программисты не любят природу? Слишком много багов 🐛`;
-    if (msg.includes('время')) return `⏰ ${new Date().toLocaleTimeString('ru-RU')}`;
-    if (msg.includes('спасиб')) return `Пожалуйста, ${userName}! 😊`;
-    if (msg.includes('пока')) return `До свидания, ${userName}! 👋`;
+    if (msg.includes('погода')) return `Прогноз: +18°C, солнечно`;
+    if (msg.includes('новости')) return `ATOMGRAM: теперь с каналами и сменой темы!`;
+    if (msg.includes('шутк')) return `Почему программисты не любят природу? Слишком много багов`;
+    if (msg.includes('время')) return `Время: ${new Date().toLocaleTimeString('ru-RU')}`;
+    if (msg.includes('спасиб')) return `Пожалуйста, ${userName}!`;
+    if (msg.includes('пока')) return `До свидания, ${userName}!`;
     if (msg.includes('создай канал')) {
-        const match = msg.match(/создай канал (.+)/);
-        if (match) return `📢 Канал "${match[1]}" создан! Теперь другие могут на него подписаться.`;
-        return `Напишите "создай канал [название]"`;
+        return `Канал создан! Теперь другие могут на него подписаться.`;
     }
-    if (msg.includes('подпишись на канал')) {
-        const match = msg.match(/подпишись на канал (.+)/);
-        if (match) return `✅ Вы подписались на канал "${match[1]}"!`;
-        return `Напишите "подпишись на канал [название]"`;
-    }
-    return `Напиши "помощь" чтобы узнать мои команды 🤖`;
+    return `Напиши "помощь" чтобы узнать мои команды`;
 }
 
 app.get('/', (req, res) => {
-    res.send(`<!DOCTYPE html>
+    res.send(`
+<!DOCTYPE html>
 <html>
 <head>
     <title>ATOMGRAM</title>
@@ -106,35 +98,24 @@ app.get('/', (req, res) => {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: background 0.3s, color 0.3s; }
-        
-        /* Тёмная тема (по умолчанию) */
         body.dark { background: #0a0a0a; color: white; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
-        
         body.dark .sidebar { background: #1a1a2e; border-right-color: rgba(255,255,255,0.1); }
         body.light .sidebar { background: white; border-right-color: #ddd; }
-        
         body.dark .chat-header { background: #1a1a2e; border-bottom-color: rgba(255,255,255,0.1); color: white; }
         body.light .chat-header { background: white; border-bottom-color: #ddd; color: #1a1a2e; }
-        
         body.dark .message-content { background: #2a2a3e; color: white; }
         body.light .message-content { background: #e8e8e8; color: #1a1a2e; }
-        
         body.dark .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         body.light .message.my-message .message-content { background: #667eea; color: white; }
-        
         body.dark .input-area { background: #1a1a2e; border-top-color: rgba(255,255,255,0.1); }
         body.light .input-area { background: white; border-top-color: #ddd; }
-        
         body.dark .input-area input { background: #2a2a3e; color: white; }
         body.light .input-area input { background: #e8e8e8; color: #1a1a2e; }
-        
         body.dark .room-item, body.dark .user-item, body.dark .friend-item { color: #ccc; }
         body.light .room-item, body.light .user-item, body.light .friend-item { color: #333; }
-        
         body.dark .room-item:hover, body.dark .user-item:hover, body.dark .friend-item:hover { background: rgba(102,126,234,0.2); }
         body.light .room-item:hover, body.light .user-item:hover, body.light .friend-item:hover { background: rgba(102,126,234,0.1); }
-        
         #authScreen {
             position: fixed;
             top: 0;
@@ -187,7 +168,6 @@ app.get('/', (req, res) => {
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; font-size: 14px; }
         .success-msg { color: #4ade80; margin-top: 10px; font-size: 14px; }
-        
         #mainApp {
             display: none;
             width: 100%;
@@ -237,17 +217,13 @@ app.get('/', (req, res) => {
         .friend-item, .room-item, .user-item, .channel-item { padding: 10px 15px; margin: 4px 0; border-radius: 15px; cursor: pointer; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
         .friend-item:hover, .room-item:hover, .user-item:hover, .channel-item:hover { background: rgba(102,126,234,0.2); }
         .friend-item.active, .room-item.active, .user-item.active, .channel-item.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .friend-request {
-            background: rgba(102,126,234,0.3);
-            border-left: 3px solid #667eea;
-        }
+        .friend-request { background: rgba(102,126,234,0.3); border-left: 3px solid #667eea; }
         .friend-actions button { margin-left: 5px; padding: 5px 10px; border-radius: 15px; border: none; cursor: pointer; }
         .accept-btn { background: #4ade80; color: white; }
         .reject-btn { background: #ff6b6b; color: white; }
         .ban-btn { background: #ff4444; color: white; }
         .user-avatar-small-img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
         .user-avatar-small { font-size: 28px; }
-        
         .chat-area { flex: 1; display: flex; flex-direction: column; width: 100%; }
         .chat-header { padding: 15px 20px; font-weight: bold; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid; }
         .chat-header-avatar-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
@@ -265,14 +241,7 @@ app.get('/', (req, res) => {
         .message-text { font-size: 14px; word-wrap: break-word; }
         .voice-message { display: flex; align-items: center; gap: 10px; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; }
-        .video-circle {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            object-fit: cover;
-            cursor: pointer;
-            background: #2a2a3e;
-        }
+        .video-circle { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; cursor: pointer; background: #2a2a3e; }
         .file-attachment { background: rgba(102,126,234,0.2); padding: 10px; border-radius: 15px; display: flex; align-items: center; gap: 10px; }
         .file-attachment a { text-decoration: none; }
         .message-time { font-size: 9px; color: #888; margin-top: 4px; }
@@ -285,7 +254,6 @@ app.get('/', (req, res) => {
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         .video-record-btn { background: #ff6b6b !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        
         .video-modal {
             position: fixed;
             top: 0;
@@ -307,10 +275,8 @@ app.get('/', (req, res) => {
         .stop-record { background: #ff4444; color: white; }
         .send-video { background: #4ade80; color: white; }
         .close-video { background: #888; color: white; }
-        
         .notification { position: fixed; bottom: 20px; right: 20px; background: #667eea; color: white; padding: 12px 20px; border-radius: 25px; z-index: 1000; animation: slideIn 0.3s ease; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        
         .modal {
             position: fixed;
             top: 0;
@@ -346,11 +312,9 @@ app.get('/', (req, res) => {
         .modal-footer { padding: 20px; display: flex; gap: 10px; }
         .save-btn { flex: 1; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
         .upload-btn { flex: 1; padding: 14px; background: #2a2a3e; color: white; border: 1px solid #667eea; border-radius: 25px; cursor: pointer; }
-        
         .create-channel { padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); }
         .create-channel input { width: 100%; padding: 10px; border: none; border-radius: 20px; background: #2a2a3e; color: white; margin-bottom: 8px; }
         .create-channel button { width: 100%; padding: 10px; background: #2a2a3e; border: 1px solid #667eea; border-radius: 20px; color: #667eea; cursor: pointer; }
-        
         @media (min-width: 769px) { .sidebar { position: relative; left: 0 !important; width: 280px; } .sidebar-overlay { display: none !important; } .menu-btn { display: none; } }
     </style>
 </head>
@@ -427,10 +391,14 @@ app.get('/', (req, res) => {
         <div class="profile-avatar-section">
             <div id="profileAvatarContainer"></div>
             <div id="avatarPicker" class="avatar-picker" style="display:none; margin-top:15px;">
-                <div class="avatar-option" onclick="selectAvatar('😀')">😀</div><div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
-                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div><div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
-                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div><div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
-                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div><div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
+                <div class="avatar-option" onclick="selectAvatar('😀')">😀</div>
+                <div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
+                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div>
+                <div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
+                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div>
+                <div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
+                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div>
+                <div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
                 <div class="avatar-option" onclick="selectAvatar('🤖')">🤖</div>
             </div>
             <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
@@ -469,7 +437,6 @@ let recordedVideoBlob = null;
 const savedUsername = localStorage.getItem('atomgram_username');
 const savedPassword = localStorage.getItem('atomgram_password');
 
-// ========== ТЕМА ==========
 function toggleTheme() {
     const body = document.body;
     if (body.classList.contains('dark')) {
@@ -491,7 +458,6 @@ if (savedTheme === 'light') {
     if (document.querySelector('.theme-toggle')) document.querySelector('.theme-toggle').innerHTML = '☀️';
 }
 
-// ========== КАНАЛЫ ==========
 function createChannel() {
     const channelName = prompt('Введите название канала:');
     if (!channelName) return;
@@ -501,24 +467,10 @@ function createChannel() {
     });
 }
 
-function subscribeToChannel(channelName) {
-    socket.emit('subscribe channel', { channelName: channelName });
-}
-
-function renderChannels() {
-    const container = document.getElementById('channelsList');
-    const ud = window.usersProfiles || {};
-    container.innerHTML = allChannels.map(ch => {
-        const channelData = channelsData[ch] || {};
-        return '<div class="channel-item' + (currentChat === 'channel:' + ch ? ' active' : '') + '" onclick="joinChannel(\\'' + ch + '\\')">' +
-            '<span>📢</span><span>' + (channelData.title || ch) + '</span>' +
-            '<span style="margin-left:auto; font-size:10px;">🔊</span></div>';
-    }).join('');
-    if (allChannels.length === 0) container.innerHTML = '<div style="padding:10px; color:#666;">Нет каналов</div>';
-}
-
 function joinChannel(channelName) {
-    currentChat = 'channel:' + channelName; currentChatType = 'channel'; currentChatTarget = channelName;
+    currentChat = 'channel:' + channelName;
+    currentChatType = 'channel';
+    currentChatTarget = channelName;
     socket.emit('joinChannel', channelName);
     document.getElementById('currentChatTitle').innerHTML = '📢 ' + channelName;
     document.getElementById('chatHeaderAvatar').innerHTML = '📢';
@@ -526,7 +478,16 @@ function joinChannel(channelName) {
     closeSidebar();
 }
 
-// ========== ДРУЗЬЯ ==========
+function renderChannels() {
+    const container = document.getElementById('channelsList');
+    container.innerHTML = allChannels.map(ch => {
+        return '<div class="channel-item' + (currentChat === 'channel:' + ch ? ' active' : '') + '" onclick="joinChannel(\\'' + ch + '\\')">' +
+            '<span>📢</span><span>' + ch + '</span>' +
+            '<span style="margin-left:auto; font-size:10px;">🔊</span></div>';
+    }).join('');
+    if (allChannels.length === 0) container.innerHTML = '<div style="padding:10px; color:#666;">Нет каналов</div>';
+}
+
 function addFriend() {
     const friendUsername = prompt('Введите username друга:');
     if (!friendUsername) return;
@@ -545,7 +506,7 @@ function rejectFriendRequest(fromUser) {
 }
 
 function banUser(userToBan) {
-    if (confirm(`Забанить пользователя ${userToBan}?`)) {
+    if (confirm('Забанить пользователя ' + userToBan + '?')) {
         socket.emit('ban user', { userToBan: userToBan });
     }
 }
@@ -588,7 +549,6 @@ function renderAvatar(avatarData, avatarType, size) {
     }
 }
 
-// ========== ВИДЕОКРУЖКИ ==========
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
     try {
@@ -629,7 +589,6 @@ function closeVideoModal() {
     document.getElementById('sendVideoBtn').style.display = 'none';
 }
 
-// ========== ФАЙЛЫ ==========
 function sendFile() {
     const file = document.getElementById('fileInput').files[0];
     if (!file || !currentChat) return;
@@ -641,7 +600,6 @@ function sendFile() {
     reader.readAsDataURL(file);
 }
 
-// ========== ГОЛОСОВЫЕ ==========
 async function toggleRecording() {
     if (isRecording) { stopAudioRecording(); } else { startAudioRecording(); }
 }
@@ -675,7 +633,6 @@ function stopAudioRecording() {
     }
 }
 
-// ========== UI ==========
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('sidebarOverlay').classList.toggle('open');
@@ -770,7 +727,7 @@ function register() {
     socket.emit('register', { username, name, password }, (res) => {
         if (res.success) {
             document.getElementById('authError').className = 'success-msg';
-            document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.';
+            document.getElementById('authError').innerText = 'Регистрация успешна! Войдите.';
             showLogin();
         } else { document.getElementById('authError').className = 'error-msg'; document.getElementById('authError').innerText = res.error; }
     });
@@ -801,7 +758,6 @@ function renderBots() {
 }
 
 window.usersProfiles = {};
-let channelsData = {};
 socket.on('users list with profiles', (profiles) => {
     profiles.forEach(p => { window.usersProfiles[p.username] = p; });
     allBots = profiles.filter(p => p.isBot && p.username !== currentUser).map(p => p.username);
@@ -814,10 +770,6 @@ socket.on('friends update', (data) => {
 });
 socket.on('channels update', (channels) => {
     allChannels = channels;
-    renderChannels();
-});
-socket.on('channel data update', (data) => {
-    channelsData = data;
     renderChannels();
 });
 
@@ -1100,7 +1052,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ========== КАНАЛЫ ==========
     socket.on('create channel', (data, callback) => {
         const { channelName } = data;
         if (channels[channelName]) {
@@ -1117,16 +1068,6 @@ io.on('connection', (socket) => {
             saveData();
             callback({ success: true, message: 'Канал создан!' });
             io.emit('channels update', Object.keys(channels));
-            io.emit('channel data update', channels);
-        }
-    });
-
-    socket.on('subscribe channel', (data) => {
-        const { channelName } = data;
-        if (channels[channelName] && !channels[channelName].subscribers.includes(currentUser)) {
-            channels[channelName].subscribers.push(currentUser);
-            saveData();
-            socket.emit('notification', { message: `Вы подписались на канал ${channelName}` });
         }
     });
 
@@ -1162,7 +1103,6 @@ io.on('connection', (socket) => {
         callback(Object.keys(channels));
     });
 
-    // ========== ОСТАЛЬНЫЕ СОКЕТЫ ==========
     socket.on('upload avatar', (data, callback) => {
         const { login, avatarData } = data;
         if (users[login]) {
@@ -1297,8 +1237,6 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
-    console.log('🤖 Ассистент: assistant / assistant123');
-    console.log('📢 Каналы: кнопка "Создать канал" в меню');
-    console.log('🎨 Смена темы: кнопка 🌙/☀️ в шапке чата');
+    console.log('ATOMGRAM запущен на порту ' + PORT);
+    console.log('Ассистент: assistant / assistant123');
 });
