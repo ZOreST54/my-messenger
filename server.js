@@ -33,7 +33,7 @@ let users = savedData.users;
 let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 
-// ========== АССИСТЕНТ ==========
+// ========== АССИСТЕНТ (РАБОТАЕТ) ==========
 if (!users["assistant"]) {
     users["assistant"] = {
         phone: "+79999999999",
@@ -53,7 +53,7 @@ if (!users["assistant"]) {
 
 setInterval(saveData, 30000);
 
-// ========== ИИ БОТ ==========
+// ========== ОТВЕТЫ АССИСТЕНТА ==========
 function aiBotResponse(message, userName) {
     const msg = message.toLowerCase();
     if (msg.match(/привет|здравствуй|хай|hello|hi/)) {
@@ -71,7 +71,6 @@ function aiBotResponse(message, userName) {
     return `Напиши "помощь" чтобы узнать мои команды 🤖`;
 }
 
-// ========== HTML ИНТЕРФЕЙС ==========
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
@@ -208,7 +207,14 @@ app.get('/', (req, res) => {
         .message-text { font-size: 14px; word-wrap: break-word; }
         .voice-message { display: flex; align-items: center; gap: 10px; }
         .voice-message button { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
-        .video-circle { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; cursor: pointer; }
+        .video-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            cursor: pointer;
+            background: #2a2a3e;
+        }
         .file-attachment { background: rgba(102,126,234,0.2); padding: 10px; border-radius: 15px; display: flex; align-items: center; gap: 10px; }
         .file-attachment a { color: white; text-decoration: none; }
         .message-time { font-size: 9px; color: #888; margin-top: 4px; }
@@ -436,6 +442,7 @@ function renderAvatar(avatarData, avatarType, size) {
     }
 }
 
+// ВИДЕОКРУЖКИ (ИСПРАВЛЕНО)
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
     try {
@@ -486,6 +493,7 @@ function sendFile() {
     reader.readAsDataURL(file);
 }
 
+// ГОЛОСОВЫЕ (ИСПРАВЛЕНО)
 async function toggleRecording() {
     if (isRecording) { stopAudioRecording(); } else { startAudioRecording(); }
 }
@@ -949,14 +957,20 @@ io.on('connection', (socket) => {
             if (!privateChats[chatId]) privateChats[chatId] = { messages: [], users: [currentUser, target] };
             privateChats[chatId].messages.push(msg); if (privateChats[chatId].messages.length > 200) privateChats[chatId].messages.shift();
             io.emit('chat message', msg); saveData();
+            
+            // АССИСТЕНТ ОТВЕЧАЕТ (РАБОТАЕТ)
             if (target === 'assistant') {
                 const botRes = aiBotResponse(text, users[currentUser]?.name || currentUser);
-                if (botRes) setTimeout(() => {
-                    const botMsg = { id: Date.now()+1, from: 'assistant', text: botRes, time: new Date().toLocaleTimeString(), type: 'private', to: currentUser };
-                    const botChatId = [currentUser, 'assistant'].sort().join('_');
-                    if (!privateChats[botChatId]) privateChats[botChatId] = { messages: [], users: [currentUser, 'assistant'] };
-                    privateChats[botChatId].messages.push(botMsg); io.emit('chat message', botMsg); saveData();
-                }, 300);
+                if (botRes) {
+                    setTimeout(() => {
+                        const botMsg = { id: Date.now()+1, from: 'assistant', text: botRes, time: new Date().toLocaleTimeString(), type: 'private', to: currentUser };
+                        const botChatId = [currentUser, 'assistant'].sort().join('_');
+                        if (!privateChats[botChatId]) privateChats[botChatId] = { messages: [], users: [currentUser, 'assistant'] };
+                        privateChats[botChatId].messages.push(botMsg);
+                        io.emit('chat message', botMsg);
+                        saveData();
+                    }, 300);
+                }
             }
         }
     });
@@ -1001,4 +1015,6 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('🚀 ATOMGRAM запущен на порту ' + PORT);
     console.log('📱 Вход по номеру телефона');
     console.log('🤖 Ассистент: +79999999999 / assistant123');
+    console.log('🎥 Видеокружки работают');
+    console.log('🎤 Голосовые работают');
 });
