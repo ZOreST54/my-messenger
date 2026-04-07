@@ -46,6 +46,8 @@ app.get('/', (req, res) => {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: all 0.3s ease; min-height: 100vh; }
+        
+        /* ТЕМЫ */
         body.dark { background: #0a0a0a; color: white; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
         body.blue { background: #0a2a4a; color: white; }
@@ -54,6 +56,11 @@ app.get('/', (req, res) => {
         body.green .sidebar, body.green .chat-header, body.green .input-area { background: #0b4a30; }
         body.pink { background: #3d1a3a; color: white; }
         body.pink .sidebar, body.pink .chat-header, body.pink .input-area { background: #4a2045; }
+        body.purple { background: #2a1a3a; color: white; }
+        body.purple .sidebar, body.purple .chat-header, body.purple .input-area { background: #2a1a3e; }
+        body.orange { background: #3a2a1a; color: white; }
+        body.orange .sidebar, body.orange .chat-header, body.orange .input-area { background: #3e2a1a; }
+        
         body.dark .sidebar, body.dark .chat-header, body.dark .input-area { background: #1a1a2e; }
         body.light .sidebar, body.light .chat-header, body.light .input-area { background: white; }
         body.dark .message-content { background: #2a2a3e; }
@@ -61,7 +68,11 @@ app.get('/', (req, res) => {
         body.blue .message-content { background: #1e3a5f; }
         body.green .message-content { background: #1e5a3a; }
         body.pink .message-content { background: #5a2a50; }
+        body.purple .message-content { background: #3a2a4e; }
+        body.orange .message-content { background: #4e3a2a; }
+        
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white !important; }
+        
         #authScreen {
             position: fixed;
             top: 0;
@@ -108,6 +119,7 @@ app.get('/', (req, res) => {
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; font-size: 14px; }
         .success-msg { color: #4ade80; margin-top: 10px; font-size: 14px; }
+        
         #mainApp {
             display: none;
             width: 100%;
@@ -398,9 +410,13 @@ app.get('/', (req, res) => {
         </div>
         <div id="registerForm" style="display:none">
             <input type="text" id="regUsername" placeholder="Username">
-            <input type="text" id="regName" placeholder="Ваше имя">
+            <input type="text" id="regName" placeholder="Имя">
             <input type="text" id="regSurname" placeholder="Фамилия">
+            <input type="text" id="regNickname" placeholder="Никнейм">
             <input type="text" id="regPhone" placeholder="Телефон">
+            <input type="text" id="regEmail" placeholder="Email">
+            <input type="text" id="regCity" placeholder="Город">
+            <input type="text" id="regBirthday" placeholder="Дата рождения">
             <input type="text" id="regBio" placeholder="О себе">
             <select id="regTheme">
                 <option value="dark">🌙 Тёмная</option>
@@ -408,6 +424,8 @@ app.get('/', (req, res) => {
                 <option value="blue">💙 Синяя</option>
                 <option value="green">💚 Зелёная</option>
                 <option value="pink">💗 Розовая</option>
+                <option value="purple">💜 Фиолетовая</option>
+                <option value="orange">🧡 Оранжевая</option>
             </select>
             <input type="password" id="regPassword" placeholder="Пароль">
             <button onclick="register()">Зарегистрироваться</button>
@@ -465,6 +483,8 @@ app.get('/', (req, res) => {
             <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('💩')">💩</div>
             <div class="sticker" onclick="sendSticker('🎉')">🎉</div><div class="sticker" onclick="sendSticker('👍')">👍</div>
             <div class="sticker" onclick="sendSticker('👎')">👎</div><div class="sticker" onclick="sendSticker('🤣')">🤣</div>
+            <div class="sticker" onclick="sendSticker('🐱')">🐱</div><div class="sticker" onclick="sendSticker('🐶')">🐶</div>
+            <div class="sticker" onclick="sendSticker('🍕')">🍕</div><div class="sticker" onclick="sendSticker('🍺')">🍺</div>
         </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Сообщение...">
@@ -489,13 +509,19 @@ app.get('/', (req, res) => {
                 <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div><div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
                 <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div><div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
                 <div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div><div class="avatar-option" onclick="selectAvatar('🐼')">🐼</div>
+                <div class="avatar-option" onclick="selectAvatar('🦊')">🦊</div><div class="avatar-option" onclick="selectAvatar('🐨')">🐨</div>
+                <div class="avatar-option" onclick="selectAvatar('🐸')">🐸</div><div class="avatar-option" onclick="selectAvatar('🐙')">🐙</div>
             </div>
             <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
         </div>
         <div class="profile-field"><label>Имя</label><input type="text" id="editName"></div>
         <div class="profile-field"><label>Фамилия</label><input type="text" id="editSurname"></div>
+        <div class="profile-field"><label>Никнейм</label><input type="text" id="editNickname"></div>
         <div class="profile-field"><label>Телефон</label><input type="text" id="editPhone"></div>
-        <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2"></textarea></div>
+        <div class="profile-field"><label>Email</label><input type="email" id="editEmail"></div>
+        <div class="profile-field"><label>Город</label><input type="text" id="editCity"></div>
+        <div class="profile-field"><label>Дата рождения</label><input type="date" id="editBirthday"></div>
+        <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="3"></textarea></div>
         <div class="profile-field"><label>Статус</label><select id="editStatus"><option value="online">🟢 В сети</option><option value="away">🌙 Отошёл</option><option value="busy">🔴 Занят</option></select></div>
         <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
         <div class="modal-footer">
@@ -514,6 +540,8 @@ app.get('/', (req, res) => {
             <option value="blue">💙 Синяя</option>
             <option value="green">💚 Зелёная</option>
             <option value="pink">💗 Розовая</option>
+            <option value="purple">💜 Фиолетовая</option>
+            <option value="orange">🧡 Оранжевая</option>
         </select></div>
         <div class="modal-footer"><button class="save-btn" onclick="closeThemeModal()">Закрыть</button></div>
     </div>
@@ -527,7 +555,11 @@ app.get('/', (req, res) => {
         </div>
         <div class="profile-field"><label>Имя</label><div class="value" id="userProfileName">-</div></div>
         <div class="profile-field"><label>Фамилия</label><div class="value" id="userProfileSurname">-</div></div>
+        <div class="profile-field"><label>Никнейм</label><div class="value" id="userProfileNickname">-</div></div>
         <div class="profile-field"><label>Телефон</label><div class="value" id="userProfilePhone">-</div></div>
+        <div class="profile-field"><label>Email</label><div class="value" id="userProfileEmail">-</div></div>
+        <div class="profile-field"><label>Город</label><div class="value" id="userProfileCity">-</div></div>
+        <div class="profile-field"><label>Дата рождения</label><div class="value" id="userProfileBirthday">-</div></div>
         <div class="profile-field"><label>О себе</label><div class="value" id="userProfileBio">-</div></div>
         <div class="profile-field"><label>Статус</label><div class="value" id="userProfileStatus">-</div></div>
         <div class="modal-footer">
@@ -564,13 +596,14 @@ const savedPassword = localStorage.getItem('atomgram_password');
 // ========== ТЕМЫ ==========
 function applyTheme() {
     const theme = document.getElementById('themeSelect').value;
-    document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink');
+    const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple', 'orange'];
+    document.body.classList.remove(...themes);
     document.body.classList.add(theme);
     localStorage.setItem('atomgram_theme', theme);
 }
 function toggleThemeQuick() {
-    const themes = ['dark', 'light', 'blue', 'green', 'pink'];
-    const current = document.body.className.split(' ').find(c => themes.includes(c)) || 'dark';
+    const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple', 'orange'];
+    const current = themes.find(t => document.body.classList.contains(t)) || 'dark';
     const next = themes[(themes.indexOf(current) + 1) % themes.length];
     document.body.classList.remove(...themes);
     document.body.classList.add(next);
@@ -579,7 +612,10 @@ function toggleThemeQuick() {
 function openThemeModal() { document.getElementById('themeModal').style.display = 'flex'; closeSidebar(); }
 function closeThemeModal() { document.getElementById('themeModal').style.display = 'none'; }
 const savedTheme = localStorage.getItem('atomgram_theme');
-if (savedTheme) { document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink'); document.body.classList.add(savedTheme); }
+if (savedTheme && ['dark','light','blue','green','pink','purple','orange'].includes(savedTheme)) {
+    document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink', 'purple', 'orange');
+    document.body.classList.add(savedTheme);
+}
 
 // ========== ПОИСК ==========
 function searchUsers() {
@@ -591,7 +627,7 @@ function searchUsers() {
         const ud = window.usersProfiles[user] || {};
         return '<div class="search-item" onclick="viewUserProfile(\\'' + user + '\\')">' +
             '<span>' + (ud.avatar || '👤') + '</span>' +
-            '<span style="flex:1">' + (ud.name || user) + '</span>' +
+            '<span style="flex:1">' + (ud.nickname || ud.name || user) + '</span>' +
             '<button class="accept-btn" onclick="event.stopPropagation(); addFriendByUsername(\\'' + user + '\\')" style="padding:5px 10px;">➕ Друг</button></div>';
     }).join('');
     if (results.length === 0) resultsDiv.innerHTML = '<div style="padding:10px; text-align:center; color:#888;">Ничего не найдено</div>';
@@ -681,20 +717,20 @@ function renderFriends() {
     friendRequests.forEach(req => {
         const f = ud[req] || {};
         html += '<div class="friend-item friend-request">' + renderAvatar(f.avatarData, f.avatarType, 'small') +
-            '<span style="flex:1">' + (f.name || req) + '</span>' +
+            '<span style="flex:1">' + (f.nickname || f.name || req) + '</span>' +
             '<div class="friend-actions"><button class="accept-btn" onclick="acceptFriendRequest(\\'' + req + '\\')">✅</button>' +
             '<button class="reject-btn" onclick="rejectFriendRequest(\\'' + req + '\\')">❌</button></div></div>';
     });
     allFriends.forEach(friend => {
         const f = ud[friend] || {};
         html += '<div class="friend-item" onclick="startPrivateChat(\\'' + friend + '\\')">' + renderAvatar(f.avatarData, f.avatarType, 'small') +
-            '<span style="flex:1">' + (f.name || friend) + '</span>' +
+            '<span style="flex:1">' + (f.nickname || f.name || friend) + '</span>' +
             '<button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + friend + '\\')">🚫</button></div>';
     });
     bannedUsers.forEach(banned => {
         const b = ud[banned] || {};
         html += '<div class="friend-item" style="opacity:0.7;">' + renderAvatar(b.avatarData, b.avatarType, 'small') +
-            '<span style="flex:1">' + (b.name || banned) + ' (забанен)</span>' +
+            '<span style="flex:1">' + (b.nickname || b.name || banned) + ' (забанен)</span>' +
             '<button class="unban-btn" onclick="event.stopPropagation(); unbanUser(\\'' + banned + '\\')">🔓 Разбанить</button></div>';
     });
     container.innerHTML = html || '<div style="padding:10px; color:#666; text-align:center;">Нет друзей</div>';
@@ -710,7 +746,7 @@ function renderAvatar(avatarData, avatarType, size) {
     }
 }
 
-// ========== ВИДЕОКРУЖКИ ==========
+// ========== ВИДЕОКРУЖКИ (ИСПРАВЛЕНО ВОСПРОИЗВЕДЕНИЕ) ==========
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
     try {
@@ -840,7 +876,11 @@ function uploadAvatar() {
 function openProfileModal() {
     document.getElementById('editName').value = currentUserData?.name || '';
     document.getElementById('editSurname').value = currentUserData?.surname || '';
+    document.getElementById('editNickname').value = currentUserData?.nickname || '';
     document.getElementById('editPhone').value = currentUserData?.phone || '';
+    document.getElementById('editEmail').value = currentUserData?.email || '';
+    document.getElementById('editCity').value = currentUserData?.city || '';
+    document.getElementById('editBirthday').value = currentUserData?.birthday || '';
     document.getElementById('editBio').value = currentUserData?.bio || '';
     document.getElementById('editStatus').value = currentUserData?.status || 'online';
     document.getElementById('editPassword').value = '';
@@ -853,7 +893,18 @@ function closeProfileModal() { document.getElementById('profileModal').style.dis
 function toggleAvatarPicker() { const p = document.getElementById('avatarPicker'); p.style.display = p.style.display === 'none' ? 'flex' : 'none'; }
 function selectAvatar(avatar) { selectedAvatar = avatar; document.getElementById('profileAvatarContainer').innerHTML = '<div class="profile-avatar-emoji">' + avatar + '</div>'; document.getElementById('avatarPicker').style.display = 'none'; }
 function saveProfile() {
-    const data = { login: currentUser, name: document.getElementById('editName').value.trim(), surname: document.getElementById('editSurname').value.trim(), phone: document.getElementById('editPhone').value.trim(), bio: document.getElementById('editBio').value.trim(), status: document.getElementById('editStatus').value };
+    const data = { 
+        login: currentUser, 
+        name: document.getElementById('editName').value.trim(), 
+        surname: document.getElementById('editSurname').value.trim(),
+        nickname: document.getElementById('editNickname').value.trim(),
+        phone: document.getElementById('editPhone').value.trim(),
+        email: document.getElementById('editEmail').value.trim(),
+        city: document.getElementById('editCity').value.trim(),
+        birthday: document.getElementById('editBirthday').value,
+        bio: document.getElementById('editBio').value.trim(), 
+        status: document.getElementById('editStatus').value 
+    };
     const newPass = document.getElementById('editPassword').value.trim();
     if (newPass) data.password = newPass;
     if (selectedAvatar !== currentUserData?.avatar) { data.avatar = selectedAvatar; data.avatarType = 'emoji'; }
@@ -863,19 +914,24 @@ function saveProfile() {
     });
 }
 function updateProfileUI() {
-    const fullName = (currentUserData?.name || '') + ' ' + (currentUserData?.surname || '');
-    document.getElementById('userDisplayName').innerText = fullName.trim() || currentUser;
+    const displayName = currentUserData?.nickname || (currentUserData?.name + ' ' + (currentUserData?.surname || '')).trim() || currentUser;
+    document.getElementById('userDisplayName').innerText = displayName;
     document.getElementById('userUsername').innerText = '@' + currentUser;
     document.getElementById('userAvatarContainer').innerHTML = renderAvatar(currentUserData?.avatarData, currentUserData?.avatarType);
 }
 function viewUserProfile(username) {
     socket.emit('getUserProfile', username, (profile) => {
         if (profile) {
-            document.getElementById('userProfileTitle').innerText = profile.name || username;
+            const displayName = profile.nickname || (profile.name + ' ' + (profile.surname || '')).trim() || username;
+            document.getElementById('userProfileTitle').innerText = displayName;
             document.getElementById('userProfileAvatar').innerHTML = profile.avatar || '👤';
             document.getElementById('userProfileName').innerHTML = profile.name || '-';
             document.getElementById('userProfileSurname').innerHTML = profile.surname || '-';
+            document.getElementById('userProfileNickname').innerHTML = profile.nickname || '-';
             document.getElementById('userProfilePhone').innerHTML = profile.phone || '-';
+            document.getElementById('userProfileEmail').innerHTML = profile.email || '-';
+            document.getElementById('userProfileCity').innerHTML = profile.city || '-';
+            document.getElementById('userProfileBirthday').innerHTML = profile.birthday || '-';
             document.getElementById('userProfileBio').innerHTML = profile.bio || '-';
             let statusText = { online: '🟢 В сети', away: '🌙 Отошёл', busy: '🔴 Занят' }[profile.status] || '🟢 В сети';
             document.getElementById('userProfileStatus').innerHTML = statusText;
@@ -909,7 +965,11 @@ function login() {
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             updateProfileUI(); loadData();
-            if (res.userData.theme) { document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink'); document.body.classList.add(res.userData.theme); }
+            if (res.userData.theme) { 
+                const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple', 'orange'];
+                document.body.classList.remove(...themes);
+                document.body.classList.add(res.userData.theme);
+            }
         } else document.getElementById('authError').innerText = res.error;
     });
 }
@@ -917,12 +977,16 @@ function register() {
     const username = document.getElementById('regUsername').value.trim();
     const name = document.getElementById('regName').value.trim();
     const surname = document.getElementById('regSurname').value.trim();
+    const nickname = document.getElementById('regNickname').value.trim();
     const phone = document.getElementById('regPhone').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const city = document.getElementById('regCity').value.trim();
+    const birthday = document.getElementById('regBirthday').value;
     const bio = document.getElementById('regBio').value.trim();
     const theme = document.getElementById('regTheme').value;
     const password = document.getElementById('regPassword').value.trim();
     if (!username || !password) { document.getElementById('authError').innerText = 'Заполните username и пароль'; return; }
-    socket.emit('register', { username, name, surname, phone, bio, theme, password }, (res) => {
+    socket.emit('register', { username, name, surname, nickname, phone, email, city, birthday, bio, theme, password }, (res) => {
         if (res.success) {
             document.getElementById('authError').className = 'success-msg';
             document.getElementById('authError').innerText = 'Регистрация успешна! Войдите.';
@@ -948,7 +1012,8 @@ function startPrivateChat(userName) {
     currentChat = 'user:' + userName; currentChatType = 'private'; currentChatTarget = userName;
     socket.emit('joinPrivate', userName);
     const ud = window.usersProfiles[userName] || {};
-    document.getElementById('currentChatTitle').innerHTML = '💬 ' + (ud.name || userName);
+    const displayName = ud.nickname || ud.name || userName;
+    document.getElementById('currentChatTitle').innerHTML = '💬 ' + displayName;
     renderRooms(); renderFriends(); renderChannels();
     closeSidebar();
 }
@@ -968,7 +1033,8 @@ document.getElementById('messageInput').addEventListener('keypress', (e) => { if
 socket.on('typing', (data) => {
     if (currentChatType === 'private' && currentChatTarget === data.from) {
         const ud = window.usersProfiles[data.from] || {};
-        document.getElementById('typingIndicator').innerHTML = (ud.name || data.from) + ' печатает...';
+        const name = ud.nickname || ud.name || data.from;
+        document.getElementById('typingIndicator').innerHTML = name + ' печатает...';
         document.getElementById('typingIndicator').style.display = 'block';
         setTimeout(() => document.getElementById('typingIndicator').style.display = 'none', 2000);
     }
@@ -991,7 +1057,7 @@ socket.on('chat message', (msg) => {
     if (shouldShow) { addMessage(msg); document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight; }
     if (msg.from !== currentUser) {
         const ud = window.usersProfiles[msg.from] || {};
-        const name = ud.name || msg.from;
+        const name = ud.nickname || ud.name || msg.from;
         if (msg.type === 'private') showNotification(name, msg.text);
         else if (msg.type === 'room' && currentChatTarget !== msg.room) showNotification('Чат ' + msg.room, name + ': ' + msg.text);
         else if (msg.type === 'channel') showNotification('📢 ' + msg.channel, name + ': ' + msg.text);
@@ -1017,7 +1083,7 @@ function addMessage(msg) {
     if (msg.from === currentUser) div.className += ' my-message';
     const ud = window.usersProfiles[msg.from] || {};
     const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || msg.from;
+    const displayName = ud.nickname || ud.name || msg.from;
     div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\\'' + msg.from + '\\')">' + avatarHtml + '</div>' +
         '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\\'' + msg.from + '\\')">' + escapeHtml(displayName) + '</div>' +
         '<div class="message-text">' + (msg.text || '📎 Файл') + '</div><div class="message-time">' + (msg.time || getLocalTime()) + '</div></div></div>';
@@ -1028,7 +1094,7 @@ function addVoiceMessage(data) {
     if (data.from === currentUser) div.className += ' my-message';
     const ud = window.usersProfiles[data.from] || {};
     const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || data.from;
+    const displayName = ud.nickname || ud.name || data.from;
     div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\\'' + data.from + '\\')">' + avatarHtml + '</div>' +
         '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\\'' + data.from + '\\')">' + escapeHtml(displayName) + '</div>' +
         '<div class="voice-message"><button onclick="playAudio(this)" data-audio="' + data.audio + '">▶️</button><span>Голосовое</span></div>' +
@@ -1040,7 +1106,7 @@ function addVideoMessage(data) {
     if (data.from === currentUser) div.className += ' my-message';
     const ud = window.usersProfiles[data.from] || {};
     const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || data.from;
+    const displayName = ud.nickname || ud.name || data.from;
     div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\\'' + data.from + '\\')">' + avatarHtml + '</div>' +
         '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\\'' + data.from + '\\')">' + escapeHtml(displayName) + '</div>' +
         '<video class="video-circle" controls loop src="' + data.video + '"></video>' +
@@ -1052,7 +1118,7 @@ function addFileMessage(data) {
     if (data.from === currentUser) div.className += ' my-message';
     const ud = window.usersProfiles[data.from] || {};
     const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || data.from;
+    const displayName = ud.nickname || ud.name || data.from;
     const icon = data.fileType?.startsWith('image/') ? '🖼️' : '📄';
     div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\\'' + data.from + '\\')">' + avatarHtml + '</div>' +
         '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\\'' + data.from + '\\')">' + escapeHtml(displayName) + '</div>' +
@@ -1083,16 +1149,20 @@ io.on('connection', (socket) => {
     let currentUser = null, currentRoom = null;
 
     socket.on('register', (data, callback) => {
-        const { username, name, surname, phone, bio, theme, password } = data;
+        const { username, name, surname, nickname, phone, email, city, birthday, bio, theme, password } = data;
         if (users[username]) {
             callback({ success: false, error: 'Username уже занят' });
         } else {
             users[username] = {
                 username: username,
                 password: password,
-                name: name || username,
+                name: name || '',
                 surname: surname || '',
+                nickname: nickname || '',
                 phone: phone || '',
+                email: email || '',
+                city: city || '',
+                birthday: birthday || '',
                 bio: bio || '',
                 theme: theme || 'dark',
                 avatar: '👤',
@@ -1271,7 +1341,11 @@ io.on('connection', (socket) => {
         if (users[data.login]) {
             if (data.name !== undefined) users[data.login].name = data.name;
             if (data.surname !== undefined) users[data.login].surname = data.surname;
+            if (data.nickname !== undefined) users[data.login].nickname = data.nickname;
             if (data.phone !== undefined) users[data.login].phone = data.phone;
+            if (data.email !== undefined) users[data.login].email = data.email;
+            if (data.city !== undefined) users[data.login].city = data.city;
+            if (data.birthday !== undefined) users[data.login].birthday = data.birthday;
             if (data.bio !== undefined) users[data.login].bio = data.bio;
             if (data.status !== undefined) users[data.login].status = data.status;
             if (data.avatar !== undefined) {
@@ -1375,7 +1449,10 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log('ATOMGRAM запущен на порту ' + PORT);
-    console.log('✅ Видеокружки теперь круглые и воспроизводятся!');
-    console.log('✅ Кнопка бана пропадает для друзей');
-    console.log('✅ Забаненные отображаются отдельно');
+    console.log('✅ Видеокружки теперь воспроизводятся!');
+    console.log('✅ Приватные чаты исправлены!');
+    console.log('✅ 7 тем оформления');
+    console.log('✅ 14 аватарок');
+    console.log('✅ 16 стикеров');
+    console.log('✅ Много полей в профиле');
 });
