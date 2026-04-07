@@ -43,11 +43,9 @@ app.get('/', (req, res) => {
     <title>ATOMGRAM</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: all 0.3s ease; min-height: 100vh; }
-        
         body.dark { background: #0a0a0a; color: white; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
         body.blue { background: #0a2a4a; color: white; }
@@ -56,18 +54,14 @@ app.get('/', (req, res) => {
         body.green .sidebar, body.green .chat-header, body.green .input-area { background: #0b4a30; }
         body.pink { background: #3d1a3a; color: white; }
         body.pink .sidebar, body.pink .chat-header, body.pink .input-area { background: #4a2045; }
-        
         body.dark .sidebar, body.dark .chat-header, body.dark .input-area { background: #1a1a2e; }
         body.light .sidebar, body.light .chat-header, body.light .input-area { background: white; }
-        
         body.dark .message-content { background: #2a2a3e; }
         body.light .message-content { background: #e8e8e8; }
         body.blue .message-content { background: #1e3a5f; }
         body.green .message-content { background: #1e5a3a; }
         body.pink .message-content { background: #5a2a50; }
-        
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white !important; }
-        
         #authScreen {
             position: fixed;
             top: 0;
@@ -114,7 +108,6 @@ app.get('/', (req, res) => {
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; font-size: 14px; }
         .success-msg { color: #4ade80; margin-top: 10px; font-size: 14px; }
-        
         #mainApp {
             display: none;
             width: 100%;
@@ -122,7 +115,6 @@ app.get('/', (req, res) => {
             position: relative;
             overflow: hidden;
         }
-        
         .sidebar {
             position: fixed;
             left: -85%;
@@ -148,7 +140,6 @@ app.get('/', (req, res) => {
             display: none;
         }
         .sidebar-overlay.open { display: block; }
-        
         .sidebar-header {
             padding: 50px 20px 20px 20px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -164,7 +155,6 @@ app.get('/', (req, res) => {
         .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         .menu-item:hover { background: rgba(102,126,234,0.1); }
         .section-title { padding: 10px 20px 5px 20px; font-size: 11px; color: #667eea; text-transform: uppercase; }
-        
         .search-box {
             padding: 10px 15px;
             margin: 5px 10px;
@@ -183,8 +173,6 @@ app.get('/', (req, res) => {
             font-size: 14px;
             outline: none;
         }
-        .search-box input::placeholder { color: #888; }
-        
         .friends-list, .rooms-list, .channels-list, .search-results {
             padding: 5px 10px;
             overflow-y: auto;
@@ -208,11 +196,11 @@ app.get('/', (req, res) => {
         .accept-btn { background: #4ade80; color: white; }
         .reject-btn { background: #ff6b6b; color: white; }
         .ban-btn { background: #ff4444; color: white; border: none; padding: 3px 8px; border-radius: 12px; cursor: pointer; font-size: 12px; }
+        .unban-btn { background: #4ade80; color: white; border: none; padding: 3px 8px; border-radius: 12px; cursor: pointer; font-size: 12px; }
         .user-avatar-small-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
         .user-avatar-small { font-size: 24px; }
         .create-btn { padding: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; }
         .create-btn button { flex: 1; padding: 10px; background: #2a2a3e; border: 1px solid #667eea; border-radius: 20px; color: #667eea; cursor: pointer; font-size: 14px; }
-        
         .chat-area {
             display: flex;
             flex-direction: column;
@@ -231,7 +219,6 @@ app.get('/', (req, res) => {
         .menu-btn { background: none; border: none; font-size: 24px; cursor: pointer; padding: 5px; color: inherit; }
         .theme-toggle { background: none; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 5px; }
         .chat-title { flex: 1; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
         .sticker-picker {
             position: fixed;
             bottom: 80px;
@@ -250,7 +237,6 @@ app.get('/', (req, res) => {
         .sticker-picker.open { display: flex; }
         .sticker { font-size: 40px; cursor: pointer; padding: 8px; border-radius: 15px; transition: transform 0.1s; }
         .sticker:active { transform: scale(1.1); }
-        
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -280,7 +266,6 @@ app.get('/', (req, res) => {
         .file-attachment { background: rgba(102,126,234,0.2); padding: 8px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .file-attachment a { text-decoration: none; color: inherit; }
         .typing-indicator { font-size: 11px; color: #888; padding: 5px 15px; font-style: italic; }
-        
         .input-area {
             display: flex;
             padding: 10px 15px;
@@ -310,7 +295,6 @@ app.get('/', (req, res) => {
         .attach-btn, .voice-record-btn, .video-record-btn, .sticker-btn { background: #2a2a3e !important; }
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        
         .video-modal {
             position: fixed;
             top: 0;
@@ -332,7 +316,6 @@ app.get('/', (req, res) => {
         .stop-record { background: #ff4444; color: white; }
         .send-video { background: #4ade80; color: white; }
         .close-video { background: #888; color: white; }
-        
         .notification {
             position: fixed;
             bottom: 70px;
@@ -349,7 +332,6 @@ app.get('/', (req, res) => {
             white-space: normal;
             text-align: center;
         }
-        
         .modal {
             position: fixed;
             top: 0;
@@ -385,7 +367,6 @@ app.get('/', (req, res) => {
         .modal-footer { padding: 15px; display: flex; gap: 10px; }
         .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 14px; }
         .upload-btn { flex: 1; padding: 12px; background: #2a2a3e; color: white; border: 1px solid #667eea; border-radius: 25px; cursor: pointer; font-size: 14px; }
-        
         @media (min-width: 768px) {
             .sidebar { position: relative; left: 0 !important; width: 280px; max-width: 280px; }
             .sidebar-overlay { display: none !important; }
@@ -551,7 +532,7 @@ app.get('/', (req, res) => {
         <div class="profile-field"><label>Статус</label><div class="value" id="userProfileStatus">-</div></div>
         <div class="modal-footer">
             <button class="save-btn" onclick="startChatFromProfile()">💬 Написать</button>
-            <button class="ban-btn" onclick="banFromProfile()" style="background:#ff4444; color:white; border:none; padding:12px; border-radius:25px;">🚫 Забанить</button>
+            <div id="profileActionBtn"></div>
         </div>
     </div>
 </div>
@@ -571,7 +552,7 @@ app.get('/', (req, res) => {
 const socket = io();
 let currentUser = null, currentUserData = null;
 let currentChat = null, currentChatType = null, currentChatTarget = null;
-let allRooms = [], allFriends = [], allChannels = [], friendRequests = [], allUsers = [];
+let allRooms = [], allFriends = [], allChannels = [], friendRequests = [], allUsers = [], bannedUsers = [];
 let selectedAvatar = '👤';
 let mediaRecorder = null, audioChunks = [], isRecording = false;
 let videoStream = null, videoRecorder = null, videoChunks = [];
@@ -586,34 +567,19 @@ function applyTheme() {
     document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink');
     document.body.classList.add(theme);
     localStorage.setItem('atomgram_theme', theme);
-    if (theme === 'light') document.querySelector('.theme-toggle').innerHTML = '☀️';
-    else document.querySelector('.theme-toggle').innerHTML = '🌙';
 }
 function toggleThemeQuick() {
-    const current = document.body.classList.contains('dark') ? 'dark' : 
-                    document.body.classList.contains('light') ? 'light' :
-                    document.body.classList.contains('blue') ? 'blue' :
-                    document.body.classList.contains('green') ? 'green' : 'pink';
     const themes = ['dark', 'light', 'blue', 'green', 'pink'];
+    const current = document.body.className.split(' ').find(c => themes.includes(c)) || 'dark';
     const next = themes[(themes.indexOf(current) + 1) % themes.length];
     document.body.classList.remove(...themes);
     document.body.classList.add(next);
     localStorage.setItem('atomgram_theme', next);
-    if (next === 'light') document.querySelector('.theme-toggle').innerHTML = '☀️';
-    else document.querySelector('.theme-toggle').innerHTML = '🌙';
 }
-function openThemeModal() {
-    document.getElementById('themeModal').style.display = 'flex';
-    closeSidebar();
-}
-function closeThemeModal() {
-    document.getElementById('themeModal').style.display = 'none';
-}
+function openThemeModal() { document.getElementById('themeModal').style.display = 'flex'; closeSidebar(); }
+function closeThemeModal() { document.getElementById('themeModal').style.display = 'none'; }
 const savedTheme = localStorage.getItem('atomgram_theme');
-if (savedTheme) {
-    document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink');
-    document.body.classList.add(savedTheme);
-}
+if (savedTheme) { document.body.classList.remove('dark', 'light', 'blue', 'green', 'pink'); document.body.classList.add(savedTheme); }
 
 // ========== ПОИСК ==========
 function searchUsers() {
@@ -638,10 +604,7 @@ function addFriendByUsername(username) {
 }
 
 // ========== СТИКЕРЫ ==========
-function toggleStickerPicker() {
-    const picker = document.getElementById('stickerPicker');
-    picker.classList.toggle('open');
-}
+function toggleStickerPicker() { document.getElementById('stickerPicker').classList.toggle('open'); }
 function sendSticker(sticker) {
     if (!currentChat) { alert('Выберите чат'); return; }
     if (currentChatType === 'room') socket.emit('chat message', { type: 'room', target: currentChatTarget, text: sticker });
@@ -708,6 +671,9 @@ function banUser(userToBan) {
         if (currentChat === 'user:' + userToBan) { currentChat = null; document.getElementById('currentChatTitle').innerHTML = 'Выберите чат'; }
     }
 }
+function unbanUser(userToUnban) {
+    socket.emit('unban user', { userToUnban: userToUnban });
+}
 function renderFriends() {
     const container = document.getElementById('friendsList');
     const ud = window.usersProfiles || {};
@@ -725,6 +691,12 @@ function renderFriends() {
             '<span style="flex:1">' + (f.name || friend) + '</span>' +
             '<button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + friend + '\\')">🚫</button></div>';
     });
+    bannedUsers.forEach(banned => {
+        const b = ud[banned] || {};
+        html += '<div class="friend-item" style="opacity:0.7;">' + renderAvatar(b.avatarData, b.avatarType, 'small') +
+            '<span style="flex:1">' + (b.name || banned) + ' (забанен)</span>' +
+            '<button class="unban-btn" onclick="event.stopPropagation(); unbanUser(\\'' + banned + '\\')">🔓 Разбанить</button></div>';
+    });
     container.innerHTML = html || '<div style="padding:10px; color:#666; text-align:center;">Нет друзей</div>';
 }
 function renderAvatar(avatarData, avatarType, size) {
@@ -738,7 +710,7 @@ function renderAvatar(avatarData, avatarType, size) {
     }
 }
 
-// ========== ВИДЕОКРУЖКИ (КРУГЛЫЕ - ИСПРАВЛЕНО) ==========
+// ========== ВИДЕОКРУЖКИ ==========
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
     try {
@@ -908,13 +880,22 @@ function viewUserProfile(username) {
             let statusText = { online: '🟢 В сети', away: '🌙 Отошёл', busy: '🔴 Занят' }[profile.status] || '🟢 В сети';
             document.getElementById('userProfileStatus').innerHTML = statusText;
             window.viewedProfileUsername = username;
+            const isFriend = allFriends.includes(username);
+            const isBanned = bannedUsers.includes(username);
+            const actionBtn = document.getElementById('profileActionBtn');
+            if (isBanned) {
+                actionBtn.innerHTML = '<button class="unban-btn" onclick="unbanUser(\\'' + username + '\\')" style="padding:12px; border-radius:25px;">🔓 Разбанить</button>';
+            } else if (isFriend) {
+                actionBtn.innerHTML = '<button class="ban-btn" onclick="banUser(\\'' + username + '\\')" style="padding:12px; border-radius:25px;">🚫 Забанить</button>';
+            } else {
+                actionBtn.innerHTML = '<button class="accept-btn" onclick="addFriendByUsername(\\'' + username + '\\')" style="padding:12px; border-radius:25px;">➕ Добавить в друзья</button>';
+            }
             document.getElementById('userProfileModal').style.display = 'flex';
         }
     });
 }
 function closeUserProfileModal() { document.getElementById('userProfileModal').style.display = 'none'; }
 function startChatFromProfile() { if (window.viewedProfileUsername) { closeUserProfileModal(); startPrivateChat(window.viewedProfileUsername); } }
-function banFromProfile() { if (window.viewedProfileUsername) { closeUserProfileModal(); banUser(window.viewedProfileUsername); } }
 function login() {
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
@@ -954,13 +935,13 @@ function showLogin() { document.getElementById('authForm').style.display = 'bloc
 if (savedUsername && savedPassword) { document.getElementById('loginUsername').value = savedUsername; document.getElementById('loginPassword').value = savedPassword; setTimeout(() => login(), 100); }
 function loadData() {
     socket.emit('getRooms', (rooms) => { allRooms = rooms; renderRooms(); });
-    socket.emit('getFriends', (data) => { allFriends = data.friends || []; friendRequests = data.requests || []; renderFriends(); });
+    socket.emit('getFriends', (data) => { allFriends = data.friends || []; friendRequests = data.requests || []; bannedUsers = data.banned || []; renderFriends(); });
     socket.emit('getChannels', (channels) => { allChannels = channels; renderChannels(); });
     socket.emit('getAllUsers', (users) => { allUsers = users; });
 }
 window.usersProfiles = {};
 socket.on('users list with profiles', (profiles) => { profiles.forEach(p => { window.usersProfiles[p.username] = p; }); });
-socket.on('friends update', (data) => { allFriends = data.friends || []; friendRequests = data.requests || []; renderFriends(); });
+socket.on('friends update', (data) => { allFriends = data.friends || []; friendRequests = data.requests || []; bannedUsers = data.banned || []; renderFriends(); });
 socket.on('channels update', (channels) => { allChannels = channels; renderChannels(); });
 socket.on('rooms update', (rooms) => { allRooms = rooms; renderRooms(); });
 function startPrivateChat(userName) {
@@ -1141,7 +1122,7 @@ io.on('connection', (socket) => {
             users[username].status = 'online';
             callback({ success: true, userData: users[username] });
             sendUserList(); sendProfileList();
-            socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [] });
+            socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
         }
     });
 
@@ -1177,7 +1158,7 @@ io.on('connection', (socket) => {
                 callback({ success: true, message: 'Запрос отправлен!' });
                 const friendSocket = getSocketByUsername(friendUsername);
                 if (friendSocket) {
-                    friendSocket.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [] });
+                    friendSocket.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [], banned: users[friendUsername].banned || [] });
                     friendSocket.emit('notification', { from: currentUser, message: 'хочет добавить вас в друзья' });
                 }
             }
@@ -1193,9 +1174,9 @@ io.on('connection', (socket) => {
             if (!users[currentUser].friends.includes(fromUser)) users[currentUser].friends.push(fromUser);
             if (!users[fromUser].friends.includes(currentUser)) users[fromUser].friends.push(currentUser);
             saveData();
-            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests });
+            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
             const fromSocket = getSocketByUsername(fromUser);
-            if (fromSocket) fromSocket.emit('friends update', { friends: users[fromUser].friends, requests: users[fromUser].friendRequests });
+            if (fromSocket) fromSocket.emit('friends update', { friends: users[fromUser].friends, requests: users[fromUser].friendRequests, banned: users[fromUser].banned || [] });
         }
     });
 
@@ -1204,7 +1185,7 @@ io.on('connection', (socket) => {
         if (users[currentUser].friendRequests?.includes(fromUser)) {
             users[currentUser].friendRequests = users[currentUser].friendRequests.filter(f => f !== fromUser);
             saveData();
-            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests });
+            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
         }
     });
 
@@ -1217,15 +1198,24 @@ io.on('connection', (socket) => {
                 users[currentUser].friends = users[currentUser].friends.filter(f => f !== userToBan);
             }
             saveData();
-            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests });
+            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
+        }
+    });
+
+    socket.on('unban user', (data) => {
+        const { userToUnban } = data;
+        if (users[currentUser].banned?.includes(userToUnban)) {
+            users[currentUser].banned = users[currentUser].banned.filter(b => b !== userToUnban);
+            saveData();
+            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
         }
     });
 
     socket.on('getFriends', (callback) => {
         if (users[currentUser]) {
-            callback({ friends: users[currentUser].friends || [], requests: users[currentUser].friendRequests || [] });
+            callback({ friends: users[currentUser].friends || [], requests: users[currentUser].friendRequests || [], banned: users[currentUser].banned || [] });
         } else {
-            callback({ friends: [], requests: [] });
+            callback({ friends: [], requests: [], banned: [] });
         }
     });
 
@@ -1385,7 +1375,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log('ATOMGRAM запущен на порту ' + PORT);
-    console.log('✅ Видеокружки теперь круглые!');
-    console.log('✅ Поиск друзей работает');
-    console.log('✅ 5 тем оформления');
+    console.log('✅ Видеокружки теперь круглые и воспроизводятся!');
+    console.log('✅ Кнопка бана пропадает для друзей');
+    console.log('✅ Забаненные отображаются отдельно');
 });
