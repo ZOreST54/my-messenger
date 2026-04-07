@@ -48,7 +48,6 @@ app.get('/', (req, res) => {
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; transition: all 0.3s ease; min-height: 100vh; }
         
-        /* ТЕМЫ */
         body.dark { background: #0a0a0a; color: white; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
         body.blue { background: #0a2a4a; color: white; }
@@ -91,7 +90,7 @@ app.get('/', (req, res) => {
             max-width: 350px;
             text-align: center;
         }
-        .auth-card input {
+        .auth-card input, .auth-card select {
             width: 100%;
             padding: 14px;
             margin: 8px 0;
@@ -124,7 +123,6 @@ app.get('/', (req, res) => {
             overflow: hidden;
         }
         
-        /* Боковое меню */
         .sidebar {
             position: fixed;
             left: -85%;
@@ -215,7 +213,6 @@ app.get('/', (req, res) => {
         .create-btn { padding: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; }
         .create-btn button { flex: 1; padding: 10px; background: #2a2a3e; border: 1px solid #667eea; border-radius: 20px; color: #667eea; cursor: pointer; font-size: 14px; }
         
-        /* Чат */
         .chat-area {
             display: flex;
             flex-direction: column;
@@ -235,7 +232,6 @@ app.get('/', (req, res) => {
         .theme-toggle { background: none; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 5px; }
         .chat-title { flex: 1; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* Стикеры */
         .sticker-picker {
             position: fixed;
             bottom: 80px;
@@ -252,13 +248,7 @@ app.get('/', (req, res) => {
             overflow-y: auto;
         }
         .sticker-picker.open { display: flex; }
-        .sticker {
-            font-size: 40px;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 15px;
-            transition: transform 0.1s;
-        }
+        .sticker { font-size: 40px; cursor: pointer; padding: 8px; border-radius: 15px; transition: transform 0.1s; }
         .sticker:active { transform: scale(1.1); }
         
         .messages-area {
@@ -286,7 +276,7 @@ app.get('/', (req, res) => {
         .message-time { font-size: 9px; color: #888; margin-top: 3px; }
         .voice-message { display: flex; align-items: center; gap: 8px; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; color: inherit; }
-        .video-circle { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; cursor: pointer; }
+        .video-circle { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; cursor: pointer; background: #2a2a3e; }
         .file-attachment { background: rgba(102,126,234,0.2); padding: 8px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .file-attachment a { text-decoration: none; color: inherit; }
         .typing-indicator { font-size: 11px; color: #888; padding: 5px 15px; font-style: italic; }
@@ -488,18 +478,12 @@ app.get('/', (req, res) => {
         <div class="messages-area" id="messages"></div>
         <div class="typing-indicator" id="typingIndicator" style="display:none"></div>
         <div class="sticker-picker" id="stickerPicker">
-            <div class="sticker" onclick="sendSticker('😀')">😀</div>
-            <div class="sticker" onclick="sendSticker('😂')">😂</div>
-            <div class="sticker" onclick="sendSticker('😍')">😍</div>
-            <div class="sticker" onclick="sendSticker('😎')">😎</div>
-            <div class="sticker" onclick="sendSticker('🥳')">🥳</div>
-            <div class="sticker" onclick="sendSticker('🔥')">🔥</div>
-            <div class="sticker" onclick="sendSticker('❤️')">❤️</div>
-            <div class="sticker" onclick="sendSticker('💩')">💩</div>
-            <div class="sticker" onclick="sendSticker('🎉')">🎉</div>
-            <div class="sticker" onclick="sendSticker('👍')">👍</div>
-            <div class="sticker" onclick="sendSticker('👎')">👎</div>
-            <div class="sticker" onclick="sendSticker('🤣')">🤣</div>
+            <div class="sticker" onclick="sendSticker('😀')">😀</div><div class="sticker" onclick="sendSticker('😂')">😂</div>
+            <div class="sticker" onclick="sendSticker('😍')">😍</div><div class="sticker" onclick="sendSticker('😎')">😎</div>
+            <div class="sticker" onclick="sendSticker('🥳')">🥳</div><div class="sticker" onclick="sendSticker('🔥')">🔥</div>
+            <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('💩')">💩</div>
+            <div class="sticker" onclick="sendSticker('🎉')">🎉</div><div class="sticker" onclick="sendSticker('👍')">👍</div>
+            <div class="sticker" onclick="sendSticker('👎')">👎</div><div class="sticker" onclick="sendSticker('🤣')">🤣</div>
         </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Сообщение...">
@@ -753,29 +737,66 @@ function renderAvatar(avatarData, avatarType, size) {
         return '<div class="avatar-emoji">' + emoji + '</div>';
     }
 }
+
+// ========== ВИДЕОКРУЖКИ (КРУГЛЫЕ - ИСПРАВЛЕНО) ==========
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
-    try { videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); document.getElementById('videoPreview').srcObject = videoStream; } catch(err) { alert('Нет доступа к камере'); closeVideoModal(); }
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById('videoPreview').srcObject = videoStream;
+    } catch(err) { alert('Нет доступа к камере'); closeVideoModal(); }
 }
 function startRecording() {
-    videoChunks = []; videoRecorder = new MediaRecorder(videoStream);
+    videoChunks = [];
+    videoRecorder = new MediaRecorder(videoStream);
     videoRecorder.ondataavailable = e => videoChunks.push(e.data);
-    videoRecorder.onstop = () => { recordedVideoBlob = new Blob(videoChunks, { type: 'video/mp4' }); document.getElementById('sendVideoBtn').style.display = 'inline-block'; };
-    videoRecorder.start(); document.getElementById('startRecordBtn').style.display = 'none'; document.getElementById('stopRecordBtn').style.display = 'inline-block';
+    videoRecorder.onstop = () => {
+        recordedVideoBlob = new Blob(videoChunks, { type: 'video/mp4' });
+        document.getElementById('sendVideoBtn').style.display = 'inline-block';
+        document.getElementById('startRecordBtn').style.display = 'none';
+        document.getElementById('stopRecordBtn').style.display = 'none';
+    };
+    videoRecorder.start();
+    document.getElementById('startRecordBtn').style.display = 'none';
+    document.getElementById('stopRecordBtn').style.display = 'inline-block';
 }
 function stopRecording() { if (videoRecorder) videoRecorder.stop(); }
 function sendVideoCircle() {
     if (!recordedVideoBlob || !currentChat) { alert('Выберите чат'); return; }
-    const reader = new FileReader();
-    reader.onloadend = () => { socket.emit('video circle', { type: currentChatType, target: currentChatTarget, video: reader.result }); closeVideoModal(); };
-    reader.readAsDataURL(recordedVideoBlob);
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(recordedVideoBlob);
+    video.onloadedmetadata = () => {
+        const canvas = document.createElement('canvas');
+        const size = Math.min(video.videoWidth, video.videoHeight);
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const offsetX = (video.videoWidth - size) / 2;
+        const offsetY = (video.videoHeight - size) / 2;
+        video.currentTime = 0;
+        video.onseeked = () => {
+            ctx.drawImage(video, offsetX, offsetY, size, size, 0, 0, size, size);
+            canvas.toBlob((squareBlob) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    socket.emit('video circle', { type: currentChatType, target: currentChatTarget, video: reader.result });
+                    closeVideoModal();
+                };
+                reader.readAsDataURL(squareBlob);
+            }, 'video/mp4');
+        };
+        video.currentTime = 0;
+    };
 }
 function closeVideoModal() {
     document.getElementById('videoModal').style.display = 'none';
     if (videoStream) videoStream.getTracks().forEach(t => t.stop());
     recordedVideoBlob = null;
-    document.getElementById('startRecordBtn').style.display = 'inline-block'; document.getElementById('stopRecordBtn').style.display = 'none'; document.getElementById('sendVideoBtn').style.display = 'none';
+    document.getElementById('startRecordBtn').style.display = 'inline-block';
+    document.getElementById('stopRecordBtn').style.display = 'none';
+    document.getElementById('sendVideoBtn').style.display = 'none';
 }
+
 function sendFile() {
     const file = document.getElementById('fileInput').files[0];
     if (!file || !currentChat) return;
@@ -1364,8 +1385,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log('ATOMGRAM запущен на порту ' + PORT);
+    console.log('✅ Видеокружки теперь круглые!');
     console.log('✅ Поиск друзей работает');
-    console.log('✅ Стикеры добавлены');
     console.log('✅ 5 тем оформления');
 });
-`);
