@@ -14,6 +14,7 @@ const io = socketIo(server, {
     pingInterval: 25000
 });
 
+// ========== ДАННЫЕ ==========
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 function loadData() {
@@ -363,10 +364,10 @@ app.get('/', (req, res) => {
     <div class="modal-content">
         <div class="modal-header"><h3>Настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
         <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></div>
-        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option></select></div>
+        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option><option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option></select></div>
         <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option></select></div>
+        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option><option value="18px">Очень большой</option></select></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
@@ -396,8 +397,6 @@ const savedUsername = localStorage.getItem('atomgram_username');
 const savedPassword = localStorage.getItem('atomgram_password');
 const savedTheme = localStorage.getItem('atomgram_theme');
 if (savedTheme === 'light') document.body.classList.add('light');
-
-function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
 function applyTheme() {
     const theme = document.getElementById('themeSelect').value;
@@ -443,24 +442,8 @@ function openSettingsModal() {
     closeSidebar();
 }
 function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
-function applySavedSettings() {
-    const bg = localStorage.getItem('atomgram_chatBg');
-    if (bg) { document.querySelector('.messages-area').style.background = bg; document.querySelector('.messages-area').style.backgroundSize = 'cover'; }
-    const myColor = localStorage.getItem('atomgram_myMsgColor');
-    const otherColor = localStorage.getItem('atomgram_otherMsgColor');
-    if (myColor || otherColor) {
-        let style = document.getElementById('msgColorStyle');
-        if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
-            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
-    }
-    const fontSize = localStorage.getItem('atomgram_fontSize');
-    if (fontSize) {
-        let style = document.getElementById('fontSizeStyle');
-        if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message-text { font-size: ${fontSize} !important; }`;
-    }
-}
+
+function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
 function createRoom() {
     const name = prompt('Название чата:');
@@ -650,19 +633,35 @@ function register() {
     const p = document.getElementById('regPassword').value.trim();
     if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
     socket.emit('register', { username: u, name: n, surname: s, password: p }, (res) => {
-        if (res.success) {
-            document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.';
-            showLogin();
-        } else document.getElementById('authError').innerText = res.error;
+        if (res.success) { document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.'; showLogin(); }
+        else document.getElementById('authError').innerText = res.error;
     });
 }
-function showRegister() { document.getElementById('authForm').style.display = 'none'; document.getElementById('registerForm').style.display = 'block'; }
-function showLogin() { document.getElementById('authForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; }
+function showRegister() { document.getElementById('authForm').style.display = 'none'; document.getElementById('registerForm').style.display = 'block'; document.getElementById('authError').innerText = ''; }
+function showLogin() { document.getElementById('authForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; document.getElementById('authError').innerText = ''; }
 if (savedUsername && savedPassword) { document.getElementById('loginUsername').value = savedUsername; document.getElementById('loginPassword').value = savedPassword; setTimeout(login, 100); }
 function loadData() {
     socket.emit('getRooms', (r) => { allRooms = r; renderAll(); });
     socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
     socket.emit('getChannels', (c) => { allChannels = c; renderAll(); });
+}
+function applySavedSettings() {
+    const bg = localStorage.getItem('atomgram_chatBg');
+    if (bg) { document.querySelector('.messages-area').style.background = bg; document.querySelector('.messages-area').style.backgroundSize = 'cover'; }
+    const myColor = localStorage.getItem('atomgram_myMsgColor');
+    const otherColor = localStorage.getItem('atomgram_otherMsgColor');
+    if (myColor || otherColor) {
+        let style = document.getElementById('msgColorStyle');
+        if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
+        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
+            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
+    }
+    const fontSize = localStorage.getItem('atomgram_fontSize');
+    if (fontSize) {
+        let style = document.getElementById('fontSizeStyle');
+        if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
+        style.innerHTML = `.message-text { font-size: ${fontSize} !important; }`;
+    }
 }
 socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('rooms update', (r) => { allRooms = r; renderAll(); });
@@ -863,10 +862,10 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`║  💻 http://localhost:${PORT}      ║`);
     console.log(`║  📱 http://${ip}:${PORT}     ║`);
     console.log(`╠════════════════════════════════╣`);
-    console.log(`║  ✅ Вход по username/паролю   ║`);
-    console.log(`║  ✅ Видеокружки работают      ║`);
-    console.log(`║  ✅ Голосовые с паузой        ║`);
-    console.log(`║  ✅ Файлы, друзья, каналы     ║`);
-    console.log(`║  ✅ Сервер НЕ ЗАСЫПАЕТ        ║`);
+    console.log(`║  ✅ Всё работает!            ║`);
+    console.log(`║  ✅ Видеокружки ✅            ║`);
+    console.log(`║  ✅ Голосовые ✅              ║`);
+    console.log(`║  ✅ Файлы ✅                  ║`);
+    console.log(`║  ✅ Друзья, каналы, чаты     ║`);
     console.log(`╚════════════════════════════════╝\n`);
 });
