@@ -37,7 +37,16 @@ let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 let channels = savedData.channels || {};
 
+// Сохраняем каждые 10 секунд
 setInterval(saveData, 10000);
+
+// ========== ГЕНЕРАЦИЯ КОДА ==========
+function generateCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Временное хранилище кодов (в реальном приложении используй БД)
+const phoneCodes = {};
 
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -58,7 +67,7 @@ app.get('/', (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; }
+        body { font-family: Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; transition: all 0.3s; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
         
         #authScreen {
@@ -103,6 +112,7 @@ app.get('/', (req, res) => {
         }
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; }
+        .success-msg { color: #4ade80; margin-top: 10px; }
         
         #mainApp {
             display: none;
@@ -290,17 +300,29 @@ app.get('/', (req, res) => {
     <div class="auth-card">
         <div style="font-size: 36px; margin-bottom: 20px;">⚡</div>
         <div id="authForm">
-            <input type="text" id="loginUsername" placeholder="Username">
-            <input type="password" id="loginPassword" placeholder="Пароль">
-            <button onclick="login()">Войти</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="background: rgba(255,255,255,0.2); padding: 14px; border-radius: 25px;">+7</span>
+                <input type="tel" id="loginPhone" placeholder="XXX XXX XX-XX" style="flex:1">
+            </div>
+            <button onclick="sendCode()">Получить код</button>
+            <div id="codeSection" style="display:none; margin-top: 10px;">
+                <input type="text" id="loginCode" placeholder="Код из SMS">
+                <button onclick="verifyCode()">Войти</button>
+            </div>
             <button class="switch-btn" onclick="showRegister()">Создать аккаунт</button>
         </div>
         <div id="registerForm" style="display:none">
-            <input type="text" id="regUsername" placeholder="Username">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="background: rgba(255,255,255,0.2); padding: 14px; border-radius: 25px;">+7</span>
+                <input type="tel" id="regPhone" placeholder="XXX XXX XX-XX" style="flex:1">
+            </div>
             <input type="text" id="regName" placeholder="Имя">
             <input type="text" id="regSurname" placeholder="Фамилия">
-            <input type="password" id="regPassword" placeholder="Пароль">
-            <button onclick="register()">Зарегистрироваться</button>
+            <button onclick="registerSendCode()">Отправить код</button>
+            <div id="regCodeSection" style="display:none; margin-top: 10px;">
+                <input type="text" id="regCode" placeholder="Код из SMS">
+                <button onclick="verifyRegisterCode()">Зарегистрироваться</button>
+            </div>
             <button class="switch-btn" onclick="showLogin()">Назад</button>
         </div>
         <div id="authError" class="error-msg"></div>
@@ -313,7 +335,7 @@ app.get('/', (req, res) => {
             <div id="userAvatar"><div class="avatar-emoji">👤</div></div>
             <div class="user-info">
                 <h3 id="userName">Загрузка...</h3>
-                <div class="username" id="userLogin">@</div>
+                <div class="username" id="userPhone">+7</div>
             </div>
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
@@ -368,6 +390,8 @@ app.get('/', (req, res) => {
         <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option><option value="18px">Очень большой</option></select></div>
+        <div class="profile-field"><label>🔊 Звук уведомлений</label><select id="soundSelect" onchange="applySound()"><option value="default">🔔 Обычный</option><option value="pop">🔘 Поп</option><option value="chime">🔊 Чайм</option><option value="silent">🔇 Без звука</option></select></div>
+        <div class="profile-field"><label>⚡ Автосохранение</label><select id="autoSaveSelect"><option value="on">Вкл</option><option value="off">Выкл</option></select></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
@@ -392,11 +416,90 @@ let mediaRecorder = null, audioChunks = [], isRecording = false;
 let videoStream = null, videoRecorder = null, videoChunks = [];
 let recordedVideoBlob = null;
 let currentAudio = null;
+let pendingPhone = null;
 
-const savedUsername = localStorage.getItem('atomgram_username');
-const savedPassword = localStorage.getItem('atomgram_password');
 const savedTheme = localStorage.getItem('atomgram_theme');
 if (savedTheme === 'light') document.body.classList.add('light');
+
+function formatPhone(input) {
+    let numbers = input.replace(/\\D/g, '');
+    if (numbers.length > 10) numbers = numbers.slice(0, 10);
+    let formatted = '';
+    if (numbers.length > 0) formatted = numbers.slice(0, 3);
+    if (numbers.length > 3) formatted = numbers.slice(0, 3) + ' ' + numbers.slice(3, 6);
+    if (numbers.length > 6) formatted = numbers.slice(0, 3) + ' ' + numbers.slice(3, 6) + ' ' + numbers.slice(6, 8);
+    if (numbers.length > 8) formatted = numbers.slice(0, 3) + ' ' + numbers.slice(3, 6) + ' ' + numbers.slice(6, 8) + '-' + numbers.slice(8, 10);
+    return formatted;
+}
+
+document.getElementById('loginPhone')?.addEventListener('input', function(e) { e.target.value = formatPhone(e.target.value); });
+document.getElementById('regPhone')?.addEventListener('input', function(e) { e.target.value = formatPhone(e.target.value); });
+
+function getFullPhone(partial) { return '+7' + partial.replace(/\\D/g, ''); }
+
+function sendCode() {
+    const phone = getFullPhone(document.getElementById('loginPhone').value);
+    if (!phone || phone === '+7') { document.getElementById('authError').innerText = 'Введите номер телефона'; return; }
+    pendingPhone = phone;
+    socket.emit('send code', { phone: phone }, (res) => {
+        if (res.success) {
+            document.getElementById('authError').className = 'success-msg';
+            document.getElementById('authError').innerText = 'Код отправлен!';
+            document.getElementById('codeSection').style.display = 'block';
+        } else {
+            document.getElementById('authError').innerText = res.error;
+        }
+    });
+}
+
+function verifyCode() {
+    const code = document.getElementById('loginCode').value.trim();
+    if (!code) { document.getElementById('authError').innerText = 'Введите код'; return; }
+    socket.emit('verify code', { phone: pendingPhone, code: code }, (res) => {
+        if (res.success) {
+            currentUser = res.userData.username;
+            currentUserData = res.userData;
+            localStorage.setItem('atomgram_phone', pendingPhone);
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'flex';
+            updateUI(); loadData();
+            applySavedSettings();
+        } else {
+            document.getElementById('authError').innerText = res.error;
+        }
+    });
+}
+
+function registerSendCode() {
+    const phone = getFullPhone(document.getElementById('regPhone').value);
+    if (!phone || phone === '+7') { document.getElementById('authError').innerText = 'Введите номер телефона'; return; }
+    pendingPhone = phone;
+    socket.emit('send code', { phone: phone }, (res) => {
+        if (res.success) {
+            document.getElementById('authError').className = 'success-msg';
+            document.getElementById('authError').innerText = 'Код отправлен!';
+            document.getElementById('regCodeSection').style.display = 'block';
+        } else {
+            document.getElementById('authError').innerText = res.error;
+        }
+    });
+}
+
+function verifyRegisterCode() {
+    const code = document.getElementById('regCode').value.trim();
+    const name = document.getElementById('regName').value.trim();
+    const surname = document.getElementById('regSurname').value.trim();
+    if (!code) { document.getElementById('authError').innerText = 'Введите код'; return; }
+    socket.emit('verify register', { phone: pendingPhone, code: code, name: name, surname: surname }, (res) => {
+        if (res.success) {
+            document.getElementById('authError').className = 'success-msg';
+            document.getElementById('authError').innerText = 'Регистрация успешна! Войдите.';
+            showLogin();
+        } else {
+            document.getElementById('authError').innerText = res.error;
+        }
+    });
+}
 
 function applyTheme() {
     const theme = document.getElementById('themeSelect').value;
@@ -427,8 +530,20 @@ function applyFontSize() {
     style.innerHTML = `.message-text { font-size: ${size} !important; }`;
     localStorage.setItem('atomgram_fontSize', size);
 }
+function applySound() {
+    const sound = document.getElementById('soundSelect').value;
+    localStorage.setItem('atomgram_sound', sound);
+}
+function playNotificationSound() {
+    const sound = localStorage.getItem('atomgram_sound') || 'default';
+    if (sound === 'silent') return;
+    const audio = new Audio();
+    if (sound === 'pop') audio.src = 'data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==';
+    else audio.src = 'data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==';
+    audio.play().catch(e => console.log('Звук не воспроизведён'));
+}
 function saveSettings() {
-    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize();
+    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize(); applySound();
     closeSettingsModal();
     alert('Настройки сохранены');
 }
@@ -438,10 +553,29 @@ function openSettingsModal() {
     document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
     document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
     document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '14px';
+    document.getElementById('soundSelect').value = localStorage.getItem('atomgram_sound') || 'default';
     document.getElementById('settingsModal').style.display = 'flex';
     closeSidebar();
 }
 function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
+function applySavedSettings() {
+    const bg = localStorage.getItem('atomgram_chatBg');
+    if (bg) { document.querySelector('.messages-area').style.background = bg; document.querySelector('.messages-area').style.backgroundSize = 'cover'; }
+    const myColor = localStorage.getItem('atomgram_myMsgColor');
+    const otherColor = localStorage.getItem('atomgram_otherMsgColor');
+    if (myColor || otherColor) {
+        let style = document.getElementById('msgColorStyle');
+        if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
+        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
+            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
+    }
+    const fontSize = localStorage.getItem('atomgram_fontSize');
+    if (fontSize) {
+        let style = document.getElementById('fontSizeStyle');
+        if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
+        style.innerHTML = `.message-text { font-size: ${fontSize} !important; }`;
+    }
+}
 
 function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
@@ -607,61 +741,14 @@ function saveProfile() {
 function updateUI() {
     const name = (currentUserData?.name + ' ' + (currentUserData?.surname || '')).trim() || currentUser;
     document.getElementById('userName').innerText = name;
-    document.getElementById('userLogin').innerText = '@' + currentUser;
-}
-function login() {
-    const u = document.getElementById('loginUsername').value.trim();
-    const p = document.getElementById('loginPassword').value.trim();
-    if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
-    socket.emit('login', { username: u, password: p }, (res) => {
-        if (res.success) {
-            currentUser = u;
-            currentUserData = res.userData;
-            localStorage.setItem('atomgram_username', u);
-            localStorage.setItem('atomgram_password', p);
-            document.getElementById('authScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'flex';
-            updateUI(); loadData();
-            applySavedSettings();
-        } else document.getElementById('authError').innerText = res.error;
-    });
-}
-function register() {
-    const u = document.getElementById('regUsername').value.trim();
-    const n = document.getElementById('regName').value.trim();
-    const s = document.getElementById('regSurname').value.trim();
-    const p = document.getElementById('regPassword').value.trim();
-    if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
-    socket.emit('register', { username: u, name: n, surname: s, password: p }, (res) => {
-        if (res.success) { document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.'; showLogin(); }
-        else document.getElementById('authError').innerText = res.error;
-    });
+    document.getElementById('userPhone').innerText = currentUserData?.phone || '+7';
 }
 function showRegister() { document.getElementById('authForm').style.display = 'none'; document.getElementById('registerForm').style.display = 'block'; document.getElementById('authError').innerText = ''; }
-function showLogin() { document.getElementById('authForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; document.getElementById('authError').innerText = ''; }
-if (savedUsername && savedPassword) { document.getElementById('loginUsername').value = savedUsername; document.getElementById('loginPassword').value = savedPassword; setTimeout(login, 100); }
+function showLogin() { document.getElementById('authForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; document.getElementById('authError').innerText = ''; document.getElementById('codeSection').style.display = 'none'; document.getElementById('regCodeSection').style.display = 'none'; }
 function loadData() {
     socket.emit('getRooms', (r) => { allRooms = r; renderAll(); });
     socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
     socket.emit('getChannels', (c) => { allChannels = c; renderAll(); });
-}
-function applySavedSettings() {
-    const bg = localStorage.getItem('atomgram_chatBg');
-    if (bg) { document.querySelector('.messages-area').style.background = bg; document.querySelector('.messages-area').style.backgroundSize = 'cover'; }
-    const myColor = localStorage.getItem('atomgram_myMsgColor');
-    const otherColor = localStorage.getItem('atomgram_otherMsgColor');
-    if (myColor || otherColor) {
-        let style = document.getElementById('msgColorStyle');
-        if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
-            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
-    }
-    const fontSize = localStorage.getItem('atomgram_fontSize');
-    if (fontSize) {
-        let style = document.getElementById('fontSizeStyle');
-        if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message-text { font-size: ${fontSize} !important; }`;
-    }
 }
 socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('rooms update', (r) => { allRooms = r; renderAll(); });
@@ -680,10 +767,11 @@ socket.on('chat message', (msg) => {
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
     if (show) { addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
+    if (msg.from !== currentUser) playNotificationSound();
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
-        addVoiceMessage(data);
+        addVoiceMessage(data); if (data.from !== currentUser) playNotificationSound();
     }
 });
 socket.on('video circle', (data) => {
@@ -733,28 +821,49 @@ function escape(t) { const d = document.createElement('div'); d.textContent = t;
 
 // ========== СОКЕТЫ ==========
 const usersOnline = new Map();
+const tempCodes = {};
 
 io.on('connection', (socket) => {
     let currentUser = null, currentRoom = null;
 
-    socket.on('register', (data, cb) => {
-        const { username, name, surname, password } = data;
-        if (users[username]) cb({ success: false, error: 'Username занят' });
-        else {
-            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
-            saveData(); cb({ success: true });
+    socket.on('send code', (data, cb) => {
+        const { phone } = data;
+        const code = generateCode();
+        tempCodes[phone] = { code, expires: Date.now() + 300000 };
+        console.log(`📱 Код для ${phone}: ${code}`);
+        cb({ success: true });
+    });
+
+    socket.on('verify code', (data, cb) => {
+        const { phone, code } = data;
+        const username = phone.replace(/[^0-9]/g, '');
+        const saved = tempCodes[phone];
+        if (!saved || saved.code !== code || saved.expires < Date.now()) {
+            cb({ success: false, error: 'Неверный или просроченный код' });
+        } else if (!users[username]) {
+            cb({ success: false, error: 'Пользователь не найден' });
+        } else {
+            delete tempCodes[phone];
+            currentUser = username;
+            usersOnline.set(socket.id, currentUser);
+            cb({ success: true, userData: users[username] });
+            socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
         }
     });
 
-    socket.on('login', (data, cb) => {
-        const { username, password } = data;
-        if (!users[username]) cb({ success: false, error: 'Нет пользователя' });
-        else if (users[username].password !== password) cb({ success: false, error: 'Неверный пароль' });
-        else {
-            currentUser = username;
-            usersOnline.set(socket.id, username);
-            cb({ success: true, userData: users[username] });
-            socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
+    socket.on('verify register', (data, cb) => {
+        const { phone, code, name, surname } = data;
+        const username = phone.replace(/[^0-9]/g, '');
+        const saved = tempCodes[phone];
+        if (!saved || saved.code !== code || saved.expires < Date.now()) {
+            cb({ success: false, error: 'Неверный или просроченный код' });
+        } else if (users[username]) {
+            cb({ success: false, error: 'Номер уже зарегистрирован' });
+        } else {
+            delete tempCodes[phone];
+            users[username] = { username, phone, password: null, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
+            saveData();
+            cb({ success: true });
         }
     });
 
@@ -856,16 +965,18 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 const ip = getLocalIP();
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n╔════════════════════════════════╗`);
-    console.log(`║     🚀 ATOMGRAM ЗАПУЩЕН      ║`);
-    console.log(`╠════════════════════════════════╣`);
-    console.log(`║  💻 http://localhost:${PORT}      ║`);
-    console.log(`║  📱 http://${ip}:${PORT}     ║`);
-    console.log(`╠════════════════════════════════╣`);
-    console.log(`║  ✅ Всё работает!            ║`);
-    console.log(`║  ✅ Видеокружки ✅            ║`);
-    console.log(`║  ✅ Голосовые ✅              ║`);
-    console.log(`║  ✅ Файлы ✅                  ║`);
-    console.log(`║  ✅ Друзья, каналы, чаты     ║`);
-    console.log(`╚════════════════════════════════╝\n`);
+    console.log(`\n╔════════════════════════════════════════╗`);
+    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН         ║`);
+    console.log(`╠════════════════════════════════════════╣`);
+    console.log(`║  💻 http://localhost:${PORT}              ║`);
+    console.log(`║  📱 http://${ip}:${PORT}             ║`);
+    console.log(`╠════════════════════════════════════════╣`);
+    console.log(`║  ✅ Вход по номеру телефона!        ║`);
+    console.log(`║  ✅ Код приходит в консоль сервера  ║`);
+    console.log(`║  ✅ Данные сохраняются в data.json  ║`);
+    console.log(`║  ✅ Сервер НЕ ЗАСЫПАЕТ (пинг каждые 25с) ║`);
+    console.log(`║  ✅ Видеокружки работают            ║`);
+    console.log(`║  ✅ Голосовые с паузой              ║`);
+    console.log(`║  ✅ Много настроек (тема, фон, цвет)║`);
+    console.log(`╚════════════════════════════════════════╝\n`);
 });
