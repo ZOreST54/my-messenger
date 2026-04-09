@@ -4,7 +4,6 @@ const socketIo = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -40,26 +39,6 @@ let channels = savedData.channels || {};
 
 setInterval(saveData, 10000);
 
-// ========== ГЕНЕРАЦИЯ КЛЮЧЕЙ ==========
-function generateKeyPair() {
-    const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
-        modulusLength: 2048,
-        publicKeyEncoding: { type: 'spki', format: 'pem' },
-        privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-    });
-    return { publicKey, privateKey };
-}
-
-function encryptMessage(message, publicKeyPem) {
-    const encrypted = crypto.publicEncrypt(publicKeyPem, Buffer.from(message));
-    return encrypted.toString('base64');
-}
-
-function decryptMessage(encryptedBase64, privateKeyPem) {
-    const decrypted = crypto.privateDecrypt(privateKeyPem, Buffer.from(encryptedBase64, 'base64'));
-    return decrypted.toString('utf8');
-}
-
 function generateCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -80,14 +59,13 @@ app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Шифрование</title>
+    <title>ATOMGRAM</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; transition: all 0.3s; }
+        body { font-family: Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
-        
         #authScreen {
             position: fixed;
             top: 0;
@@ -131,7 +109,6 @@ app.get('/', (req, res) => {
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; }
         .success-msg { color: #4ade80; margin-top: 10px; }
-        
         #mainApp {
             display: none;
             width: 100%;
@@ -183,7 +160,6 @@ app.get('/', (req, res) => {
         .ban-btn { background: #ff4444; color: white; }
         .create-btn { padding: 12px; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
         .create-btn button { flex: 1; padding: 10px; background: #2a2a3e; border: 1px solid #667eea; border-radius: 20px; color: #667eea; cursor: pointer; }
-        
         .chat-area { flex: 1; display: flex; flex-direction: column; }
         .chat-header {
             padding: 15px 20px;
@@ -196,14 +172,6 @@ app.get('/', (req, res) => {
         body.light .chat-header { background: white; border-bottom-color: #ddd; }
         .chat-title { flex: 1; font-size: 16px; font-weight: bold; }
         .settings-btn { background: none; border: none; font-size: 20px; cursor: pointer; }
-        .encryption-badge {
-            font-size: 12px;
-            background: #4ade80;
-            color: #1a1a2e;
-            padding: 2px 8px;
-            border-radius: 20px;
-            margin-left: 10px;
-        }
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -226,7 +194,6 @@ app.get('/', (req, res) => {
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; }
         .message-text { font-size: 14px; word-wrap: break-word; }
-        .encrypted-badge { font-size: 10px; opacity: 0.7; margin-left: 5px; }
         .message-time { font-size: 9px; color: #888; margin-top: 3px; }
         .voice-message { display: flex; align-items: center; gap: 8px; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; color: white; }
@@ -263,7 +230,6 @@ app.get('/', (req, res) => {
         .voice-record-btn { background: #ff6b6b !important; }
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        
         .video-modal {
             position: fixed;
             top: 0;
@@ -285,7 +251,6 @@ app.get('/', (req, res) => {
         .stop-record { background: #ff4444; color: white; }
         .send-video { background: #4ade80; color: white; }
         .close-video { background: #888; color: white; }
-        
         .modal {
             position: fixed;
             top: 0;
@@ -316,7 +281,6 @@ app.get('/', (req, res) => {
         .profile-field input, .profile-field textarea, .profile-field select { width: 100%; padding: 10px; background: #2a2a3e; border: none; border-radius: 12px; color: white; }
         .modal-footer { padding: 15px; display: flex; gap: 10px; }
         .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
-        
         @media (max-width: 768px) {
             .sidebar { display: none; }
         }
@@ -382,7 +346,6 @@ app.get('/', (req, res) => {
         <div class="chat-header">
             <div style="font-weight: bold;">⚡ ATOMGRAM</div>
             <div class="chat-title" id="chatTitle">Выберите чат</div>
-            <div class="encryption-badge" id="encryptionBadge">🔒 E2EE</div>
             <button class="settings-btn" onclick="openSettingsModal()">⚙️</button>
         </div>
         <div class="messages-area" id="messages"></div>
@@ -414,11 +377,10 @@ app.get('/', (req, res) => {
     <div class="modal-content">
         <div class="modal-header"><h3>Настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
         <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></div>
-        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option><option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option></select></div>
+        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option></select></div>
         <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option><option value="18px">Очень большой</option></select></div>
-        <div class="profile-field"><label>🔊 Звук уведомлений</label><select id="soundSelect" onchange="applySound()"><option value="default">🔔 Обычный</option><option value="pop">🔘 Поп</option><option value="chime">🔊 Чайм</option><option value="silent">🔇 Без звука</option></select></div>
+        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option></select></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
@@ -444,42 +406,6 @@ let videoStream = null, videoRecorder = null, videoChunks = [];
 let recordedVideoBlob = null;
 let currentAudio = null;
 let pendingPhone = null;
-
-// Шифрование на клиенте
-let myPrivateKey = null;
-let myPublicKey = null;
-let friendsPublicKeys = {};
-
-function generateClientKeys() {
-    return window.crypto.subtle.generateKey(
-        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-        true, ["encrypt", "decrypt"]
-    );
-}
-
-async function encryptMessageClient(message, publicKeyPem) {
-    const publicKey = await importPublicKey(publicKeyPem);
-    const encoded = new TextEncoder().encode(message);
-    const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoded);
-    return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
-}
-
-async function decryptMessageClient(encryptedBase64, privateKey) {
-    const encrypted = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
-    const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encrypted);
-    return new TextDecoder().decode(decrypted);
-}
-
-async function importPublicKey(pem) {
-    const binary = atob(pem.replace(/-----BEGIN PUBLIC KEY-----/, '').replace(/-----END PUBLIC KEY-----/, '').replace(/\s/g, ''));
-    const buffer = new ArrayBuffer(binary.length);
-    const view = new Uint8Array(buffer);
-    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
-    return await window.crypto.subtle.importKey("spki", buffer, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
-}
-
-const savedTheme = localStorage.getItem('atomgram_theme');
-if (savedTheme === 'light') document.body.classList.add('light');
 
 function formatPhone(input) {
     let numbers = input.replace(/\\D/g, '');
@@ -512,23 +438,14 @@ function sendCode() {
     });
 }
 
-async function verifyCode() {
+function verifyCode() {
     const code = document.getElementById('loginCode').value.trim();
     if (!code) { document.getElementById('authError').innerText = 'Введите код'; return; }
-    
-    // Генерируем ключи шифрования для пользователя
-    const keyPair = await generateClientKeys();
-    const publicKeyPem = await exportPublicKey(keyPair.publicKey);
-    const privateKeyJwk = await exportPrivateKey(keyPair.privateKey);
-    
-    socket.emit('verify code', { phone: pendingPhone, code: code, publicKey: publicKeyPem }, (res) => {
+    socket.emit('verify code', { phone: pendingPhone, code: code }, (res) => {
         if (res.success) {
             currentUser = res.userData.username;
             currentUserData = res.userData;
-            myPrivateKey = keyPair.privateKey;
-            myPublicKey = publicKeyPem;
             localStorage.setItem('atomgram_phone', pendingPhone);
-            localStorage.setItem('atomgram_privateKey', privateKeyJwk);
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             updateUI(); loadData();
@@ -537,21 +454,6 @@ async function verifyCode() {
             document.getElementById('authError').innerText = res.error;
         }
     });
-}
-
-async function exportPublicKey(key) {
-    const exported = await window.crypto.subtle.exportKey("spki", key);
-    const exportedAsString = String.fromCharCode.apply(null, new Uint8Array(exported));
-    return "-----BEGIN PUBLIC KEY-----\n" + btoa(exportedAsString).match(/.{1,64}/g).join('\n') + "\n-----END PUBLIC KEY-----";
-}
-
-async function exportPrivateKey(key) {
-    const exported = await window.crypto.subtle.exportKey("jwk", key);
-    return JSON.stringify(exported);
-}
-
-async function importPrivateKey(jwk) {
-    return await window.crypto.subtle.importKey("jwk", JSON.parse(jwk), { name: "RSA-OAEP", hash: "SHA-256" }, true, ["decrypt"]);
 }
 
 function registerSendCode() {
@@ -569,16 +471,12 @@ function registerSendCode() {
     });
 }
 
-async function verifyRegisterCode() {
+function verifyRegisterCode() {
     const code = document.getElementById('regCode').value.trim();
     const name = document.getElementById('regName').value.trim();
     const surname = document.getElementById('regSurname').value.trim();
     if (!code) { document.getElementById('authError').innerText = 'Введите код'; return; }
-    
-    const keyPair = await generateClientKeys();
-    const publicKeyPem = await exportPublicKey(keyPair.publicKey);
-    
-    socket.emit('verify register', { phone: pendingPhone, code: code, name: name, surname: surname, publicKey: publicKeyPem }, (res) => {
+    socket.emit('verify register', { phone: pendingPhone, code: code, name: name, surname: surname }, (res) => {
         if (res.success) {
             document.getElementById('authError').className = 'success-msg';
             document.getElementById('authError').innerText = 'Регистрация успешна! Войдите.';
@@ -618,16 +516,8 @@ function applyFontSize() {
     style.innerHTML = `.message-text { font-size: ${size} !important; }`;
     localStorage.setItem('atomgram_fontSize', size);
 }
-function applySound() {
-    const sound = document.getElementById('soundSelect').value;
-    localStorage.setItem('atomgram_sound', sound);
-}
-function playNotificationSound() {
-    const sound = localStorage.getItem('atomgram_sound') || 'default';
-    if (sound === 'silent') return;
-}
 function saveSettings() {
-    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize(); applySound();
+    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize();
     closeSettingsModal();
     alert('Настройки сохранены');
 }
@@ -637,9 +527,7 @@ function openSettingsModal() {
     document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
     document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
     document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '14px';
-    document.getElementById('soundSelect').value = localStorage.getItem('atomgram_sound') || 'default';
     document.getElementById('settingsModal').style.display = 'flex';
-    closeSidebar();
 }
 function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
 function applySavedSettings() {
@@ -677,14 +565,12 @@ function joinRoom(name) {
     currentChat = 'room:' + name; currentChatType = 'room'; currentChatTarget = name;
     socket.emit('joinRoom', name);
     document.getElementById('chatTitle').innerHTML = '# ' + name;
-    document.getElementById('encryptionBadge').style.display = 'none';
     renderAll();
 }
 function joinChannel(name) {
     currentChat = 'channel:' + name; currentChatType = 'channel'; currentChatTarget = name;
     socket.emit('joinChannel', name);
     document.getElementById('chatTitle').innerHTML = '📢 ' + name;
-    document.getElementById('encryptionBadge').style.display = 'none';
     renderAll();
 }
 function renderAll() {
@@ -702,7 +588,6 @@ function startPrivateChat(user) {
     currentChat = 'user:' + user; currentChatType = 'private'; currentChatTarget = user;
     socket.emit('joinPrivate', user);
     document.getElementById('chatTitle').innerHTML = '💬 ' + user;
-    document.getElementById('encryptionBadge').style.display = 'inline-block';
     renderAll();
 }
 function addFriend() {
@@ -713,27 +598,13 @@ function acceptFriend(from) { socket.emit('accept friend', { fromUser: from }); 
 function rejectFriend(from) { socket.emit('reject friend', { fromUser: from }); }
 function banUser(u) { if (confirm('Забанить ' + u + '?')) socket.emit('ban user', { userToBan: u }); }
 function unbanUser(u) { socket.emit('unban user', { userToUnban: u }); }
-
-async function sendMessage() {
+function sendMessage() {
     const input = document.getElementById('messageInput');
-    let text = input.value.trim();
+    const text = input.value.trim();
     if (!text || !currentChat) return;
-    
-    let encryptedText = text;
-    let isEncrypted = false;
-    
-    // Шифруем только личные сообщения
-    if (currentChatType === 'private') {
-        const friendPublicKey = friendsPublicKeys[currentChatTarget];
-        if (friendPublicKey) {
-            encryptedText = await encryptMessageClient(text, friendPublicKey);
-            isEncrypted = true;
-        }
-    }
-    
-    if (currentChatType === 'room') socket.emit('chat message', { type: 'room', target: currentChatTarget, text: encryptedText, encrypted: isEncrypted });
-    else if (currentChatType === 'channel') socket.emit('channel message', { channel: currentChatTarget, text: encryptedText, encrypted: isEncrypted });
-    else socket.emit('chat message', { type: 'private', target: currentChatTarget, text: encryptedText, encrypted: isEncrypted });
+    if (currentChatType === 'room') socket.emit('chat message', { type: 'room', target: currentChatTarget, text });
+    else if (currentChatType === 'channel') socket.emit('channel message', { channel: currentChatTarget, text });
+    else socket.emit('chat message', { type: 'private', target: currentChatTarget, text });
     input.value = '';
 }
 
@@ -830,7 +701,6 @@ function openProfileModal() {
     document.getElementById('editBio').value = currentUserData?.bio || '';
     document.getElementById('editPassword').value = '';
     document.getElementById('profileModal').style.display = 'flex';
-    closeSidebar();
 }
 function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; }
 function saveProfile() {
@@ -850,33 +720,28 @@ function loadData() {
     socket.emit('getRooms', (r) => { allRooms = r; renderAll(); });
     socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
     socket.emit('getChannels', (c) => { allChannels = c; renderAll(); });
-    socket.emit('getPublicKeys', (keys) => { friendsPublicKeys = keys; });
 }
 socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('rooms update', (r) => { allRooms = r; renderAll(); });
 socket.on('channels update', (c) => { allChannels = c; renderAll(); });
-socket.on('public keys update', (keys) => { friendsPublicKeys = keys; });
-socket.on('chat history', async (data) => {
+socket.on('chat history', (data) => {
     if ((currentChatType === 'room' && data.type === 'room' && data.room === currentChatTarget) ||
         (currentChatType === 'private' && data.type === 'private' && data.with === currentChatTarget) ||
         (currentChatType === 'channel' && data.type === 'channel' && data.channel === currentChatTarget)) {
         document.getElementById('messages').innerHTML = '';
-        for (const m of data.messages) {
-            await addMessage(m);
-        }
+        data.messages.forEach(m => addMessage(m));
     }
 });
-socket.on('chat message', async (msg) => {
+socket.on('chat message', (msg) => {
     let show = false;
     if (msg.type === 'room' && currentChatType === 'room' && msg.room === currentChatTarget) show = true;
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
-    if (show) { await addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
-    if (msg.from !== currentUser) playNotificationSound();
+    if (show) { addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
-        addVoiceMessage(data); if (data.from !== currentUser) playNotificationSound();
+        addVoiceMessage(data);
     }
 });
 socket.on('video circle', (data) => {
@@ -889,36 +754,11 @@ socket.on('file attachment', (data) => {
         addFileMessage(data);
     }
 });
-async function addMessage(m) {
+function addMessage(m) {
     const div = document.createElement('div');
     div.className = 'message';
     if (m.from === currentUser) div.classList.add('my-message');
-    
-    let messageText = m.text;
-    let encryptedBadge = '';
-    
-    if (m.encrypted && m.from !== currentUser && currentChatType === 'private') {
-        try {
-            if (!myPrivateKey) {
-                const savedKey = localStorage.getItem('atomgram_privateKey');
-                if (savedKey) myPrivateKey = await importPrivateKey(savedKey);
-            }
-            if (myPrivateKey) {
-                messageText = await decryptMessageClient(m.text, myPrivateKey);
-                encryptedBadge = '<span class="encrypted-badge">🔓</span>';
-            } else {
-                messageText = '🔒 Зашифрованное сообщение';
-                encryptedBadge = '<span class="encrypted-badge">🔒</span>';
-            }
-        } catch(e) {
-            messageText = '🔒 Зашифрованное сообщение';
-            encryptedBadge = '<span class="encrypted-badge">🔒</span>';
-        }
-    } else if (m.encrypted && m.from === currentUser) {
-        encryptedBadge = '<span class="encrypted-badge">🔒</span>';
-    }
-    
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(m.from) + '</div><div class="message-text">' + escape(messageText) + encryptedBadge + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(m.from) + '</div><div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVoiceMessage(d) {
@@ -949,10 +789,9 @@ function escape(t) { const d = document.createElement('div'); d.textContent = t;
 </html>`);
 });
 
-// ========== СОКЕТЫ С ШИФРОВАНИЕМ ==========
+// ========== СОКЕТЫ ==========
 const usersOnline = new Map();
 const tempCodes = {};
-const userPublicKeys = {};
 
 io.on('connection', (socket) => {
     let currentUser = null, currentRoom = null;
@@ -966,7 +805,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('verify code', (data, cb) => {
-        const { phone, code, publicKey } = data;
+        const { phone, code } = data;
         const username = phone.replace(/[^0-9]/g, '');
         const saved = tempCodes[phone];
         if (!saved || saved.code !== code || saved.expires < Date.now()) {
@@ -977,19 +816,13 @@ io.on('connection', (socket) => {
             delete tempCodes[phone];
             currentUser = username;
             usersOnline.set(socket.id, currentUser);
-            if (publicKey) {
-                userPublicKeys[username] = publicKey;
-                users[username].publicKey = publicKey;
-                saveData();
-            }
             cb({ success: true, userData: users[username] });
             socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
-            socket.emit('public keys update', userPublicKeys);
         }
     });
 
     socket.on('verify register', (data, cb) => {
-        const { phone, code, name, surname, publicKey } = data;
+        const { phone, code, name, surname } = data;
         const username = phone.replace(/[^0-9]/g, '');
         const saved = tempCodes[phone];
         if (!saved || saved.code !== code || saved.expires < Date.now()) {
@@ -998,14 +831,11 @@ io.on('connection', (socket) => {
             cb({ success: false, error: 'Номер уже зарегистрирован' });
         } else {
             delete tempCodes[phone];
-            users[username] = { username, phone, password: null, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [], publicKey: publicKey || null };
-            if (publicKey) userPublicKeys[username] = publicKey;
+            users[username] = { username, phone, password: null, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
             saveData();
             cb({ success: true });
         }
     });
-
-    socket.on('getPublicKeys', (cb) => { cb(userPublicKeys); });
 
     socket.on('add friend', (data, cb) => {
         const { friendUsername } = data;
@@ -1020,10 +850,7 @@ io.on('connection', (socket) => {
                 saveData();
                 cb({ success: true, message: 'Запрос отправлен' });
                 const fs = getSocketByUsername(friendUsername);
-                if (fs) {
-                    fs.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [], banned: users[friendUsername].banned || [] });
-                    fs.emit('public keys update', userPublicKeys);
-                }
+                if (fs) fs.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [], banned: users[friendUsername].banned || [] });
             }
         }
     });
@@ -1038,12 +865,8 @@ io.on('connection', (socket) => {
             if (!users[fromUser].friends.includes(currentUser)) users[fromUser].friends.push(currentUser);
             saveData();
             socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
-            socket.emit('public keys update', userPublicKeys);
             const fs = getSocketByUsername(fromUser);
-            if (fs) {
-                fs.emit('friends update', { friends: users[fromUser].friends, requests: users[fromUser].friendRequests, banned: users[fromUser].banned || [] });
-                fs.emit('public keys update', userPublicKeys);
-            }
+            if (fs) fs.emit('friends update', { friends: users[fromUser].friends, requests: users[fromUser].friendRequests, banned: users[fromUser].banned || [] });
         }
     });
 
@@ -1083,12 +906,12 @@ io.on('connection', (socket) => {
     socket.on('joinPrivate', (target) => { currentRoom = null; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; socket.emit('chat history', { type: 'private', with: target, messages: privateChats[id].messages || [] }); });
     socket.on('create channel', (data, cb) => { const { channelName } = data; if (channels[channelName]) cb({ success: false, error: 'Канал есть' }); else { channels[channelName] = { name: channelName, messages: [] }; saveData(); cb({ success: true, message: 'Канал создан' }); } });
     socket.on('joinChannel', (name) => { if (channels[name]) socket.emit('chat history', { type: 'channel', channel: name, messages: channels[name].messages || [] }); });
-    socket.on('channel message', (data) => { const { channel, text, encrypted } = data; if (channels[channel]) { const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type: 'channel', channel, encrypted: encrypted || false }; channels[channel].messages.push(msg); io.emit('chat message', msg); saveData(); } });
+    socket.on('channel message', (data) => { const { channel, text } = data; if (channels[channel]) { const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type: 'channel', channel }; channels[channel].messages.push(msg); io.emit('chat message', msg); saveData(); } });
     socket.on('getChannels', (cb) => cb(Object.keys(channels)));
     socket.on('update profile', (data, cb) => { if (users[data.login]) { if (data.name) users[data.login].name = data.name; if (data.surname) users[data.login].surname = data.surname; if (data.bio) users[data.login].bio = data.bio; if (data.password) users[data.login].password = data.password; saveData(); cb({ success: true, userData: users[data.login] }); } else cb({ success: false }); });
     socket.on('chat message', (data) => {
-        const { type, target, text, encrypted } = data;
-        const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type, encrypted: encrypted || false };
+        const { type, target, text } = data;
+        const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type };
         if (type === 'room') { msg.room = target; if (publicRooms[target]) { publicRooms[target].messages.push(msg); io.to(target).emit('chat message', msg); saveData(); } }
         else { msg.to = target; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; privateChats[id].messages.push(msg); io.emit('chat message', msg); saveData(); }
     });
@@ -1112,16 +935,16 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 const ip = getLocalIP();
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n╔════════════════════════════════════════════╗`);
-    console.log(`║     🚀 ATOMGRAM С ШИФРОВАНИЕМ        ║`);
-    console.log(`╠════════════════════════════════════════════╣`);
-    console.log(`║  💻 http://localhost:${PORT}                  ║`);
-    console.log(`║  📱 http://${ip}:${PORT}                 ║`);
-    console.log(`╠════════════════════════════════════════════╣`);
-    console.log(`║  ✅ End-to-End шифрование!            ║`);
-    console.log(`║  ✅ Сервер НЕ ЧИТАЕТ сообщения       ║`);
-    console.log(`║  ✅ Только отправитель и получатель  ║`);
-    console.log(`║  ✅ Вход по номеру телефона          ║`);
-    console.log(`║  ✅ Видеокружки, голосовые, файлы    ║`);
-    console.log(`╚════════════════════════════════════════════╝\n`);
+    console.log(`\n╔════════════════════════════════════════╗`);
+    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН         ║`);
+    console.log(`╠════════════════════════════════════════╣`);
+    console.log(`║  💻 http://localhost:${PORT}              ║`);
+    console.log(`║  📱 http://${ip}:${PORT}             ║`);
+    console.log(`╠════════════════════════════════════════╣`);
+    console.log(`║  ✅ Вход по номеру телефона!        ║`);
+    console.log(`║  ✅ Код в консоли сервера           ║`);
+    console.log(`║  ✅ Данные сохраняются              ║`);
+    console.log(`║  ✅ Сервер НЕ ЗАСЫПАЕТ              ║`);
+    console.log(`║  ✅ Видеокружки, голосовые, файлы   ║`);
+    console.log(`╚════════════════════════════════════════╝\n`);
 });
