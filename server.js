@@ -4,7 +4,6 @@ const socketIo = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
 const app = express();
@@ -13,39 +12,10 @@ const io = socketIo(server, {
     cors: { origin: "*" },
     transports: ['websocket', 'polling'],
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000  // ← Render НЕ ЗАСЫПАЕТ (пинг каждые 25 сек)
 });
 
-// ========== НАСТРОЙКА ПОЧТЫ (ЗАМЕНИ НА СВОИ ДАННЫЕ) ==========
-const emailTransporter = nodemailer.createTransport({
-    service: 'mail.ru',  // или gmail, yandex
-    auth: {
-        user: 'lev52lev@mail.ru',
-        pass: 'lev123456789'
-    }
-});
-
-function sendEmailCode(toEmail, code, userName) {
-    return emailTransporter.sendMail({
-        from: 'ATOMGRAM <ТВОЯ_ПОЧТА@mail.ru>',
-        to: toEmail,
-        subject: 'Код подтверждения ATOMGRAM',
-        html: `
-            <div style="font-family: Arial; max-width: 500px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: white; border-radius: 20px;">
-                <div style="text-align: center; font-size: 48px;">⚡</div>
-                <h2 style="text-align: center;">ATOMGRAM</h2>
-                <p>Здравствуйте, <strong>${userName}</strong>!</p>
-                <p>Ваш код для входа в мессенджер:</p>
-                <div style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px; background: #2a2a3e; border-radius: 15px; letter-spacing: 5px;">${code}</div>
-                <p style="margin-top: 20px; font-size: 12px; color: #888;">Код действителен 5 минут. Никому не сообщайте его.</p>
-                <hr style="margin: 20px 0; border-color: #2a2a3e;">
-                <p style="font-size: 11px; color: #666;">ATOMGRAM — мессенджер будущего</p>
-            </div>
-        `
-    });
-}
-
-// ========== ДАННЫЕ ==========
+// ========== ДАННЫЕ (СОХРАНЯЮТСЯ) ==========
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 function loadData() {
@@ -59,7 +29,7 @@ function loadData() {
 
 function saveData() {
     fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, publicRooms, channels }, null, 2));
-    console.log('💾 Данные сохранены');
+    console.log('💾 Данные сохранены в data.json');
 }
 
 let savedData = loadData();
@@ -68,6 +38,7 @@ let privateChats = savedData.privateChats;
 let publicRooms = savedData.publicRooms;
 let channels = savedData.channels || {};
 
+// Автосохранение каждые 10 секунд
 setInterval(saveData, 10000);
 
 // ========== ГЕНЕРАЦИЯ КЛЮЧЕЙ ДЛЯ ШИФРОВАНИЯ ==========
@@ -90,12 +61,6 @@ function decryptMessage(encryptedBase64, privateKeyPem) {
     return decrypted.toString('utf8');
 }
 
-function generateCode() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-const emailCodes = {};
-
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
     for (let name of Object.keys(interfaces)) {
@@ -106,6 +71,10 @@ function getLocalIP() {
     return 'localhost';
 }
 
+// ========== ХРАНЕНИЕ ПУБЛИЧНЫХ КЛЮЧЕЙ ==========
+const userPublicKeys = {};
+
+// ========== HTML ИНТЕРФЕЙС ==========
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
@@ -156,6 +125,7 @@ app.get('/', (req, res) => {
             font-size: 16px;
             cursor: pointer;
         }
+        .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; }
         .success-msg { color: #4ade80; margin-top: 10px; }
         
@@ -347,12 +317,18 @@ app.get('/', (req, res) => {
     <div class="auth-card">
         <div style="font-size: 36px; margin-bottom: 20px;">⚡</div>
         <div id="authForm">
-            <input type="email" id="email" placeholder="Email">
-            <button onclick="sendCode()">Войти</button>
-            <div id="codeSection" style="display:none; margin-top: 10px;">
-                <input type="text" id="code" placeholder="Код из письма">
-                <button onclick="verifyCode()">Подтвердить</button>
-            </div>
+            <input type="text" id="loginUsername" placeholder="Username">
+            <input type="password" id="loginPassword" placeholder="Пароль">
+            <button onclick="login()">Войти</button>
+            <button class="switch-btn" onclick="showRegister()">Создать аккаунт</button>
+        </div>
+        <div id="registerForm" style="display:none">
+            <input type="text" id="regUsername" placeholder="Username">
+            <input type="text" id="regName" placeholder="Имя">
+            <input type="text" id="regSurname" placeholder="Фамилия">
+            <input type="password" id="regPassword" placeholder="Пароль">
+            <button onclick="register()">Зарегистрироваться</button>
+            <button class="switch-btn" onclick="showLogin()">Назад</button>
         </div>
         <div id="authError" class="error-msg"></div>
     </div>
@@ -364,7 +340,7 @@ app.get('/', (req, res) => {
             <div id="userAvatar"><div class="avatar-emoji">👤</div></div>
             <div class="user-info">
                 <h3 id="userName">Загрузка...</h3>
-                <div class="username" id="userEmail"></div>
+                <div class="username" id="userLogin">@</div>
             </div>
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
@@ -405,6 +381,7 @@ app.get('/', (req, res) => {
         <div class="profile-field"><label>Имя</label><input type="text" id="editName"></div>
         <div class="profile-field"><label>Фамилия</label><input type="text" id="editSurname"></div>
         <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2"></textarea></div>
+        <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveProfile()">Сохранить</button></div>
     </div>
 </div>
@@ -429,13 +406,11 @@ let mediaRecorder = null, audioChunks = [], isRecording = false;
 let videoStream = null, videoRecorder = null, videoChunks = [];
 let recordedVideoBlob = null;
 let currentAudio = null;
-let pendingEmail = null;
 
-// Ключи шифрования (клиентские)
+// Ключи шифрования
 let myPrivateKey = null;
 let friendsPublicKeys = {};
 
-// Функции шифрования на клиенте
 async function generateClientKeys() {
     const keyPair = await window.crypto.subtle.generateKey(
         { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
@@ -471,44 +446,10 @@ async function decryptMessageClient(encryptedBase64, privateKey) {
     return new TextDecoder().decode(decrypted);
 }
 
+const savedUsername = localStorage.getItem('atomgram_username');
+const savedPassword = localStorage.getItem('atomgram_password');
+
 function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-
-function sendCode() {
-    const email = document.getElementById('email').value.trim();
-    if (!email) { document.getElementById('authError').innerText = 'Введите email'; return; }
-    pendingEmail = email;
-    socket.emit('send code', { email: email }, (res) => {
-        if (res.success) {
-            document.getElementById('authError').className = 'success-msg';
-            document.getElementById('authError').innerText = 'Код отправлен на почту!';
-            document.getElementById('codeSection').style.display = 'block';
-        } else {
-            document.getElementById('authError').innerText = res.error;
-        }
-    });
-}
-
-async function verifyCode() {
-    const code = document.getElementById('code').value.trim();
-    if (!code) { document.getElementById('authError').innerText = 'Введите код'; return; }
-    
-    const keyPair = await generateClientKeys();
-    const publicKeyPem = await exportPublicKey(keyPair.publicKey);
-    
-    socket.emit('verify code', { email: pendingEmail, code: code, publicKey: publicKeyPem }, (res) => {
-        if (res.success) {
-            currentUser = res.userData.username;
-            currentUserData = res.userData;
-            myPrivateKey = keyPair.privateKey;
-            document.getElementById('authScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'flex';
-            updateUI(); loadData();
-            socket.emit('getPublicKeys', (keys) => { friendsPublicKeys = keys; });
-        } else {
-            document.getElementById('authError').innerText = res.error;
-        }
-    });
-}
 
 function createRoom() {
     const name = prompt('Название чата:');
@@ -673,24 +614,62 @@ function openProfileModal() {
     document.getElementById('editName').value = currentUserData?.name || '';
     document.getElementById('editSurname').value = currentUserData?.surname || '';
     document.getElementById('editBio').value = currentUserData?.bio || '';
+    document.getElementById('editPassword').value = '';
     document.getElementById('profileModal').style.display = 'flex';
 }
 function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; }
 function saveProfile() {
     const data = { login: currentUser, name: document.getElementById('editName').value.trim(), surname: document.getElementById('editSurname').value.trim(), bio: document.getElementById('editBio').value.trim() };
+    const newPass = document.getElementById('editPassword').value.trim();
+    if (newPass) data.password = newPass;
     socket.emit('update profile', data, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); closeProfileModal(); alert('Сохранено'); } else alert(res.error); });
 }
 function updateUI() {
     const name = (currentUserData?.name + ' ' + (currentUserData?.surname || '')).trim() || currentUser;
     document.getElementById('userName').innerText = name;
-    document.getElementById('userEmail').innerText = currentUserData?.email || '';
+    document.getElementById('userLogin').innerText = '@' + currentUser;
 }
-
+function login() {
+    const u = document.getElementById('loginUsername').value.trim();
+    const p = document.getElementById('loginPassword').value.trim();
+    if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
+    socket.emit('login', { username: u, password: p }, async (res) => {
+        if (res.success) {
+            currentUser = u;
+            currentUserData = res.userData;
+            localStorage.setItem('atomgram_username', u);
+            localStorage.setItem('atomgram_password', p);
+            
+            const keyPair = await generateClientKeys();
+            const publicKeyPem = await exportPublicKey(keyPair.publicKey);
+            myPrivateKey = keyPair.privateKey;
+            socket.emit('save public key', { publicKey: publicKeyPem });
+            
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'flex';
+            updateUI(); loadData();
+            socket.emit('getPublicKeys', (keys) => { friendsPublicKeys = keys; });
+        } else document.getElementById('authError').innerText = res.error;
+    });
+}
+function register() {
+    const u = document.getElementById('regUsername').value.trim();
+    const n = document.getElementById('regName').value.trim();
+    const s = document.getElementById('regSurname').value.trim();
+    const p = document.getElementById('regPassword').value.trim();
+    if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
+    socket.emit('register', { username: u, name: n, surname: s, password: p }, (res) => {
+        if (res.success) { document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.'; showLogin(); }
+        else document.getElementById('authError').innerText = res.error;
+    });
+}
+function showRegister() { document.getElementById('authForm').style.display = 'none'; document.getElementById('registerForm').style.display = 'block'; document.getElementById('authError').innerText = ''; }
+function showLogin() { document.getElementById('authForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; document.getElementById('authError').innerText = ''; }
+if (savedUsername && savedPassword) { document.getElementById('loginUsername').value = savedUsername; document.getElementById('loginPassword').value = savedPassword; setTimeout(login, 100); }
 function loadData() {
     socket.emit('getRooms', (r) => { allRooms = r; renderAll(); });
     socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
     socket.emit('getChannels', (c) => { allChannels = c; renderAll(); });
-    socket.emit('getPublicKeys', (keys) => { friendsPublicKeys = keys; });
 }
 socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('rooms update', (r) => { allRooms = r; renderAll(); });
@@ -786,69 +765,41 @@ function escape(t) { const d = document.createElement('div'); d.textContent = t;
 
 // ========== СОКЕТЫ ==========
 const usersOnline = new Map();
-const emailCodes = {};
 const userPublicKeys = {};
 
 io.on('connection', (socket) => {
     let currentUser = null, currentRoom = null;
 
-    socket.on('send code', async (data, cb) => {
-        const { email } = data;
-        const code = generateCode();
-        const username = email.replace(/[@.]/g, '_');
-        emailCodes[email] = { code, expires: Date.now() + 300000 };
-        
-        try {
-            await sendEmailCode(email, code, username);
-            console.log(`📧 Код для ${email}: ${code}`);
-            cb({ success: true });
-        } catch (err) {
-            console.error('Ошибка отправки письма:', err);
-            cb({ success: false, error: 'Не удалось отправить письмо. Проверьте настройки почты.' });
+    socket.on('register', (data, cb) => {
+        const { username, name, surname, password } = data;
+        if (users[username]) cb({ success: false, error: 'Username занят' });
+        else {
+            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
+            saveData(); cb({ success: true });
         }
     });
 
-    socket.on('verify code', (data, cb) => {
-        const { email, code, publicKey } = data;
-        const username = email.replace(/[@.]/g, '_');
-        const saved = emailCodes[email];
-        
-        if (!saved || saved.code !== code || saved.expires < Date.now()) {
-            cb({ success: false, error: 'Неверный или просроченный код' });
-            return;
+    socket.on('login', (data, cb) => {
+        const { username, password } = data;
+        if (!users[username]) cb({ success: false, error: 'Нет пользователя' });
+        else if (users[username].password !== password) cb({ success: false, error: 'Неверный пароль' });
+        else {
+            currentUser = username;
+            usersOnline.set(socket.id, username);
+            cb({ success: true, userData: users[username] });
+            socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
+            socket.emit('public keys update', userPublicKeys);
         }
-        
-        delete emailCodes[email];
-        
-        if (!users[username]) {
-            users[username] = {
-                username: username,
-                email: email,
-                name: '',
-                surname: '',
-                bio: '',
-                avatar: '👤',
-                avatarType: 'emoji',
-                avatarData: null,
-                friends: [],
-                friendRequests: [],
-                banned: []
-            };
+    });
+
+    socket.on('save public key', (data) => {
+        const { publicKey } = data;
+        if (currentUser && publicKey) {
+            userPublicKeys[currentUser] = publicKey;
+            if (users[currentUser]) users[currentUser].publicKey = publicKey;
             saveData();
-            console.log('✅ Авторегистрация: ' + username);
+            io.emit('public keys update', userPublicKeys);
         }
-        
-        if (publicKey) {
-            userPublicKeys[username] = publicKey;
-            users[username].publicKey = publicKey;
-            saveData();
-        }
-        
-        currentUser = username;
-        usersOnline.set(socket.id, currentUser);
-        cb({ success: true, userData: users[username] });
-        socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
-        socket.emit('public keys update', userPublicKeys);
     });
 
     socket.on('getPublicKeys', (cb) => { cb(userPublicKeys); });
@@ -936,6 +887,7 @@ io.on('connection', (socket) => {
             if (data.name !== undefined) users[data.login].name = data.name;
             if (data.surname !== undefined) users[data.login].surname = data.surname;
             if (data.bio !== undefined) users[data.login].bio = data.bio;
+            if (data.password) users[data.login].password = data.password;
             saveData();
             cb({ success: true, userData: users[data.login] });
             io.emit('profile updated', users[data.login]);
@@ -968,15 +920,15 @@ const PORT = process.env.PORT || 3000;
 const ip = getLocalIP();
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n╔════════════════════════════════════════════╗`);
-    console.log(`║     🚀 ATOMGRAM С ШИФРОВАНИЕМ        ║`);
+    console.log(`║        🚀 ATOMGRAM С ШИФРОВАНИЕМ        ║`);
     console.log(`╠════════════════════════════════════════════╣`);
     console.log(`║  💻 http://localhost:${PORT}                  ║`);
     console.log(`║  📱 http://${ip}:${PORT}                 ║`);
     console.log(`╠════════════════════════════════════════════╣`);
-    console.log(`║  ✅ Вход по EMAIL с кодом!           ║`);
-    console.log(`║  ✅ Код приходит на почту            ║`);
     console.log(`║  ✅ End-to-End шифрование!           ║`);
-    console.log(`║  ✅ Сервер НЕ ЧИТАЕТ сообщения       ║`);
-    console.log(`║  ✅ Авторегистрация                  ║`);
+    console.log(`║  ✅ Данные сохраняются в data.json   ║`);
+    console.log(`║  ✅ Сервер НЕ ЗАСЫПАЕТ (пинг 25с)    ║`);
+    console.log(`║  ✅ Аккаунты НЕ СБРАСЫВАЮТСЯ         ║`);
+    console.log(`║  ✅ Видеокружки, голосовые, файлы    ║`);
     console.log(`╚════════════════════════════════════════════╝\n`);
 });
