@@ -314,6 +314,7 @@ app.get('/', (req, res) => {
             </div>
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
+        <div class="menu-item" onclick="addFriend()"><span>➕</span> <span>Добавить друга</span></div>
         <div class="section-title">👥 ДРУЗЬЯ</div>
         <div class="friends-list" id="friendsList"></div>
         <div class="section-title">💬 ЧАТЫ</div>
@@ -418,12 +419,14 @@ function renderAll() {
     friendRequests.forEach(req => { fl += '<div class="friend-item friend-request"><span>👤 ' + req + '</span><div class="friend-actions"><button class="accept-btn" onclick="acceptFriend(\\'' + req + '\\')">✅</button><button class="reject-btn" onclick="rejectFriend(\\'' + req + '\\')">❌</button></div></div>'; });
     allFriends.forEach(f => { fl += '<div class="friend-item" onclick="startPrivateChat(\\'' + f + '\\')"><span>👤 ' + f + '</span><button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + f + '\\')">🚫</button></div>'; });
     bannedUsers.forEach(b => { fl += '<div class="friend-item" style="opacity:0.7;"><span>👤 ' + b + ' (забанен)</span><button class="accept-btn" onclick="unbanUser(\\'' + b + '\\')">🔓</button></div>'; });
-    document.getElementById('friendsList').innerHTML = fl || '<div style="padding:10px;">Нет друзей</div>';
+    document.getElementById('friendsList').innerHTML = fl || '<div style="padding:10px; text-align:center; color:#666;">Нет друзей</div>';
 }
 function addFriend() {
-    const u = prompt('Username друга:');
+    const u = prompt('Введите username друга:');
     if (!u) return;
-    socket.emit('add friend', { friendUsername: u }, (res) => { alert(res.message || res.error); });
+    socket.emit('add friend', { friendUsername: u }, (res) => {
+        alert(res.message || res.error);
+    });
 }
 function acceptFriend(from) { socket.emit('accept friend', { fromUser: from }); }
 function rejectFriend(from) { socket.emit('reject friend', { fromUser: from }); }
@@ -678,16 +681,16 @@ io.on('connection', (socket) => {
 
     socket.on('add friend', (data, cb) => {
         const { friendUsername } = data;
-        if (!users[friendUsername]) cb({ success: false, error: 'Нет пользователя' });
-        else if (friendUsername === currentUser) cb({ success: false, error: 'Нельзя себя' });
-        else if (users[currentUser].friends?.includes(friendUsername)) cb({ success: false, error: 'Уже друг' });
+        if (!users[friendUsername]) cb({ success: false, error: 'Пользователь не найден' });
+        else if (friendUsername === currentUser) cb({ success: false, error: 'Нельзя добавить себя' });
+        else if (users[currentUser].friends?.includes(friendUsername)) cb({ success: false, error: 'Уже в друзьях' });
         else {
             if (!users[friendUsername].friendRequests) users[friendUsername].friendRequests = [];
-            if (users[friendUsername].friendRequests.includes(currentUser)) cb({ success: false, error: 'Запрос уже есть' });
+            if (users[friendUsername].friendRequests.includes(currentUser)) cb({ success: false, error: 'Запрос уже отправлен' });
             else {
                 users[friendUsername].friendRequests.push(currentUser);
                 saveData();
-                cb({ success: true, message: 'Запрос отправлен' });
+                cb({ success: true, message: '✅ Запрос в друзья отправлен!' });
                 const fs = getSocketByUsername(friendUsername);
                 if (fs) fs.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [], banned: users[friendUsername].banned || [] });
             }
@@ -790,9 +793,9 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`║  💻 http://localhost:${PORT}              ║`);
     console.log(`║  📱 http://${ip}:${PORT}             ║`);
     console.log(`╠════════════════════════════════════════╣`);
-    console.log(`║  ✅ Регистрация и вход работают     ║`);
-    console.log(`║  ✅ Друзья, чаты, каналы            ║`);
-    console.log(`║  ✅ Данные сохраняются             ║`);
-    console.log(`║  ✅ Сервер не засыпает             ║`);
+    console.log(`║  ✅ Друзья работают!                ║`);
+    console.log(`║  ✅ Добавляй друзей через меню      ║`);
+    console.log(`║  ✅ Подтверждай запросы             ║`);
+    console.log(`║  ✅ Можно банить и разбанивать      ║`);
     console.log(`╚════════════════════════════════════════╝\n`);
 });
