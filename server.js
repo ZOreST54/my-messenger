@@ -14,30 +14,36 @@ const io = socketIo(server, {
     pingInterval: 25000
 });
 
-// ========== ДАННЫЕ (СОХРАНЯЮТСЯ) ==========
+// ========== ДАННЫЕ ==========
 const DATA_FILE = path.join(__dirname, 'data.json');
+
+let users = {};
+let privateChats = {};
+let publicRooms = { general: { messages: [] } };
+let channels = {};
 
 function loadData() {
     try {
         if (fs.existsSync(DATA_FILE)) {
-            return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+            const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+            users = data.users || {};
+            privateChats = data.privateChats || {};
+            publicRooms = data.publicRooms || { general: { messages: [] } };
+            channels = data.channels || {};
+            console.log('✅ Данные загружены');
         }
     } catch (e) { console.log('Ошибка загрузки:', e); }
-    return { users: {}, privateChats: {}, publicRooms: { general: { messages: [] } }, channels: {} };
 }
 
 function saveData() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, publicRooms, channels }, null, 2));
-    console.log('💾 Данные сохранены');
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, publicRooms, channels }, null, 2));
+        console.log('💾 Данные сохранены');
+    } catch (e) { console.log('Ошибка сохранения:', e); }
 }
 
-let savedData = loadData();
-let users = savedData.users;
-let privateChats = savedData.privateChats;
-let publicRooms = savedData.publicRooms;
-let channels = savedData.channels || {};
-
-setInterval(saveData, 10000);
+loadData();
+setInterval(saveData, 30000);
 
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -55,12 +61,10 @@ app.get('/', (req, res) => {
 <head>
     <title>ATOMGRAM</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; transition: all 0.3s; }
-        body.light { background: #f0f0f0; color: #1a1a2e; }
-        
+        body { font-family: Arial; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; }
         #authScreen {
             position: fixed;
             top: 0;
@@ -98,12 +102,10 @@ app.get('/', (req, res) => {
             color: white;
             border: none;
             border-radius: 25px;
-            font-size: 16px;
             cursor: pointer;
         }
         .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; }
-        .success-msg { color: #4ade80; margin-top: 10px; }
         
         #mainApp {
             display: none;
@@ -118,7 +120,6 @@ app.get('/', (req, res) => {
             display: flex;
             flex-direction: column;
         }
-        body.light .sidebar { background: white; border-right-color: #ddd; }
         .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -166,9 +167,7 @@ app.get('/', (req, res) => {
             align-items: center;
             gap: 15px;
         }
-        body.light .chat-header { background: white; border-bottom-color: #ddd; }
         .chat-title { flex: 1; font-size: 16px; font-weight: bold; }
-        .settings-btn { background: none; border: none; font-size: 20px; cursor: pointer; margin-left: auto; }
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -186,11 +185,10 @@ app.get('/', (req, res) => {
         .message-avatar { font-size: 32px; min-width: 36px; text-align: center; }
         .message-bubble { max-width: 70%; }
         .message-content { padding: 8px 14px; border-radius: 18px; background: #2a2a3e; }
-        body.light .message-content { background: #e8e8e8; color: #1a1a2e; }
         .message.my-message { justify-content: flex-end; }
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; cursor: pointer; }
-        .message-text { font-size: 14px; word-wrap: break-word; }
+        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; }
+        .message-text { font-size: 14px; }
         .message-time { font-size: 9px; color: #888; margin-top: 3px; }
         .voice-message { display: flex; align-items: center; gap: 8px; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; color: white; }
@@ -205,7 +203,6 @@ app.get('/', (req, res) => {
             border-top: 1px solid rgba(255,255,255,0.1);
             gap: 8px;
         }
-        body.light .input-area { background: white; border-top-color: #ddd; }
         .input-area input {
             flex: 1;
             padding: 12px 15px;
@@ -215,7 +212,6 @@ app.get('/', (req, res) => {
             color: white;
             font-size: 15px;
         }
-        body.light .input-area input { background: #e8e8e8; color: #1a1a2e; }
         .input-area button {
             padding: 10px 15px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -271,18 +267,15 @@ app.get('/', (req, res) => {
             overflow-y: auto;
         }
         .modal-header { padding: 15px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .modal-header h3 { color: white; font-size: 18px; }
+        .modal-header h3 { color: white; }
         .close-modal { float: right; background: none; border: none; color: #888; font-size: 22px; cursor: pointer; }
         .profile-avatar-section { text-align: center; padding: 20px; }
-        .profile-avatar-emoji { font-size: 70px; background: #2a2a3e; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
+        .profile-avatar-emoji { font-size: 70px; background: #2a2a3e; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
         .profile-field { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .profile-field label { display: block; font-size: 11px; color: #667eea; }
-        .profile-field input, .profile-field textarea, .profile-field select { width: 100%; padding: 10px; background: #2a2a3e; border: none; border-radius: 12px; color: white; }
-        .profile-field .value { color: white; padding: 8px 0; }
+        .profile-field input, .profile-field textarea { width: 100%; padding: 10px; background: #2a2a3e; border: none; border-radius: 12px; color: white; }
         .modal-footer { padding: 15px; display: flex; gap: 10px; }
         .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
-        .avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; padding: 10px; background: #2a2a3e; border-radius: 20px; }
-        .avatar-option { font-size: 30px; cursor: pointer; padding: 5px; border-radius: 50%; }
         
         @media (max-width: 768px) {
             .sidebar { display: none; }
@@ -321,7 +314,6 @@ app.get('/', (req, res) => {
             </div>
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
-        <div class="menu-item" onclick="openSettingsModal()"><span>⚙️</span> <span>Настройки</span></div>
         <div class="section-title">👥 ДРУЗЬЯ</div>
         <div class="friends-list" id="friendsList"></div>
         <div class="section-title">💬 ЧАТЫ</div>
@@ -337,7 +329,6 @@ app.get('/', (req, res) => {
         <div class="chat-header">
             <div style="font-weight: bold;">⚡ ATOMGRAM</div>
             <div class="chat-title" id="chatTitle">Выберите чат</div>
-            <button class="settings-btn" onclick="openSettingsModal()">⚙️</button>
         </div>
         <div class="messages-area" id="messages"></div>
         <div class="typing-indicator" id="typingIndicator" style="display:none"></div>
@@ -355,35 +346,12 @@ app.get('/', (req, res) => {
 <div id="profileModal" class="modal" style="display:none">
     <div class="modal-content">
         <div class="modal-header"><h3>Профиль</h3><button class="close-modal" onclick="closeProfileModal()">✕</button></div>
-        <div class="profile-avatar-section">
-            <div id="profileAvatar" class="profile-avatar-emoji" onclick="toggleAvatarPicker()">👤</div>
-            <div id="avatarPicker" class="avatar-picker" style="display:none; margin-top:12px;">
-                <div class="avatar-option" onclick="selectAvatar('😀')">😀</div><div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
-                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div><div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
-                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div><div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
-                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div><div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
-                <div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div><div class="avatar-option" onclick="selectAvatar('🐼')">🐼</div>
-            </div>
-            <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
-        </div>
+        <div class="profile-avatar-section"><div id="profileAvatar" class="profile-avatar-emoji">👤</div></div>
         <div class="profile-field"><label>Имя</label><input type="text" id="editName"></div>
         <div class="profile-field"><label>Фамилия</label><input type="text" id="editSurname"></div>
         <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2"></textarea></div>
         <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveProfile()">Сохранить</button></div>
-    </div>
-</div>
-
-<div id="settingsModal" class="modal" style="display:none">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
-        <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></div>
-        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option><option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option></select></div>
-        <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option><option value="18px">Очень большой</option></select></div>
-        <div class="profile-field"><label>🔊 Звук уведомлений</label><select id="soundSelect" onchange="applySound()"><option value="default">🔔 Обычный</option><option value="pop">🔘 Поп</option><option value="chime">🔊 Чайм</option><option value="silent">🔇 Без звука</option></select></div>
-        <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
 
@@ -413,111 +381,6 @@ const savedPassword = localStorage.getItem('atomgram_password');
 
 function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
-// ========== НАСТРОЙКИ ==========
-function applyTheme() {
-    const theme = document.getElementById('themeSelect').value;
-    if (theme === 'light') document.body.classList.add('light');
-    else document.body.classList.remove('light');
-    localStorage.setItem('atomgram_theme', theme);
-}
-function applyChatBg() {
-    const bg = document.getElementById('chatBgSelect').value;
-    document.querySelector('.messages-area').style.background = bg;
-    document.querySelector('.messages-area').style.backgroundSize = 'cover';
-    localStorage.setItem('atomgram_chatBg', bg);
-}
-function applyMsgColor() {
-    const myColor = document.getElementById('myMsgColor').value;
-    const otherColor = document.getElementById('otherMsgColor').value;
-    let style = document.getElementById('msgColorStyle');
-    if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
-    style.innerHTML = `.message.my-message .message-content { background: ${myColor} !important; }
-        .message:not(.my-message) .message-content { background: ${otherColor} !important; }`;
-    localStorage.setItem('atomgram_myMsgColor', myColor);
-    localStorage.setItem('atomgram_otherMsgColor', otherColor);
-}
-function applyFontSize() {
-    const size = document.getElementById('fontSizeSelect').value;
-    let style = document.getElementById('fontSizeStyle');
-    if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
-    style.innerHTML = `.message-text { font-size: ${size} !important; }`;
-    localStorage.setItem('atomgram_fontSize', size);
-}
-function applySound() {
-    const sound = document.getElementById('soundSelect').value;
-    localStorage.setItem('atomgram_sound', sound);
-}
-function playNotificationSound() {
-    const sound = localStorage.getItem('atomgram_sound') || 'default';
-    if (sound === 'silent') return;
-    const audio = new Audio();
-    if (sound === 'pop') audio.src = 'data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==';
-    audio.play().catch(e => console.log('Звук не воспроизведён'));
-}
-function saveSettings() {
-    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize(); applySound();
-    closeSettingsModal();
-    alert('Настройки сохранены');
-}
-function openSettingsModal() {
-    document.getElementById('themeSelect').value = document.body.classList.contains('light') ? 'light' : 'dark';
-    document.getElementById('chatBgSelect').value = localStorage.getItem('atomgram_chatBg') || '#0a0a0a';
-    document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
-    document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
-    document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '14px';
-    document.getElementById('soundSelect').value = localStorage.getItem('atomgram_sound') || 'default';
-    document.getElementById('settingsModal').style.display = 'flex';
-    closeSidebar();
-}
-function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
-function applySavedSettings() {
-    const bg = localStorage.getItem('atomgram_chatBg');
-    if (bg) { document.querySelector('.messages-area').style.background = bg; document.querySelector('.messages-area').style.backgroundSize = 'cover'; }
-    const myColor = localStorage.getItem('atomgram_myMsgColor');
-    const otherColor = localStorage.getItem('atomgram_otherMsgColor');
-    if (myColor || otherColor) {
-        let style = document.getElementById('msgColorStyle');
-        if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
-            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
-    }
-    const fontSize = localStorage.getItem('atomgram_fontSize');
-    if (fontSize) {
-        let style = document.getElementById('fontSizeStyle');
-        if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message-text { font-size: ${fontSize} !important; }`;
-    }
-}
-
-// ========== ДРУЗЬЯ ==========
-function addFriend() {
-    const u = prompt('Username друга:');
-    if (!u) return;
-    socket.emit('add friend', { friendUsername: u }, (res) => {
-        if (res.success) alert(res.message);
-        else alert(res.error);
-    });
-}
-function acceptFriend(from) { socket.emit('accept friend', { fromUser: from }); }
-function rejectFriend(from) { socket.emit('reject friend', { fromUser: from }); }
-function banUser(u) { if (confirm('Забанить ' + u + '?')) socket.emit('ban user', { userToBan: u }); }
-function unbanUser(u) { socket.emit('unban user', { userToUnban: u }); }
-function renderFriends() {
-    const container = document.getElementById('friendsList');
-    let html = '';
-    friendRequests.forEach(req => {
-        html += '<div class="friend-item friend-request"><span>👤 ' + req + '</span><div class="friend-actions"><button class="accept-btn" onclick="acceptFriend(\\'' + req + '\\')">✅</button><button class="reject-btn" onclick="rejectFriend(\\'' + req + '\\')">❌</button></div></div>';
-    });
-    allFriends.forEach(f => {
-        html += '<div class="friend-item" onclick="startPrivateChat(\\'' + f + '\\')"><span>👤 ' + f + '</span><button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + f + '\\')">🚫</button></div>';
-    });
-    bannedUsers.forEach(b => {
-        html += '<div class="friend-item" style="opacity:0.7;"><span>👤 ' + b + ' (забанен)</span><button class="accept-btn" onclick="unbanUser(\\'' + b + '\\')">🔓</button></div>';
-    });
-    container.innerHTML = html || '<div style="padding:10px; color:#666;">Нет друзей</div>';
-}
-
-// ========== ЧАТЫ ==========
 function createRoom() {
     const name = prompt('Название чата:');
     if (!name) return;
@@ -551,8 +414,21 @@ function renderAll() {
     rl.innerHTML = allRooms.map(r => '<div class="room-item" onclick="joinRoom(\\'' + r + '\\')"># ' + r + '</div>').join('');
     const cl = document.getElementById('channelsList');
     cl.innerHTML = allChannels.map(c => '<div class="channel-item" onclick="joinChannel(\\'' + c + '\\')">📢 ' + c + '</div>').join('');
-    renderFriends();
+    let fl = '';
+    friendRequests.forEach(req => { fl += '<div class="friend-item friend-request"><span>👤 ' + req + '</span><div class="friend-actions"><button class="accept-btn" onclick="acceptFriend(\\'' + req + '\\')">✅</button><button class="reject-btn" onclick="rejectFriend(\\'' + req + '\\')">❌</button></div></div>'; });
+    allFriends.forEach(f => { fl += '<div class="friend-item" onclick="startPrivateChat(\\'' + f + '\\')"><span>👤 ' + f + '</span><button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + f + '\\')">🚫</button></div>'; });
+    bannedUsers.forEach(b => { fl += '<div class="friend-item" style="opacity:0.7;"><span>👤 ' + b + ' (забанен)</span><button class="accept-btn" onclick="unbanUser(\\'' + b + '\\')">🔓</button></div>'; });
+    document.getElementById('friendsList').innerHTML = fl || '<div style="padding:10px;">Нет друзей</div>';
 }
+function addFriend() {
+    const u = prompt('Username друга:');
+    if (!u) return;
+    socket.emit('add friend', { friendUsername: u }, (res) => { alert(res.message || res.error); });
+}
+function acceptFriend(from) { socket.emit('accept friend', { fromUser: from }); }
+function rejectFriend(from) { socket.emit('reject friend', { fromUser: from }); }
+function banUser(u) { if (confirm('Забанить ' + u + '?')) socket.emit('ban user', { userToBan: u }); }
+function unbanUser(u) { socket.emit('unban user', { userToUnban: u }); }
 function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
@@ -563,7 +439,6 @@ function sendMessage() {
     input.value = '';
 }
 
-// ========== ВИДЕОКРУЖКИ ==========
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
     try {
@@ -604,7 +479,6 @@ function closeVideoModal() {
     document.getElementById('sendVideoBtn').style.display = 'none';
 }
 
-// ========== ФАЙЛЫ ==========
 function sendFile() {
     const file = document.getElementById('fileInput').files[0];
     if (!file || !currentChat) return;
@@ -613,7 +487,6 @@ function sendFile() {
     reader.readAsDataURL(file);
 }
 
-// ========== ГОЛОСОВЫЕ ==========
 async function toggleRecording() {
     if (isRecording) { stopRecordingAudio(); } else { startRecordingAudio(); }
 }
@@ -653,7 +526,6 @@ function playAudio(btn) {
     audio.onended = () => { btn.innerHTML = '▶️'; };
 }
 
-// ========== ПРОФИЛЬ ==========
 function openProfileModal() {
     document.getElementById('editName').value = currentUserData?.name || '';
     document.getElementById('editSurname').value = currentUserData?.surname || '';
@@ -661,19 +533,9 @@ function openProfileModal() {
     document.getElementById('editPassword').value = '';
     document.getElementById('profileModal').style.display = 'flex';
 }
-function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; document.getElementById('avatarPicker').style.display = 'none'; }
-function toggleAvatarPicker() { const p = document.getElementById('avatarPicker'); p.style.display = p.style.display === 'none' ? 'flex' : 'none'; }
-let selectedAvatar = '👤';
-function selectAvatar(avatar) { selectedAvatar = avatar; document.getElementById('profileAvatar').innerHTML = avatar; document.getElementById('avatarPicker').style.display = 'none'; }
-function uploadAvatar() {
-    const file = document.getElementById('avatarUpload').files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => { socket.emit('upload avatar', { login: currentUser, avatarData: reader.result }, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); alert('Аватар загружен'); } }); };
-    reader.readAsDataURL(file);
-}
+function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; }
 function saveProfile() {
-    const data = { login: currentUser, name: document.getElementById('editName').value.trim(), surname: document.getElementById('editSurname').value.trim(), bio: document.getElementById('editBio').value.trim(), avatar: selectedAvatar };
+    const data = { login: currentUser, name: document.getElementById('editName').value.trim(), surname: document.getElementById('editSurname').value.trim(), bio: document.getElementById('editBio').value.trim() };
     const newPass = document.getElementById('editPassword').value.trim();
     if (newPass) data.password = newPass;
     socket.emit('update profile', data, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); closeProfileModal(); alert('Сохранено'); } else alert(res.error); });
@@ -682,10 +544,7 @@ function updateUI() {
     const name = (currentUserData?.name + ' ' + (currentUserData?.surname || '')).trim() || currentUser;
     document.getElementById('userName').innerText = name;
     document.getElementById('userLogin').innerText = '@' + currentUser;
-    document.getElementById('userAvatar').innerHTML = currentUserData?.avatar || '👤';
 }
-
-// ========== АВТОРИЗАЦИЯ ==========
 function login() {
     const u = document.getElementById('loginUsername').value.trim();
     const p = document.getElementById('loginPassword').value.trim();
@@ -699,7 +558,6 @@ function login() {
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             updateUI(); loadData();
-            applySavedSettings();
         } else document.getElementById('authError').innerText = res.error;
     });
 }
@@ -739,7 +597,6 @@ socket.on('chat message', (msg) => {
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
     if (show) { addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
-    if (msg.from !== currentUser) playNotificationSound();
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
@@ -801,8 +658,9 @@ io.on('connection', (socket) => {
         const { username, name, surname, password } = data;
         if (users[username]) cb({ success: false, error: 'Username занят' });
         else {
-            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
-            saveData(); cb({ success: true });
+            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', friends: [], friendRequests: [], banned: [] };
+            saveData();
+            cb({ success: true });
         }
     });
 
@@ -816,18 +674,6 @@ io.on('connection', (socket) => {
             cb({ success: true, userData: users[username] });
             socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
         }
-    });
-
-    socket.on('upload avatar', (data, cb) => {
-        const { login, avatarData } = data;
-        if (users[login]) {
-            users[login].avatarType = 'image';
-            users[login].avatarData = avatarData;
-            users[login].avatar = null;
-            saveData();
-            cb({ success: true, userData: users[login] });
-            io.emit('profile updated', users[login]);
-        } else cb({ success: false });
     });
 
     socket.on('add friend', (data, cb) => {
@@ -906,7 +752,6 @@ io.on('connection', (socket) => {
             if (data.name !== undefined) users[data.login].name = data.name;
             if (data.surname !== undefined) users[data.login].surname = data.surname;
             if (data.bio !== undefined) users[data.login].bio = data.bio;
-            if (data.avatar !== undefined) users[data.login].avatar = data.avatar;
             if (data.password) users[data.login].password = data.password;
             saveData();
             cb({ success: true, userData: users[data.login] });
@@ -945,8 +790,8 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`║  💻 http://localhost:${PORT}              ║`);
     console.log(`║  📱 http://${ip}:${PORT}             ║`);
     console.log(`╠════════════════════════════════════════╣`);
-    console.log(`║  ✅ Друзья (добавление, бан)        ║`);
-    console.log(`║  ✅ Кастомизация (тема, фон, цвет)  ║`);
+    console.log(`║  ✅ Регистрация и вход работают     ║`);
+    console.log(`║  ✅ Друзья, чаты, каналы            ║`);
     console.log(`║  ✅ Данные сохраняются             ║`);
     console.log(`║  ✅ Сервер не засыпает             ║`);
     console.log(`╚════════════════════════════════════════╝\n`);
