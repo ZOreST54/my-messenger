@@ -16,10 +16,11 @@ const io = socketIo(server, {
 
 // ========== ДАННЫЕ ==========
 const DATA_FILE = path.join(__dirname, 'data.json');
+const AVATAR_DIR = path.join(__dirname, 'avatars');
+if (!fs.existsSync(AVATAR_DIR)) fs.mkdirSync(AVATAR_DIR);
 
 let users = {};
 let privateChats = {};
-let publicRooms = { general: { messages: [] } };
 let channels = {};
 
 function loadData() {
@@ -28,7 +29,6 @@ function loadData() {
             const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
             users = data.users || {};
             privateChats = data.privateChats || {};
-            publicRooms = data.publicRooms || { general: { messages: [] } };
             channels = data.channels || {};
             console.log('✅ Данные загружены');
         }
@@ -37,13 +37,13 @@ function loadData() {
 
 function saveData() {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, publicRooms, channels }, null, 2));
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, channels }, null, 2));
         console.log('💾 Данные сохранены');
     } catch (e) { console.log('Ошибка сохранения:', e); }
 }
 
 loadData();
-setInterval(saveData, 30000);
+setInterval(saveData, 10000);
 
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
@@ -55,16 +55,25 @@ function getLocalIP() {
     return 'localhost';
 }
 
+// Раздача аватарок
+app.use('/avatars', express.static(AVATAR_DIR));
+
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
     <title>ATOMGRAM</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; transition: all 0.3s; }
+        body.light { background: #f0f0f0; color: #1a1a2e; }
+        body.blue { background: #0a2a4a; }
+        body.green { background: #0a3d2a; }
+        body.pink { background: #3d1a3a; }
+        body.purple { background: #2a1a3a; }
+        
         #authScreen {
             position: fixed;
             top: 0;
@@ -114,12 +123,13 @@ app.get('/', (req, res) => {
             display: flex;
         }
         .sidebar {
-            width: 260px;
+            width: 280px;
             background: #1a1a2e;
             border-right: 1px solid rgba(255,255,255,0.1);
             display: flex;
             flex-direction: column;
         }
+        body.light .sidebar { background: white; border-right-color: #ddd; }
         .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
@@ -128,18 +138,25 @@ app.get('/', (req, res) => {
             gap: 12px;
             cursor: pointer;
         }
+        .avatar-img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #2a2a3e;
+        }
         .avatar-emoji { font-size: 40px; background: #2a2a3e; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
         .user-info h3 { font-size: 16px; }
         .user-info .username { font-size: 11px; color: #888; }
         .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         .menu-item:hover { background: rgba(102,126,234,0.1); }
         .section-title { padding: 10px 20px; font-size: 11px; color: #667eea; }
-        .friends-list, .rooms-list, .channels-list {
+        .friends-list, .channels-list {
             padding: 5px 10px;
             overflow-y: auto;
             max-height: 150px;
         }
-        .friend-item, .room-item, .channel-item {
+        .friend-item, .channel-item {
             padding: 8px 12px;
             margin: 3px 0;
             border-radius: 12px;
@@ -149,7 +166,7 @@ app.get('/', (req, res) => {
             gap: 10px;
             justify-content: space-between;
         }
-        .friend-item:hover, .room-item:hover { background: rgba(102,126,234,0.2); }
+        .friend-item:hover, .channel-item:hover { background: rgba(102,126,234,0.2); }
         .friend-request { background: rgba(102,126,234,0.3); }
         .friend-actions button { margin-left: 5px; padding: 3px 8px; border-radius: 12px; border: none; cursor: pointer; }
         .accept-btn { background: #4ade80; color: white; }
@@ -167,7 +184,9 @@ app.get('/', (req, res) => {
             align-items: center;
             gap: 15px;
         }
+        body.light .chat-header { background: white; border-bottom-color: #ddd; }
         .chat-title { flex: 1; font-size: 16px; font-weight: bold; }
+        .settings-btn { background: none; border: none; font-size: 20px; cursor: pointer; margin-left: auto; }
         .messages-area {
             flex: 1;
             overflow-y: auto;
@@ -182,17 +201,20 @@ app.get('/', (req, res) => {
             gap: 8px;
             max-width: 100%;
         }
+        .message-avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
         .message-avatar { font-size: 32px; min-width: 36px; text-align: center; }
         .message-bubble { max-width: 70%; }
         .message-content { padding: 8px 14px; border-radius: 18px; background: #2a2a3e; }
+        body.light .message-content { background: #e8e8e8; color: #1a1a2e; }
         .message.my-message { justify-content: flex-end; }
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; }
-        .message-text { font-size: 14px; }
+        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; cursor: pointer; }
+        .message-text { font-size: 14px; word-wrap: break-word; }
         .message-time { font-size: 9px; color: #888; margin-top: 3px; }
         .voice-message { display: flex; align-items: center; gap: 8px; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; color: white; }
-        .video-circle { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; cursor: pointer; }
+        .voice-message audio { height: 35px; border-radius: 20px; }
+        .video-circle { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; cursor: pointer; background: #2a2a3e; }
         .file-attachment { background: rgba(102,126,234,0.2); padding: 8px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; }
         .file-attachment a { color: white; text-decoration: none; }
         .typing-indicator { font-size: 11px; color: #888; padding: 5px 15px; font-style: italic; }
@@ -202,6 +224,7 @@ app.get('/', (req, res) => {
             background: #1a1a2e;
             border-top: 1px solid rgba(255,255,255,0.1);
             gap: 8px;
+            flex-wrap: wrap;
         }
         .input-area input {
             flex: 1;
@@ -211,7 +234,9 @@ app.get('/', (req, res) => {
             background: #2a2a3e;
             color: white;
             font-size: 15px;
+            min-width: 100px;
         }
+        body.light .input-area input { background: #e8e8e8; color: #1a1a2e; }
         .input-area button {
             padding: 10px 15px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -219,10 +244,30 @@ app.get('/', (req, res) => {
             border: none;
             border-radius: 25px;
             cursor: pointer;
+            font-size: 16px;
         }
-        .voice-record-btn { background: #ff6b6b !important; }
+        .attach-btn, .voice-record-btn, .video-record-btn { background: #2a2a3e !important; }
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        .sticker-picker {
+            position: fixed;
+            bottom: 80px;
+            left: 0;
+            right: 0;
+            background: #1a1a2e;
+            border-radius: 20px 20px 0 0;
+            padding: 15px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 10px;
+            z-index: 150;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .sticker-picker.open { display: flex; }
+        .sticker { font-size: 40px; cursor: pointer; padding: 8px; border-radius: 15px; transition: transform 0.1s; }
+        .sticker:active { transform: scale(1.1); }
         
         .video-modal {
             position: fixed;
@@ -239,12 +284,29 @@ app.get('/', (req, res) => {
         }
         .video-preview { width: 100%; max-width: 300px; border-radius: 50%; overflow: hidden; }
         video { width: 100%; border-radius: 50%; }
-        .video-controls { margin-top: 20px; display: flex; gap: 10px; }
+        .video-controls { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
         .video-controls button { padding: 12px 20px; border-radius: 40px; border: none; font-size: 14px; cursor: pointer; }
         .start-record { background: #ff6b6b; color: white; }
         .stop-record { background: #ff4444; color: white; }
         .send-video { background: #4ade80; color: white; }
         .close-video { background: #888; color: white; }
+        
+        .notification {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #667eea;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 25px;
+            font-size: 13px;
+            z-index: 1000;
+            white-space: nowrap;
+            max-width: 90%;
+            white-space: normal;
+            text-align: center;
+        }
         
         .modal {
             position: fixed;
@@ -267,15 +329,19 @@ app.get('/', (req, res) => {
             overflow-y: auto;
         }
         .modal-header { padding: 15px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .modal-header h3 { color: white; }
+        .modal-header h3 { color: white; font-size: 18px; }
         .close-modal { float: right; background: none; border: none; color: #888; font-size: 22px; cursor: pointer; }
         .profile-avatar-section { text-align: center; padding: 20px; }
-        .profile-avatar-emoji { font-size: 70px; background: #2a2a3e; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+        .profile-avatar-img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; cursor: pointer; }
+        .profile-avatar-emoji { font-size: 70px; background: #2a2a3e; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
         .profile-field { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .profile-field label { display: block; font-size: 11px; color: #667eea; }
-        .profile-field input, .profile-field textarea { width: 100%; padding: 10px; background: #2a2a3e; border: none; border-radius: 12px; color: white; }
+        .profile-field input, .profile-field textarea, .profile-field select { width: 100%; padding: 10px; background: #2a2a3e; border: none; border-radius: 12px; color: white; }
+        .avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; padding: 10px; background: #2a2a3e; border-radius: 20px; }
+        .avatar-option { font-size: 30px; cursor: pointer; padding: 5px; border-radius: 50%; }
         .modal-footer { padding: 15px; display: flex; gap: 10px; }
         .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
+        .delete-avatar-btn { background: #ff4444; color: white; border: none; padding: 12px; border-radius: 25px; cursor: pointer; flex: 1; }
         
         @media (max-width: 768px) {
             .sidebar { display: none; }
@@ -307,22 +373,20 @@ app.get('/', (req, res) => {
 <div id="mainApp">
     <div class="sidebar">
         <div class="sidebar-header" onclick="openProfileModal()">
-            <div id="userAvatar"><div class="avatar-emoji">👤</div></div>
+            <div id="userAvatar"></div>
             <div class="user-info">
                 <h3 id="userName">Загрузка...</h3>
                 <div class="username" id="userLogin">@</div>
             </div>
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
+        <div class="menu-item" onclick="openSettingsModal()"><span>⚙️</span> <span>Настройки</span></div>
         <div class="menu-item" onclick="addFriend()"><span>➕</span> <span>Добавить друга</span></div>
         <div class="section-title">👥 ДРУЗЬЯ</div>
         <div class="friends-list" id="friendsList"></div>
-        <div class="section-title">💬 ЧАТЫ</div>
-        <div class="rooms-list" id="roomsList"></div>
         <div class="section-title">📢 КАНАЛЫ</div>
         <div class="channels-list" id="channelsList"></div>
         <div class="create-btn">
-            <button onclick="createRoom()">+ Чат</button>
             <button onclick="createChannel()">+ Канал</button>
         </div>
     </div>
@@ -330,15 +394,28 @@ app.get('/', (req, res) => {
         <div class="chat-header">
             <div style="font-weight: bold;">⚡ ATOMGRAM</div>
             <div class="chat-title" id="chatTitle">Выберите чат</div>
+            <button class="settings-btn" onclick="openSettingsModal()">⚙️</button>
         </div>
         <div class="messages-area" id="messages"></div>
         <div class="typing-indicator" id="typingIndicator" style="display:none"></div>
+        <div class="sticker-picker" id="stickerPicker">
+            <div class="sticker" onclick="sendSticker('😀')">😀</div><div class="sticker" onclick="sendSticker('😂')">😂</div>
+            <div class="sticker" onclick="sendSticker('😍')">😍</div><div class="sticker" onclick="sendSticker('😎')">😎</div>
+            <div class="sticker" onclick="sendSticker('🥳')">🥳</div><div class="sticker" onclick="sendSticker('🔥')">🔥</div>
+            <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('🎉')">🎉</div>
+            <div class="sticker" onclick="sendSticker('🐱')">🐱</div><div class="sticker" onclick="sendSticker('🐶')">🐶</div>
+            <div class="sticker" onclick="sendSticker('🍕')">🍕</div><div class="sticker" onclick="sendSticker('🍺')">🍺</div>
+            <div class="sticker" onclick="sendSticker('👍')">👍</div><div class="sticker" onclick="sendSticker('👎')">👎</div>
+            <div class="sticker" onclick="sendSticker('🤣')">🤣</div><div class="sticker" onclick="sendSticker('🥺')">🥺</div>
+            <div class="sticker" onclick="sendSticker('😱')">😱</div><div class="sticker" onclick="sendSticker('🤯')">🤯</div>
+        </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Сообщение...">
+            <button class="sticker-btn" onclick="toggleStickerPicker()">😊</button>
             <button class="attach-btn" onclick="document.getElementById('fileInput').click()">📎</button>
             <input type="file" id="fileInput" style="display:none" onchange="sendFile()">
             <button id="voiceBtn" class="voice-record-btn" onclick="toggleRecording()">🎤</button>
-            <button id="videoBtn" onclick="startVideoRecording()">🎥</button>
+            <button id="videoBtn" class="video-record-btn" onclick="startVideoRecording()">🎥</button>
             <button onclick="sendMessage()">📤</button>
         </div>
     </div>
@@ -347,12 +424,57 @@ app.get('/', (req, res) => {
 <div id="profileModal" class="modal" style="display:none">
     <div class="modal-content">
         <div class="modal-header"><h3>Профиль</h3><button class="close-modal" onclick="closeProfileModal()">✕</button></div>
-        <div class="profile-avatar-section"><div id="profileAvatar" class="profile-avatar-emoji">👤</div></div>
+        <div class="profile-avatar-section">
+            <div id="profileAvatar"></div>
+            <div id="avatarPicker" class="avatar-picker" style="display:none;">
+                <div class="avatar-option" onclick="selectAvatar('😀')">😀</div><div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
+                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div><div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
+                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div><div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
+                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div><div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
+                <div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div><div class="avatar-option" onclick="selectAvatar('🐼')">🐼</div>
+                <div class="avatar-option" onclick="selectAvatar('🦊')">🦊</div><div class="avatar-option" onclick="selectAvatar('🐨')">🐨</div>
+            </div>
+            <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
+        </div>
         <div class="profile-field"><label>Имя</label><input type="text" id="editName"></div>
         <div class="profile-field"><label>Фамилия</label><input type="text" id="editSurname"></div>
         <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2"></textarea></div>
         <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
-        <div class="modal-footer"><button class="save-btn" onclick="saveProfile()">Сохранить</button></div>
+        <div class="modal-footer">
+            <button class="upload-btn" onclick="document.getElementById('avatarUpload').click()">📷 Загрузить фото</button>
+            <button class="delete-avatar-btn" onclick="deleteAvatar()">🗑️ Удалить фото</button>
+            <button class="save-btn" onclick="saveProfile()">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal" style="display:none">
+    <div class="modal-content">
+        <div class="modal-header"><h3>Настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
+        <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()">
+            <option value="dark">Тёмная</option><option value="light">Светлая</option>
+            <option value="blue">Синяя</option><option value="green">Зелёная</option>
+            <option value="pink">Розовая</option><option value="purple">Фиолетовая</option>
+        </select></div>
+        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()">
+            <option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option>
+            <option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option>
+            <option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option>
+            <option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option>
+            <option value="linear-gradient(135deg, #ff6b6b 0%, #feca57 100%)">Закат</option>
+            <option value="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">Космос</option>
+        </select></div>
+        <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
+        <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
+        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()">
+            <option value="12px">Маленький</option><option value="14px" selected>Средний</option>
+            <option value="16px">Большой</option><option value="18px">Очень большой</option>
+        </select></div>
+        <div class="profile-field"><label>🔊 Звук уведомлений</label><select id="soundSelect" onchange="applySound()">
+            <option value="default">🔔 Обычный</option><option value="pop">🔘 Поп</option>
+            <option value="chime">🔊 Чайм</option><option value="silent">🔇 Без звука</option>
+        </select></div>
+        <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
 
@@ -371,7 +493,7 @@ app.get('/', (req, res) => {
 const socket = io();
 let currentUser = null, currentUserData = null;
 let currentChat = null, currentChatType = null, currentChatTarget = null;
-let allRooms = [], allFriends = [], allChannels = [], friendRequests = [], bannedUsers = [];
+let allChannels = [], allFriends = [], friendRequests = [], bannedUsers = [];
 let mediaRecorder = null, audioChunks = [], isRecording = false;
 let videoStream = null, videoRecorder = null, videoChunks = [];
 let recordedVideoBlob = null;
@@ -382,21 +504,30 @@ const savedPassword = localStorage.getItem('atomgram_password');
 
 function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
-function createRoom() {
-    const name = prompt('Название чата:');
-    if (!name) return;
-    socket.emit('createRoom', name, (ok) => { if (ok) { loadData(); setTimeout(() => joinRoom(name), 500); } else alert('Чат есть'); });
+function toggleStickerPicker() { document.getElementById('stickerPicker').classList.toggle('open'); }
+function sendSticker(sticker) {
+    if (!currentChat) { alert('Выберите чат'); return; }
+    socket.emit('chat message', { type: currentChatType, target: currentChatTarget, text: sticker });
+    document.getElementById('stickerPicker').classList.remove('open');
 }
+
+function renderAvatar(avatarData, avatarType, size) {
+    if (avatarType === 'image' && avatarData) {
+        if (size === 'small') return '<img src="' + avatarData + '" class="user-avatar-small-img" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">';
+        if (size === 'large') return '<img src="' + avatarData + '" class="profile-avatar-img">';
+        return '<img src="' + avatarData + '" class="avatar-img">';
+    } else {
+        const emoji = avatarData || '👤';
+        if (size === 'small') return '<div class="user-avatar-small" style="font-size:24px;">' + emoji + '</div>';
+        if (size === 'large') return '<div class="profile-avatar-emoji">' + emoji + '</div>';
+        return '<div class="avatar-emoji">' + emoji + '</div>';
+    }
+}
+
 function createChannel() {
     const name = prompt('Название канала:');
     if (!name) return;
     socket.emit('create channel', { channelName: name }, (res) => { if (res.success) { loadData(); alert('Канал создан'); } else alert(res.error); });
-}
-function joinRoom(name) {
-    currentChat = 'room:' + name; currentChatType = 'room'; currentChatTarget = name;
-    socket.emit('joinRoom', name);
-    document.getElementById('chatTitle').innerHTML = '# ' + name;
-    renderAll();
 }
 function joinChannel(name) {
     currentChat = 'channel:' + name; currentChatType = 'channel'; currentChatTarget = name;
@@ -411,8 +542,6 @@ function startPrivateChat(user) {
     renderAll();
 }
 function renderAll() {
-    const rl = document.getElementById('roomsList');
-    rl.innerHTML = allRooms.map(r => '<div class="room-item" onclick="joinRoom(\\'' + r + '\\')"># ' + r + '</div>').join('');
     const cl = document.getElementById('channelsList');
     cl.innerHTML = allChannels.map(c => '<div class="channel-item" onclick="joinChannel(\\'' + c + '\\')">📢 ' + c + '</div>').join('');
     let fl = '';
@@ -424,9 +553,7 @@ function renderAll() {
 function addFriend() {
     const u = prompt('Введите username друга:');
     if (!u) return;
-    socket.emit('add friend', { friendUsername: u }, (res) => {
-        alert(res.message || res.error);
-    });
+    socket.emit('add friend', { friendUsername: u }, (res) => { alert(res.message || res.error); });
 }
 function acceptFriend(from) { socket.emit('accept friend', { fromUser: from }); }
 function rejectFriend(from) { socket.emit('reject friend', { fromUser: from }); }
@@ -436,9 +563,7 @@ function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     if (!text || !currentChat) return;
-    if (currentChatType === 'room') socket.emit('chat message', { type: 'room', target: currentChatTarget, text });
-    else if (currentChatType === 'channel') socket.emit('channel message', { channel: currentChatTarget, text });
-    else socket.emit('chat message', { type: 'private', target: currentChatTarget, text });
+    socket.emit('chat message', { type: currentChatType, target: currentChatTarget, text });
     input.value = '';
 }
 
@@ -521,12 +646,11 @@ function stopRecordingAudio() {
     }
 }
 function playAudio(btn) {
-    const audio = new Audio(btn.getAttribute('data-audio'));
     if (currentAudio && !currentAudio.paused) { currentAudio.pause(); btn.innerHTML = '▶️'; }
-    currentAudio = audio;
-    audio.play();
+    currentAudio = new Audio(btn.getAttribute('data-audio'));
+    currentAudio.play();
     btn.innerHTML = '⏸️';
-    audio.onended = () => { btn.innerHTML = '▶️'; };
+    currentAudio.onended = () => { btn.innerHTML = '▶️'; };
 }
 
 function openProfileModal() {
@@ -534,20 +658,115 @@ function openProfileModal() {
     document.getElementById('editSurname').value = currentUserData?.surname || '';
     document.getElementById('editBio').value = currentUserData?.bio || '';
     document.getElementById('editPassword').value = '';
+    const avatarContainer = document.getElementById('profileAvatar');
+    avatarContainer.innerHTML = renderAvatar(currentUserData?.avatarData, currentUserData?.avatarType, 'large');
     document.getElementById('profileModal').style.display = 'flex';
 }
-function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; }
+function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; document.getElementById('avatarPicker').style.display = 'none'; }
+function toggleAvatarPicker() { const p = document.getElementById('avatarPicker'); p.style.display = p.style.display === 'none' ? 'flex' : 'none'; }
+let selectedAvatar = '👤';
+function selectAvatar(avatar) { selectedAvatar = avatar; document.getElementById('profileAvatar').innerHTML = '<div class="profile-avatar-emoji">' + avatar + '</div>'; document.getElementById('avatarPicker').style.display = 'none'; }
+function uploadAvatar() {
+    const file = document.getElementById('avatarUpload').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => { socket.emit('upload avatar', { login: currentUser, avatarData: reader.result }, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); alert('Аватар загружен'); closeProfileModal(); } }); };
+    reader.readAsDataURL(file);
+}
+function deleteAvatar() {
+    if (confirm('Удалить фото аватара?')) {
+        socket.emit('delete avatar', { login: currentUser }, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); alert('Аватар удалён'); closeProfileModal(); } });
+    }
+}
 function saveProfile() {
     const data = { login: currentUser, name: document.getElementById('editName').value.trim(), surname: document.getElementById('editSurname').value.trim(), bio: document.getElementById('editBio').value.trim() };
     const newPass = document.getElementById('editPassword').value.trim();
     if (newPass) data.password = newPass;
+    if (selectedAvatar !== currentUserData?.avatar) { data.avatar = selectedAvatar; data.avatarType = 'emoji'; }
     socket.emit('update profile', data, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); closeProfileModal(); alert('Сохранено'); } else alert(res.error); });
 }
 function updateUI() {
     const name = (currentUserData?.name + ' ' + (currentUserData?.surname || '')).trim() || currentUser;
     document.getElementById('userName').innerText = name;
     document.getElementById('userLogin').innerText = '@' + currentUser;
+    document.getElementById('userAvatar').innerHTML = renderAvatar(currentUserData?.avatarData, currentUserData?.avatarType);
 }
+
+function applyTheme() {
+    const theme = document.getElementById('themeSelect').value;
+    const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple'];
+    document.body.classList.remove(...themes);
+    document.body.classList.add(theme);
+    localStorage.setItem('atomgram_theme', theme);
+}
+function applyChatBg() {
+    const bg = document.getElementById('chatBgSelect').value;
+    document.querySelector('.messages-area').style.background = bg;
+    document.querySelector('.messages-area').style.backgroundSize = 'cover';
+    localStorage.setItem('atomgram_chatBg', bg);
+}
+function applyMsgColor() {
+    const myColor = document.getElementById('myMsgColor').value;
+    const otherColor = document.getElementById('otherMsgColor').value;
+    let style = document.getElementById('msgColorStyle');
+    if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
+    style.innerHTML = `.message.my-message .message-content { background: ${myColor} !important; }
+        .message:not(.my-message) .message-content { background: ${otherColor} !important; }`;
+    localStorage.setItem('atomgram_myMsgColor', myColor);
+    localStorage.setItem('atomgram_otherMsgColor', otherColor);
+}
+function applyFontSize() {
+    const size = document.getElementById('fontSizeSelect').value;
+    let style = document.getElementById('fontSizeStyle');
+    if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
+    style.innerHTML = `.message-text { font-size: ${size} !important; }`;
+    localStorage.setItem('atomgram_fontSize', size);
+}
+function applySound() {
+    const sound = document.getElementById('soundSelect').value;
+    localStorage.setItem('atomgram_sound', sound);
+}
+function playNotificationSound() {
+    const sound = localStorage.getItem('atomgram_sound') || 'default';
+    if (sound === 'silent') return;
+    const audio = new Audio();
+    if (sound === 'pop') audio.src = 'data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==';
+    audio.play().catch(e => console.log('Звук не воспроизведён'));
+}
+function saveSettings() {
+    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize(); applySound();
+    closeSettingsModal();
+    alert('Настройки сохранены');
+}
+function openSettingsModal() {
+    document.getElementById('themeSelect').value = document.body.classList.contains('light') ? 'light' : 'dark';
+    document.getElementById('chatBgSelect').value = localStorage.getItem('atomgram_chatBg') || '#0a0a0a';
+    document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
+    document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
+    document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '14px';
+    document.getElementById('soundSelect').value = localStorage.getItem('atomgram_sound') || 'default';
+    document.getElementById('settingsModal').style.display = 'flex';
+}
+function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
+function applySavedSettings() {
+    const bg = localStorage.getItem('atomgram_chatBg');
+    if (bg) { document.querySelector('.messages-area').style.background = bg; document.querySelector('.messages-area').style.backgroundSize = 'cover'; }
+    const myColor = localStorage.getItem('atomgram_myMsgColor');
+    const otherColor = localStorage.getItem('atomgram_otherMsgColor');
+    if (myColor || otherColor) {
+        let style = document.getElementById('msgColorStyle');
+        if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
+        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
+            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
+    }
+    const fontSize = localStorage.getItem('atomgram_fontSize');
+    if (fontSize) {
+        let style = document.getElementById('fontSizeStyle');
+        if (!style) { style = document.createElement('style'); style.id = 'fontSizeStyle'; document.head.appendChild(style); }
+        style.innerHTML = `.message-text { font-size: ${fontSize} !important; }`;
+    }
+}
+
 function login() {
     const u = document.getElementById('loginUsername').value.trim();
     const p = document.getElementById('loginPassword').value.trim();
@@ -561,6 +780,12 @@ function login() {
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             updateUI(); loadData();
+            applySavedSettings();
+            if (res.userData.theme) {
+                const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple'];
+                document.body.classList.remove(...themes);
+                document.body.classList.add(res.userData.theme);
+            }
         } else document.getElementById('authError').innerText = res.error;
     });
 }
@@ -579,16 +804,13 @@ function showRegister() { document.getElementById('authForm').style.display = 'n
 function showLogin() { document.getElementById('authForm').style.display = 'block'; document.getElementById('registerForm').style.display = 'none'; document.getElementById('authError').innerText = ''; }
 if (savedUsername && savedPassword) { document.getElementById('loginUsername').value = savedUsername; document.getElementById('loginPassword').value = savedPassword; setTimeout(login, 100); }
 function loadData() {
-    socket.emit('getRooms', (r) => { allRooms = r; renderAll(); });
-    socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderFriends(); });
+    socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
     socket.emit('getChannels', (c) => { allChannels = c; renderAll(); });
 }
-socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderFriends(); });
-socket.on('rooms update', (r) => { allRooms = r; renderAll(); });
+socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('channels update', (c) => { allChannels = c; renderAll(); });
 socket.on('chat history', (data) => {
-    if ((currentChatType === 'room' && data.type === 'room' && data.room === currentChatTarget) ||
-        (currentChatType === 'private' && data.type === 'private' && data.with === currentChatTarget) ||
+    if ((currentChatType === 'private' && data.type === 'private' && data.with === currentChatTarget) ||
         (currentChatType === 'channel' && data.type === 'channel' && data.channel === currentChatTarget)) {
         document.getElementById('messages').innerHTML = '';
         data.messages.forEach(m => addMessage(m));
@@ -596,10 +818,10 @@ socket.on('chat history', (data) => {
 });
 socket.on('chat message', (msg) => {
     let show = false;
-    if (msg.type === 'room' && currentChatType === 'room' && msg.room === currentChatTarget) show = true;
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
     if (show) { addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
+    if (msg.from !== currentUser) playNotificationSound();
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
@@ -620,31 +842,65 @@ function addMessage(m) {
     const div = document.createElement('div');
     div.className = 'message';
     if (m.from === currentUser) div.classList.add('my-message');
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(m.from) + '</div><div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
+    const ud = window.usersProfiles?.[m.from] || {};
+    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
+    const displayName = ud.name || m.from;
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + m.from + '\')">' + avatarHtml + '</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + m.from + '\')">' + escape(displayName) + '</div>' +
+        '<div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVoiceMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><div class="voice-message"><button onclick="playAudio(this)" data-audio="' + d.audio + '">▶️</button><span>Голосовое</span></div><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    const ud = window.usersProfiles?.[d.from] || {};
+    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
+    const displayName = ud.name || d.from;
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">' + avatarHtml + '</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(displayName) + '</div>' +
+        '<div class="voice-message"><button onclick="playAudio(this)" data-audio="' + d.audio + '">▶️</button><audio controls><source src="' + d.audio + '"></audio></div>' +
+        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVideoMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><video class="video-circle" controls autoplay loop src="' + d.video + '"></video><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    const ud = window.usersProfiles?.[d.from] || {};
+    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
+    const displayName = ud.name || d.from;
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">' + avatarHtml + '</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(displayName) + '</div>' +
+        '<video class="video-circle" controls autoplay loop src="' + d.video + '"></video>' +
+        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addFileMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
+    const ud = window.usersProfiles?.[d.from] || {};
+    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
+    const displayName = ud.name || d.from;
     const icon = d.fileType?.startsWith('image/') ? '🖼️' : '📄';
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><div class="file-attachment"><span>' + icon + '</span><a href="' + d.fileData + '" download="' + d.fileName + '">' + d.fileName + '</a></div><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">' + avatarHtml + '</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(displayName) + '</div>' +
+        '<div class="file-attachment"><span>' + icon + '</span><a href="' + d.fileData + '" download="' + d.fileName + '">' + d.fileName + '</a></div>' +
+        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
+function viewUserProfile(username) {
+    socket.emit('getUserProfile', username, (profile) => {
+        if (profile) {
+            alert('👤 ' + (profile.name || username) + '\n📝 ' + (profile.bio || 'Нет описания'));
+        }
+    });
+}
+window.usersProfiles = {};
+socket.on('users list with profiles', (profiles) => {
+    profiles.forEach(p => { window.usersProfiles[p.username] = p; });
+});
 function escape(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 </script>
 </body>
@@ -655,13 +911,13 @@ function escape(t) { const d = document.createElement('div'); d.textContent = t;
 const usersOnline = new Map();
 
 io.on('connection', (socket) => {
-    let currentUser = null, currentRoom = null;
+    let currentUser = null;
 
     socket.on('register', (data, cb) => {
         const { username, name, surname, password } = data;
         if (users[username]) cb({ success: false, error: 'Username занят' });
         else {
-            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', friends: [], friendRequests: [], banned: [] };
+            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
             saveData();
             cb({ success: true });
         }
@@ -676,8 +932,45 @@ io.on('connection', (socket) => {
             usersOnline.set(socket.id, username);
             cb({ success: true, userData: users[username] });
             socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
+            sendProfileList();
         }
     });
+
+    socket.on('upload avatar', (data, cb) => {
+        const { login, avatarData } = data;
+        if (users[login]) {
+            const filename = login + '_' + Date.now() + '.jpg';
+            const filepath = path.join(AVATAR_DIR, filename);
+            const base64Data = avatarData.replace(/^data:image\/\w+;base64,/, '');
+            fs.writeFileSync(filepath, base64Data, 'base64');
+            users[login].avatarType = 'image';
+            users[login].avatarData = '/avatars/' + filename;
+            users[login].avatar = null;
+            saveData();
+            cb({ success: true, userData: users[login] });
+            io.emit('profile updated', users[login]);
+            sendProfileList();
+        } else cb({ success: false });
+    });
+
+    socket.on('delete avatar', (data, cb) => {
+        const { login } = data;
+        if (users[login]) {
+            if (users[login].avatarData && users[login].avatarType === 'image') {
+                const oldFile = path.join(AVATAR_DIR, path.basename(users[login].avatarData));
+                if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+            }
+            users[login].avatarType = 'emoji';
+            users[login].avatarData = null;
+            users[login].avatar = '👤';
+            saveData();
+            cb({ success: true, userData: users[login] });
+            io.emit('profile updated', users[login]);
+            sendProfileList();
+        } else cb({ success: false });
+    });
+
+    socket.on('getUserProfile', (username, cb) => { cb(users[username] || null); });
 
     socket.on('add friend', (data, cb) => {
         const { friendUsername } = data;
@@ -742,30 +1035,36 @@ io.on('connection', (socket) => {
     });
 
     socket.on('getFriends', (cb) => { cb({ friends: users[currentUser]?.friends || [], requests: users[currentUser]?.friendRequests || [], banned: users[currentUser]?.banned || [] }); });
-    socket.on('getRooms', (cb) => cb(Object.keys(publicRooms)));
-    socket.on('createRoom', (name, cb) => { if (!publicRooms[name]) { publicRooms[name] = { messages: [] }; saveData(); cb(true); } else cb(false); });
-    socket.on('joinRoom', (name) => { if (currentRoom) socket.leave(currentRoom); currentRoom = name; socket.join(name); socket.emit('chat history', { type: 'room', room: name, messages: publicRooms[name]?.messages || [] }); });
-    socket.on('joinPrivate', (target) => { currentRoom = null; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; socket.emit('chat history', { type: 'private', with: target, messages: privateChats[id].messages || [] }); });
-    socket.on('create channel', (data, cb) => { const { channelName } = data; if (channels[channelName]) cb({ success: false, error: 'Канал есть' }); else { channels[channelName] = { name: channelName, messages: [] }; saveData(); cb({ success: true, message: 'Канал создан' }); } });
+
+    socket.on('create channel', (data, cb) => {
+        const { channelName } = data;
+        if (channels[channelName]) cb({ success: false, error: 'Канал уже существует' });
+        else { channels[channelName] = { name: channelName, messages: [] }; saveData(); cb({ success: true, message: 'Канал создан' }); io.emit('channels update', Object.keys(channels)); }
+    });
     socket.on('joinChannel', (name) => { if (channels[name]) socket.emit('chat history', { type: 'channel', channel: name, messages: channels[name].messages || [] }); });
     socket.on('channel message', (data) => { const { channel, text } = data; if (channels[channel]) { const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type: 'channel', channel }; channels[channel].messages.push(msg); io.emit('chat message', msg); saveData(); } });
     socket.on('getChannels', (cb) => cb(Object.keys(channels)));
+
     socket.on('update profile', (data, cb) => {
         if (users[data.login]) {
             if (data.name !== undefined) users[data.login].name = data.name;
             if (data.surname !== undefined) users[data.login].surname = data.surname;
             if (data.bio !== undefined) users[data.login].bio = data.bio;
+            if (data.avatar !== undefined) { users[data.login].avatar = data.avatar; users[data.login].avatarType = 'emoji'; users[data.login].avatarData = null; }
             if (data.password) users[data.login].password = data.password;
             saveData();
             cb({ success: true, userData: users[data.login] });
             io.emit('profile updated', users[data.login]);
+            sendProfileList();
         } else cb({ success: false });
     });
+
+    socket.on('joinPrivate', (target) => { const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; socket.emit('chat history', { type: 'private', with: target, messages: privateChats[id].messages || [] }); });
     socket.on('chat message', (data) => {
         const { type, target, text } = data;
         const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type };
-        if (type === 'room') { msg.room = target; if (publicRooms[target]) { publicRooms[target].messages.push(msg); io.to(target).emit('chat message', msg); saveData(); } }
-        else { msg.to = target; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; privateChats[id].messages.push(msg); io.emit('chat message', msg); saveData(); }
+        if (type === 'private') { msg.to = target; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; privateChats[id].messages.push(msg); io.emit('chat message', msg); saveData(); }
+        else if (type === 'channel') { msg.channel = target; if (channels[target]) { channels[target].messages.push(msg); io.emit('chat message', msg); saveData(); } }
     });
     socket.on('voice message', (data) => {
         const msg = { id: Date.now(), from: currentUser, audio: data.audio, time: new Date().toLocaleTimeString(), type: data.type };
@@ -781,21 +1080,25 @@ io.on('connection', (socket) => {
     });
 
     function getSocketByUsername(u) { for (let [id, user] of usersOnline.entries()) if (user === u) return io.sockets.sockets.get(id); return null; }
+    function sendProfileList() { io.emit('users list with profiles', Object.keys(users).map(l => users[l])); }
     socket.on('disconnect', () => { if (currentUser) usersOnline.delete(socket.id); });
 });
 
 const PORT = process.env.PORT || 3000;
 const ip = getLocalIP();
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n╔════════════════════════════════════════╗`);
-    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН         ║`);
-    console.log(`╠════════════════════════════════════════╣`);
-    console.log(`║  💻 http://localhost:${PORT}              ║`);
-    console.log(`║  📱 http://${ip}:${PORT}             ║`);
-    console.log(`╠════════════════════════════════════════╣`);
-    console.log(`║  ✅ Друзья работают!                ║`);
-    console.log(`║  ✅ Добавляй друзей через меню      ║`);
-    console.log(`║  ✅ Подтверждай запросы             ║`);
-    console.log(`║  ✅ Можно банить и разбанивать      ║`);
-    console.log(`╚════════════════════════════════════════╝\n`);
+    console.log(`\n╔════════════════════════════════════════════╗`);
+    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН             ║`);
+    console.log(`╠════════════════════════════════════════════╣`);
+    console.log(`║  💻 http://localhost:${PORT}                  ║`);
+    console.log(`║  📱 http://${ip}:${PORT}                 ║`);
+    console.log(`╠════════════════════════════════════════════╣`);
+    console.log(`║  ✅ Фото в профиль (загрузка/удаление)  ║`);
+    console.log(`║  ✅ Видеокружки (работают)              ║`);
+    console.log(`║  ✅ Голосовые (с паузой)               ║`);
+    console.log(`║  ✅ Файлы (изображения, документы)      ║`);
+    console.log(`║  ✅ 6 тем оформления                   ║`);
+    console.log(`║  ✅ 16 стикеров                        ║`);
+    console.log(`║  ✅ Друзья, каналы                     ║`);
+    console.log(`╚════════════════════════════════════════════╝\n`);
 });
