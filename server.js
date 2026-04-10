@@ -21,7 +21,7 @@ const emailTransporter = nodemailer.createTransport({
     service: 'mail.ru',  // или gmail, yandex
     auth: {
         user: 'lev52lev@mail.ru',
-        pass: 'lev1234567890'
+        pass: 'lev123456789'
     }
 });
 
