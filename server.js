@@ -55,7 +55,6 @@ function getLocalIP() {
     return 'localhost';
 }
 
-// Раздача аватарок
 app.use('/avatars', express.static(AVATAR_DIR));
 
 app.get('/', (req, res) => {
@@ -66,14 +65,9 @@ app.get('/', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; transition: all 0.3s; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; }
         body.light { background: #f0f0f0; color: #1a1a2e; }
-        body.blue { background: #0a2a4a; }
-        body.green { background: #0a3d2a; }
-        body.pink { background: #3d1a3a; }
-        body.purple { background: #2a1a3a; }
-        
         #authScreen {
             position: fixed;
             top: 0;
@@ -123,7 +117,7 @@ app.get('/', (req, res) => {
             display: flex;
         }
         .sidebar {
-            width: 280px;
+            width: 260px;
             background: #1a1a2e;
             border-right: 1px solid rgba(255,255,255,0.1);
             display: flex;
@@ -138,14 +132,8 @@ app.get('/', (req, res) => {
             gap: 12px;
             cursor: pointer;
         }
-        .avatar-img {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: #2a2a3e;
-        }
         .avatar-emoji { font-size: 40px; background: #2a2a3e; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .avatar-img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background: #2a2a3e; }
         .user-info h3 { font-size: 16px; }
         .user-info .username { font-size: 11px; color: #888; }
         .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
@@ -201,19 +189,17 @@ app.get('/', (req, res) => {
             gap: 8px;
             max-width: 100%;
         }
-        .message-avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
         .message-avatar { font-size: 32px; min-width: 36px; text-align: center; }
         .message-bubble { max-width: 70%; }
         .message-content { padding: 8px 14px; border-radius: 18px; background: #2a2a3e; }
         body.light .message-content { background: #e8e8e8; color: #1a1a2e; }
         .message.my-message { justify-content: flex-end; }
         .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; cursor: pointer; }
+        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; }
         .message-text { font-size: 14px; word-wrap: break-word; }
         .message-time { font-size: 9px; color: #888; margin-top: 3px; }
         .voice-message { display: flex; align-items: center; gap: 8px; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; color: white; }
-        .voice-message audio { height: 35px; border-radius: 20px; }
         .video-circle { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; cursor: pointer; background: #2a2a3e; }
         .file-attachment { background: rgba(102,126,234,0.2); padding: 8px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; }
         .file-attachment a { color: white; text-decoration: none; }
@@ -234,7 +220,6 @@ app.get('/', (req, res) => {
             background: #2a2a3e;
             color: white;
             font-size: 15px;
-            min-width: 100px;
         }
         body.light .input-area input { background: #e8e8e8; color: #1a1a2e; }
         .input-area button {
@@ -244,7 +229,6 @@ app.get('/', (req, res) => {
             border: none;
             border-radius: 25px;
             cursor: pointer;
-            font-size: 16px;
         }
         .attach-btn, .voice-record-btn, .video-record-btn { background: #2a2a3e !important; }
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
@@ -266,8 +250,7 @@ app.get('/', (req, res) => {
             overflow-y: auto;
         }
         .sticker-picker.open { display: flex; }
-        .sticker { font-size: 40px; cursor: pointer; padding: 8px; border-radius: 15px; transition: transform 0.1s; }
-        .sticker:active { transform: scale(1.1); }
+        .sticker { font-size: 40px; cursor: pointer; padding: 8px; border-radius: 15px; }
         
         .video-modal {
             position: fixed;
@@ -332,7 +315,6 @@ app.get('/', (req, res) => {
         .modal-header h3 { color: white; font-size: 18px; }
         .close-modal { float: right; background: none; border: none; color: #888; font-size: 22px; cursor: pointer; }
         .profile-avatar-section { text-align: center; padding: 20px; }
-        .profile-avatar-img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; cursor: pointer; }
         .profile-avatar-emoji { font-size: 70px; background: #2a2a3e; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
         .profile-field { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .profile-field label { display: block; font-size: 11px; color: #667eea; }
@@ -341,6 +323,7 @@ app.get('/', (req, res) => {
         .avatar-option { font-size: 30px; cursor: pointer; padding: 5px; border-radius: 50%; }
         .modal-footer { padding: 15px; display: flex; gap: 10px; }
         .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
+        .upload-btn { flex: 1; padding: 12px; background: #2a2a3e; color: white; border: 1px solid #667eea; border-radius: 25px; cursor: pointer; }
         .delete-avatar-btn { background: #ff4444; color: white; border: none; padding: 12px; border-radius: 25px; cursor: pointer; flex: 1; }
         
         @media (max-width: 768px) {
@@ -373,7 +356,7 @@ app.get('/', (req, res) => {
 <div id="mainApp">
     <div class="sidebar">
         <div class="sidebar-header" onclick="openProfileModal()">
-            <div id="userAvatar"></div>
+            <div id="userAvatar"><div class="avatar-emoji">👤</div></div>
             <div class="user-info">
                 <h3 id="userName">Загрузка...</h3>
                 <div class="username" id="userLogin">@</div>
@@ -404,10 +387,6 @@ app.get('/', (req, res) => {
             <div class="sticker" onclick="sendSticker('🥳')">🥳</div><div class="sticker" onclick="sendSticker('🔥')">🔥</div>
             <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('🎉')">🎉</div>
             <div class="sticker" onclick="sendSticker('🐱')">🐱</div><div class="sticker" onclick="sendSticker('🐶')">🐶</div>
-            <div class="sticker" onclick="sendSticker('🍕')">🍕</div><div class="sticker" onclick="sendSticker('🍺')">🍺</div>
-            <div class="sticker" onclick="sendSticker('👍')">👍</div><div class="sticker" onclick="sendSticker('👎')">👎</div>
-            <div class="sticker" onclick="sendSticker('🤣')">🤣</div><div class="sticker" onclick="sendSticker('🥺')">🥺</div>
-            <div class="sticker" onclick="sendSticker('😱')">😱</div><div class="sticker" onclick="sendSticker('🤯')">🤯</div>
         </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Сообщение...">
@@ -425,14 +404,11 @@ app.get('/', (req, res) => {
     <div class="modal-content">
         <div class="modal-header"><h3>Профиль</h3><button class="close-modal" onclick="closeProfileModal()">✕</button></div>
         <div class="profile-avatar-section">
-            <div id="profileAvatar"></div>
+            <div id="profileAvatar"><div class="profile-avatar-emoji">👤</div></div>
             <div id="avatarPicker" class="avatar-picker" style="display:none;">
                 <div class="avatar-option" onclick="selectAvatar('😀')">😀</div><div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
                 <div class="avatar-option" onclick="selectAvatar('👨')">👨</div><div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
-                <div class="avatar-option" onclick="selectAvatar('🦸')">🦸</div><div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div>
-                <div class="avatar-option" onclick="selectAvatar('🚀')">🚀</div><div class="avatar-option" onclick="selectAvatar('💻')">💻</div>
-                <div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div><div class="avatar-option" onclick="selectAvatar('🐼')">🐼</div>
-                <div class="avatar-option" onclick="selectAvatar('🦊')">🦊</div><div class="avatar-option" onclick="selectAvatar('🐨')">🐨</div>
+                <div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div><div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div>
             </div>
             <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
         </div>
@@ -451,29 +427,11 @@ app.get('/', (req, res) => {
 <div id="settingsModal" class="modal" style="display:none">
     <div class="modal-content">
         <div class="modal-header"><h3>Настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
-        <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()">
-            <option value="dark">Тёмная</option><option value="light">Светлая</option>
-            <option value="blue">Синяя</option><option value="green">Зелёная</option>
-            <option value="pink">Розовая</option><option value="purple">Фиолетовая</option>
-        </select></div>
-        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()">
-            <option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option>
-            <option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option>
-            <option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option>
-            <option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option>
-            <option value="linear-gradient(135deg, #ff6b6b 0%, #feca57 100%)">Закат</option>
-            <option value="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">Космос</option>
-        </select></div>
+        <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></div>
+        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option><option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option></select></div>
         <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()">
-            <option value="12px">Маленький</option><option value="14px" selected>Средний</option>
-            <option value="16px">Большой</option><option value="18px">Очень большой</option>
-        </select></div>
-        <div class="profile-field"><label>🔊 Звук уведомлений</label><select id="soundSelect" onchange="applySound()">
-            <option value="default">🔔 Обычный</option><option value="pop">🔘 Поп</option>
-            <option value="chime">🔊 Чайм</option><option value="silent">🔇 Без звука</option>
-        </select></div>
+        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option><option value="18px">Очень большой</option></select></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
@@ -513,12 +471,10 @@ function sendSticker(sticker) {
 
 function renderAvatar(avatarData, avatarType, size) {
     if (avatarType === 'image' && avatarData) {
-        if (size === 'small') return '<img src="' + avatarData + '" class="user-avatar-small-img" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">';
-        if (size === 'large') return '<img src="' + avatarData + '" class="profile-avatar-img">';
+        if (size === 'large') return '<img src="' + avatarData + '" class="profile-avatar-img" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">';
         return '<img src="' + avatarData + '" class="avatar-img">';
     } else {
         const emoji = avatarData || '👤';
-        if (size === 'small') return '<div class="user-avatar-small" style="font-size:24px;">' + emoji + '</div>';
         if (size === 'large') return '<div class="profile-avatar-emoji">' + emoji + '</div>';
         return '<div class="avatar-emoji">' + emoji + '</div>';
     }
@@ -658,8 +614,7 @@ function openProfileModal() {
     document.getElementById('editSurname').value = currentUserData?.surname || '';
     document.getElementById('editBio').value = currentUserData?.bio || '';
     document.getElementById('editPassword').value = '';
-    const avatarContainer = document.getElementById('profileAvatar');
-    avatarContainer.innerHTML = renderAvatar(currentUserData?.avatarData, currentUserData?.avatarType, 'large');
+    document.getElementById('profileAvatar').innerHTML = renderAvatar(currentUserData?.avatarData, currentUserData?.avatarType, 'large');
     document.getElementById('profileModal').style.display = 'flex';
 }
 function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; document.getElementById('avatarPicker').style.display = 'none'; }
@@ -694,9 +649,8 @@ function updateUI() {
 
 function applyTheme() {
     const theme = document.getElementById('themeSelect').value;
-    const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple'];
-    document.body.classList.remove(...themes);
-    document.body.classList.add(theme);
+    if (theme === 'light') document.body.classList.add('light');
+    else document.body.classList.remove('light');
     localStorage.setItem('atomgram_theme', theme);
 }
 function applyChatBg() {
@@ -722,19 +676,8 @@ function applyFontSize() {
     style.innerHTML = `.message-text { font-size: ${size} !important; }`;
     localStorage.setItem('atomgram_fontSize', size);
 }
-function applySound() {
-    const sound = document.getElementById('soundSelect').value;
-    localStorage.setItem('atomgram_sound', sound);
-}
-function playNotificationSound() {
-    const sound = localStorage.getItem('atomgram_sound') || 'default';
-    if (sound === 'silent') return;
-    const audio = new Audio();
-    if (sound === 'pop') audio.src = 'data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==';
-    audio.play().catch(e => console.log('Звук не воспроизведён'));
-}
 function saveSettings() {
-    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize(); applySound();
+    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize();
     closeSettingsModal();
     alert('Настройки сохранены');
 }
@@ -744,7 +687,6 @@ function openSettingsModal() {
     document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
     document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
     document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '14px';
-    document.getElementById('soundSelect').value = localStorage.getItem('atomgram_sound') || 'default';
     document.getElementById('settingsModal').style.display = 'flex';
 }
 function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
@@ -781,11 +723,6 @@ function login() {
             document.getElementById('mainApp').style.display = 'flex';
             updateUI(); loadData();
             applySavedSettings();
-            if (res.userData.theme) {
-                const themes = ['dark', 'light', 'blue', 'green', 'pink', 'purple'];
-                document.body.classList.remove(...themes);
-                document.body.classList.add(res.userData.theme);
-            }
         } else document.getElementById('authError').innerText = res.error;
     });
 }
@@ -821,7 +758,6 @@ socket.on('chat message', (msg) => {
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
     if (show) { addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
-    if (msg.from !== currentUser) playNotificationSound();
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
@@ -842,65 +778,31 @@ function addMessage(m) {
     const div = document.createElement('div');
     div.className = 'message';
     if (m.from === currentUser) div.classList.add('my-message');
-    const ud = window.usersProfiles?.[m.from] || {};
-    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || m.from;
-    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + m.from + '\')">' + avatarHtml + '</div>' +
-        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + m.from + '\')">' + escape(displayName) + '</div>' +
-        '<div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(m.from) + '</div><div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVoiceMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    const ud = window.usersProfiles?.[d.from] || {};
-    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || d.from;
-    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">' + avatarHtml + '</div>' +
-        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(displayName) + '</div>' +
-        '<div class="voice-message"><button onclick="playAudio(this)" data-audio="' + d.audio + '">▶️</button><audio controls><source src="' + d.audio + '"></audio></div>' +
-        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><div class="voice-message"><button onclick="playAudio(this)" data-audio="' + d.audio + '">▶️</button><span>Голосовое</span></div><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVideoMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    const ud = window.usersProfiles?.[d.from] || {};
-    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || d.from;
-    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">' + avatarHtml + '</div>' +
-        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(displayName) + '</div>' +
-        '<video class="video-circle" controls autoplay loop src="' + d.video + '"></video>' +
-        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><video class="video-circle" controls autoplay loop src="' + d.video + '"></video><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addFileMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    const ud = window.usersProfiles?.[d.from] || {};
-    const avatarHtml = renderAvatar(ud.avatarData, ud.avatarType, 'small');
-    const displayName = ud.name || d.from;
     const icon = d.fileType?.startsWith('image/') ? '🖼️' : '📄';
-    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">' + avatarHtml + '</div>' +
-        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(displayName) + '</div>' +
-        '<div class="file-attachment"><span>' + icon + '</span><a href="' + d.fileData + '" download="' + d.fileName + '">' + d.fileName + '</a></div>' +
-        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><div class="file-attachment"><span>' + icon + '</span><a href="' + d.fileData + '" download="' + d.fileName + '">' + d.fileName + '</a></div><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
-function viewUserProfile(username) {
-    socket.emit('getUserProfile', username, (profile) => {
-        if (profile) {
-            alert('👤 ' + (profile.name || username) + '\n📝 ' + (profile.bio || 'Нет описания'));
-        }
-    });
-}
-window.usersProfiles = {};
-socket.on('users list with profiles', (profiles) => {
-    profiles.forEach(p => { window.usersProfiles[p.username] = p; });
-});
 function escape(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 </script>
 </body>
@@ -920,6 +822,7 @@ io.on('connection', (socket) => {
             users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
             saveData();
             cb({ success: true });
+            sendProfileList();
         }
     });
 
@@ -969,8 +872,6 @@ io.on('connection', (socket) => {
             sendProfileList();
         } else cb({ success: false });
     });
-
-    socket.on('getUserProfile', (username, cb) => { cb(users[username] || null); });
 
     socket.on('add friend', (data, cb) => {
         const { friendUsername } = data;
@@ -1087,18 +988,12 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 const ip = getLocalIP();
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n╔════════════════════════════════════════════╗`);
-    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН             ║`);
-    console.log(`╠════════════════════════════════════════════╣`);
-    console.log(`║  💻 http://localhost:${PORT}                  ║`);
-    console.log(`║  📱 http://${ip}:${PORT}                 ║`);
-    console.log(`╠════════════════════════════════════════════╣`);
-    console.log(`║  ✅ Фото в профиль (загрузка/удаление)  ║`);
-    console.log(`║  ✅ Видеокружки (работают)              ║`);
-    console.log(`║  ✅ Голосовые (с паузой)               ║`);
-    console.log(`║  ✅ Файлы (изображения, документы)      ║`);
-    console.log(`║  ✅ 6 тем оформления                   ║`);
-    console.log(`║  ✅ 16 стикеров                        ║`);
-    console.log(`║  ✅ Друзья, каналы                     ║`);
-    console.log(`╚════════════════════════════════════════════╝\n`);
+    console.log(`\n╔════════════════════════════════════════╗`);
+    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН         ║`);
+    console.log(`╠════════════════════════════════════════╣`);
+    console.log(`║  💻 http://localhost:${PORT}              ║`);
+    console.log(`║  📱 http://${ip}:${PORT}             ║`);
+    console.log(`╠════════════════════════════════════════╣`);
+    console.log(`║  ✅ Всё работает!                  ║`);
+    console.log(`╚════════════════════════════════════════╝\n`);
 });
