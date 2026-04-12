@@ -23,6 +23,9 @@ if (!fs.existsSync(AVATAR_DIR)) fs.mkdirSync(AVATAR_DIR);
 let users = {};
 let privateChats = {};
 let channels = {};
+let stories = {}; // 📸 Истории (как в Telegram)
+let savedMessages = {}; // ⭐ Сохранённые сообщения
+let scheduledMessages = {}; // ⏰ Отложенные сообщения
 
 function loadData() {
     try {
@@ -31,6 +34,9 @@ function loadData() {
             users = data.users || {};
             privateChats = data.privateChats || {};
             channels = data.channels || {};
+            stories = data.stories || {};
+            savedMessages = data.savedMessages || {};
+            scheduledMessages = data.scheduledMessages || {};
             console.log('✅ Данные загружены');
         }
     } catch (e) { console.log('Ошибка загрузки:', e); }
@@ -38,7 +44,7 @@ function loadData() {
 
 function saveData() {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, channels }, null, 2));
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, channels, stories, savedMessages, scheduledMessages }, null, 2));
         console.log('💾 Данные сохранены');
     } catch (e) { console.log('Ошибка сохранения:', e); }
 }
@@ -71,16 +77,14 @@ app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM - Современный мессенджер</title>
+    <title>ATOMGRAM</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; transition: background 0.3s; }
-        
-        /* ТЕМЫ */
-        body.dark { background: #0a0a0a; color: white; }
         body.light { background: #f0f2f5; color: #1a1a2e; }
+        
         body.dark .sidebar, body.dark .chat-header, body.dark .input-area { background: #1e1e2e; }
         body.light .sidebar, body.light .chat-header, body.light .input-area { background: white; }
         body.dark .message-content { background: #2a2a3e; }
@@ -160,7 +164,6 @@ app.get('/', (req, res) => {
             flex-direction: column;
             box-shadow: 2px 0 20px rgba(0,0,0,0.3);
         }
-        body.light .sidebar { box-shadow: 2px 0 20px rgba(0,0,0,0.1); }
         .sidebar.open { left: 0; }
         .sidebar-overlay {
             position: fixed;
@@ -182,9 +185,7 @@ app.get('/', (req, res) => {
             gap: 14px;
             cursor: pointer;
         }
-        body.light .sidebar-header { border-bottom-color: rgba(0,0,0,0.08); }
         .avatar-emoji { font-size: 48px; background: #2a2a3e; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        body.light .avatar-emoji { background: #e8e8ea; }
         .avatar-img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #2a2a3e; }
         .user-info h3 { font-size: 17px; font-weight: 600; }
         .user-info .username { font-size: 12px; color: #888; margin-top: 2px; }
@@ -215,9 +216,7 @@ app.get('/', (req, res) => {
         .reject-btn { background: #ff6b6b; color: white; }
         .ban-btn { background: #ff4444; color: white; }
         .create-btn { padding: 12px; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 12px; }
-        body.light .create-btn { border-top-color: rgba(0,0,0,0.08); }
         .create-btn button { flex: 1; padding: 10px; background: rgba(255,255,255,0.08); border: 1px solid #667eea; border-radius: 14px; color: #667eea; cursor: pointer; font-size: 14px; font-weight: 500; }
-        body.light .create-btn button { background: #f0f2f5; }
         
         .chat-area {
             display: flex;
@@ -233,7 +232,6 @@ app.get('/', (req, res) => {
             gap: 12px;
             flex-shrink: 0;
         }
-        body.light .chat-header { border-bottom-color: rgba(0,0,0,0.08); }
         .menu-btn {
             background: none;
             border: none;
@@ -252,6 +250,38 @@ app.get('/', (req, res) => {
             font-weight: 500;
         }
         .settings-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; color: inherit; }
+        
+        .stories-area {
+            padding: 12px 16px;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+        .story-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .story-circle.add {
+            background: #2a2a3e;
+            border: 2px solid #667eea;
+        }
+        .story-circle img, .story-circle .story-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .story-avatar { font-size: 32px; display: flex; align-items: center; justify-content: center; }
+        .story-name { font-size: 11px; text-align: center; margin-top: 4px; color: #888; }
         
         .messages-area {
             flex: 1;
@@ -274,13 +304,24 @@ app.get('/', (req, res) => {
         }
         .message-avatar { font-size: 34px; min-width: 40px; text-align: center; cursor: pointer; }
         .message-bubble { max-width: 75%; word-wrap: break-word; }
-        .message-content { padding: 10px 14px; border-radius: 18px; transition: background 0.2s; }
+        .message-content { padding: 10px 14px; border-radius: 18px; position: relative; }
         .message.my-message { justify-content: flex-end; }
         .message.my-message .message-bubble { text-align: right; }
         .message-username { font-size: 12px; font-weight: 500; color: #a0a0c0; margin-bottom: 4px; cursor: pointer; }
         .message-text { font-size: 15px; line-height: 1.4; word-wrap: break-word; }
         .encrypted-badge { font-size: 10px; opacity: 0.6; margin-left: 6px; }
         .message-time { font-size: 10px; color: #888; margin-top: 4px; }
+        .message-reply {
+            background: rgba(102,126,234,0.15);
+            padding: 6px 10px;
+            border-radius: 12px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            border-left: 3px solid #667eea;
+        }
+        .message-reply .reply-name { font-weight: 500; color: #667eea; }
+        .message-reply .reply-text { color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
         .voice-message { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .voice-message button { background: none; border: none; font-size: 22px; cursor: pointer; color: inherit; padding: 4px; }
         .voice-message audio { height: 38px; border-radius: 20px; max-width: 160px; }
@@ -288,6 +329,18 @@ app.get('/', (req, res) => {
         .file-attachment { background: rgba(102,126,234,0.15); padding: 8px 12px; border-radius: 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
         .file-attachment a { color: inherit; text-decoration: none; }
         .typing-indicator { font-size: 12px; color: #888; padding: 4px 16px; font-style: italic; }
+        
+        .reply-indicator {
+            background: #1e1e2e;
+            padding: 8px 16px;
+            border-left: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+        body.light .reply-indicator { background: #f0f2f5; }
+        .reply-indicator button { background: none; border: none; color: #ff6b6b; cursor: pointer; font-size: 16px; }
         
         .input-area {
             display: flex;
@@ -297,7 +350,6 @@ app.get('/', (req, res) => {
             flex-shrink: 0;
             border-top: 1px solid rgba(255,255,255,0.08);
         }
-        body.light .input-area { border-top-color: rgba(0,0,0,0.08); }
         .input-area input {
             flex: 1;
             padding: 12px 16px;
@@ -308,7 +360,6 @@ app.get('/', (req, res) => {
             background: rgba(255,255,255,0.08);
             color: inherit;
         }
-        body.light .input-area input { background: #f0f2f5; }
         .input-area input::placeholder { color: #888; }
         .input-area button {
             padding: 12px 18px;
@@ -321,7 +372,6 @@ app.get('/', (req, res) => {
             font-weight: 500;
         }
         .attach-btn, .voice-record-btn, .video-record-btn, .sticker-btn { background: rgba(255,255,255,0.08) !important; color: inherit !important; }
-        body.light .attach-btn, body.light .voice-record-btn, body.light .video-record-btn, body.light .sticker-btn { background: #e8e8ea !important; }
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         
@@ -340,10 +390,61 @@ app.get('/', (req, res) => {
             max-height: 200px;
             overflow-y: auto;
         }
-        body.light .sticker-picker { background: white; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
         .sticker-picker.open { display: flex; }
         .sticker { font-size: 42px; cursor: pointer; padding: 8px; border-radius: 16px; transition: transform 0.1s; }
         .sticker:active { transform: scale(1.1); }
+        
+        .story-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .story-view {
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+        }
+        .story-view img, .story-view video {
+            width: 100%;
+            border-radius: 20px;
+            max-height: 80vh;
+            object-fit: cover;
+        }
+        .story-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        .story-progress {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(255,255,255,0.3);
+        }
+        .story-progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
         
         .video-modal {
             position: fixed;
@@ -382,7 +483,6 @@ app.get('/', (req, res) => {
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             animation: slideUp 0.3s ease;
         }
-        body.light .notification { background: white; color: #1a1a2e; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         @keyframes slideUp {
             from { opacity: 0; transform: translateX(-50%) translateY(20px); }
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -408,31 +508,23 @@ app.get('/', (req, res) => {
             max-height: 85vh;
             overflow-y: auto;
         }
-        body.light .modal-content { background: white; }
         .modal-header { padding: 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
-        body.light .modal-header { border-bottom-color: rgba(0,0,0,0.1); }
         .modal-header h3 { color: inherit; font-size: 18px; }
         .close-modal { position: absolute; right: 20px; top: 18px; background: none; border: none; color: #888; font-size: 24px; cursor: pointer; }
         .profile-avatar-section { text-align: center; padding: 24px; }
         .profile-avatar-emoji { font-size: 80px; background: #2a2a3e; width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
-        body.light .profile-avatar-emoji { background: #e8e8ea; }
         .profile-field { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        body.light .profile-field { border-bottom-color: rgba(0,0,0,0.05); }
         .profile-field label { display: block; font-size: 11px; color: #667eea; margin-bottom: 4px; text-transform: uppercase; font-weight: 600; }
         .profile-field input, .profile-field textarea, .profile-field select { width: 100%; padding: 12px; background: #2a2a3e; border: none; border-radius: 14px; color: inherit; font-size: 15px; }
-        body.light .profile-field input, body.light .profile-field textarea, body.light .profile-field select { background: #f0f2f5; }
         .avatar-picker { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; padding: 12px; background: #2a2a3e; border-radius: 24px; }
-        body.light .avatar-picker { background: #f0f2f5; }
-        .avatar-option { font-size: 32px; cursor: pointer; padding: 6px; border-radius: 50%; transition: transform 0.1s; }
-        .avatar-option:hover { transform: scale(1.1); }
+        .avatar-option { font-size: 32px; cursor: pointer; padding: 6px; border-radius: 50%; }
         .modal-footer { padding: 20px; display: flex; gap: 12px; }
         .save-btn { flex: 1; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 28px; cursor: pointer; font-size: 15px; font-weight: 600; }
         .upload-btn { flex: 1; padding: 14px; background: #2a2a3e; color: inherit; border: 1px solid #667eea; border-radius: 28px; cursor: pointer; font-size: 14px; font-weight: 500; }
-        body.light .upload-btn { background: #f0f2f5; }
         .delete-avatar-btn { background: #ff4444; color: white; border: none; padding: 14px; border-radius: 28px; cursor: pointer; flex: 1; font-size: 14px; font-weight: 500; }
         
         @media (min-width: 768px) {
-            .sidebar { position: relative; left: 0 !important; width: 300px; max-width: 300px; }
+            .sidebar { position: relative; left: 0 !important; width: 300px; }
             .sidebar-overlay { display: none !important; }
             .menu-btn { display: none; }
             .message-bubble { max-width: 60%; }
@@ -442,7 +534,6 @@ app.get('/', (req, res) => {
             .message-bubble { max-width: 85%; }
             .video-circle { width: 95px; height: 95px; }
             .sticker { font-size: 38px; }
-            .message-avatar { font-size: 30px; min-width: 36px; }
         }
     </style>
 </head>
@@ -480,6 +571,7 @@ app.get('/', (req, res) => {
         </div>
         <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
         <div class="menu-item" onclick="openSettingsModal()"><span>⚙️</span> <span>Настройки</span></div>
+        <div class="menu-item" onclick="openSavedMessages()"><span>⭐</span> <span>Сохранённые</span></div>
         <div class="menu-item" onclick="addFriend()"><span>➕</span> <span>Добавить друга</span></div>
         <div class="section-title">ДРУЗЬЯ</div>
         <div class="friends-list" id="friendsList"></div>
@@ -497,8 +589,13 @@ app.get('/', (req, res) => {
             <div class="encryption-badge" id="encryptionBadge" style="display:none;">🔒 E2EE</div>
             <button class="settings-btn" onclick="openSettingsModal()">⚙️</button>
         </div>
+        <div class="stories-area" id="storiesArea"></div>
         <div class="messages-area" id="messages"></div>
         <div class="typing-indicator" id="typingIndicator" style="display:none"></div>
+        <div id="replyIndicator" class="reply-indicator" style="display:none">
+            <span id="replyPreview"></span>
+            <button onclick="cancelReply()">✕</button>
+        </div>
         <div class="sticker-picker" id="stickerPicker">
             <div class="sticker" onclick="sendSticker('😀')">😀</div><div class="sticker" onclick="sendSticker('😂')">😂</div>
             <div class="sticker" onclick="sendSticker('😍')">😍</div><div class="sticker" onclick="sendSticker('😎')">😎</div>
@@ -506,6 +603,7 @@ app.get('/', (req, res) => {
             <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('🎉')">🎉</div>
             <div class="sticker" onclick="sendSticker('👍')">👍</div><div class="sticker" onclick="sendSticker('👎')">👎</div>
             <div class="sticker" onclick="sendSticker('🐱')">🐱</div><div class="sticker" onclick="sendSticker('🐶')">🐶</div>
+            <div class="sticker" onclick="sendSticker('🎨')">🎨</div><div class="sticker" onclick="sendSticker('💩')">💩</div>
         </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Сообщение...">
@@ -514,6 +612,7 @@ app.get('/', (req, res) => {
             <input type="file" id="fileInput" style="display:none" onchange="sendFile()">
             <button id="voiceBtn" class="voice-record-btn" onclick="toggleRecording()">🎤</button>
             <button id="videoBtn" class="video-record-btn" onclick="startVideoRecording()">🎥</button>
+            <button id="storyBtn" onclick="addStory()">📸</button>
             <button onclick="sendMessage()">📤</button>
         </div>
     </div>
@@ -537,7 +636,7 @@ app.get('/', (req, res) => {
         <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2"></textarea></div>
         <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
         <div class="modal-footer">
-            <button class="upload-btn" onclick="document.getElementById('avatarUpload').click()">📷 Загрузить фото</button>
+            <button class="upload-btn" onclick="document.getElementById('avatarUpload').click()">📷 Фото</button>
             <button class="delete-avatar-btn" onclick="deleteAvatar()">🗑️ Удалить</button>
             <button class="save-btn" onclick="saveProfile()">Сохранить</button>
         </div>
@@ -552,7 +651,17 @@ app.get('/', (req, res) => {
         <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
         <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="13px">Маленький</option><option value="15px" selected>Средний</option><option value="17px">Большой</option></select></div>
+        <div class="profile-field"><label>🔊 Уведомления</label><select id="soundSelect" onchange="applySound()"><option value="on">Вкл</option><option value="off">Выкл</option></select></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
+    </div>
+</div>
+
+<div id="storyModal" class="story-modal" style="display:none">
+    <div class="story-view">
+        <div class="story-progress"><div class="story-progress-bar" id="storyProgress"></div></div>
+        <img id="storyImage" style="display:none">
+        <video id="storyVideo" style="display:none" autoplay muted></video>
+        <button class="story-close" onclick="closeStoryModal()">✕</button>
     </div>
 </div>
 
@@ -576,6 +685,8 @@ let mediaRecorder = null, audioChunks = [], isRecording = false;
 let videoStream = null, videoRecorder = null, videoChunks = [];
 let recordedVideoBlob = null;
 let currentAudio = null;
+let replyToMessage = null;
+let currentStories = [];
 
 let myPrivateKey = null;
 let friendsPublicKeys = {};
@@ -646,6 +757,114 @@ function renderAvatar(avatarData, avatarType, size) {
     }
 }
 
+// ========== ИСТОРИИ (КАК В TELEGRAM) ==========
+function addStory() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            socket.emit('add story', { media: reader.result, type: file.type.startsWith('image/') ? 'image' : 'video' });
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+function renderStories(stories) {
+    const container = document.getElementById('storiesArea');
+    if (!container) return;
+    let html = '<div class="story-circle add" onclick="addStory()"><div class="story-avatar">+</div><div class="story-name">Моя</div></div>';
+    stories.forEach(s => {
+        html += `<div class="story-circle" onclick="viewStory('${s.username}')">
+            <div class="story-avatar">${s.avatar || '👤'}</div>
+            <div class="story-name">${s.name || s.username}</div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function viewStory(username) {
+    socket.emit('get story', username);
+}
+
+socket.on('story data', (data) => {
+    if (data.media) {
+        const modal = document.getElementById('storyModal');
+        const img = document.getElementById('storyImage');
+        const video = document.getElementById('storyVideo');
+        if (data.type === 'image') {
+            img.style.display = 'block';
+            video.style.display = 'none';
+            img.src = data.media;
+        } else {
+            img.style.display = 'none';
+            video.style.display = 'block';
+            video.src = data.media;
+            video.play();
+        }
+        modal.style.display = 'flex';
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 2;
+            document.getElementById('storyProgress').style.width = progress + '%';
+            if (progress >= 100) {
+                clearInterval(interval);
+                closeStoryModal();
+            }
+        }, 100);
+    }
+});
+
+function closeStoryModal() {
+    document.getElementById('storyModal').style.display = 'none';
+    document.getElementById('storyProgress').style.width = '0%';
+    const video = document.getElementById('storyVideo');
+    if (video) { video.pause(); video.src = ''; }
+}
+
+// ========== СОХРАНЁННЫЕ СООБЩЕНИЯ ==========
+function openSavedMessages() {
+    currentChat = 'saved';
+    currentChatType = 'saved';
+    currentChatTarget = 'saved';
+    document.getElementById('chatTitle').innerHTML = '⭐ Сохранённые';
+    document.getElementById('encryptionBadge').style.display = 'none';
+    socket.emit('get saved messages');
+}
+
+function saveMessage(msgId, text, from) {
+    socket.emit('save message', { msgId, text, from });
+    showNotification('Сохранено', 'Сообщение сохранено');
+}
+
+socket.on('saved messages history', (messages) => {
+    if (currentChat === 'saved') {
+        const msgsDiv = document.getElementById('messages');
+        msgsDiv.innerHTML = '';
+        messages.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.innerHTML = '<div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(m.from) + '</div><div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + m.time + '</div></div></div>';
+            msgsDiv.appendChild(div);
+        });
+    }
+});
+
+// ========== ОТВЕТЫ НА СООБЩЕНИЯ ==========
+function setReply(msgId, from, text) {
+    replyToMessage = { id: msgId, from: from, text: text.substring(0, 50) };
+    document.getElementById('replyPreview').innerHTML = '📎 Ответ ' + from + ': ' + text.substring(0, 40);
+    document.getElementById('replyIndicator').style.display = 'flex';
+}
+function cancelReply() {
+    replyToMessage = null;
+    document.getElementById('replyIndicator').style.display = 'none';
+}
+
 function createChannel() {
     const name = prompt('Название канала:');
     if (!name) return;
@@ -699,9 +918,24 @@ async function sendMessage() {
         }
     }
     
-    socket.emit('chat message', { type: currentChatType, target: currentChatTarget, text: encryptedText, encrypted: isEncrypted });
+    const reply = replyToMessage;
+    cancelReply();
+    
+    socket.emit('chat message', { type: currentChatType, target: currentChatTarget, text: encryptedText, encrypted: isEncrypted, reply: reply });
     input.value = '';
 }
+
+function showNotification(title, body) {
+    if (Notification.permission === 'granted') {
+        new Notification(title, { body: body });
+    }
+    const notif = document.createElement('div');
+    notif.className = 'notification';
+    notif.innerHTML = '<strong>' + title + '</strong><br>' + body;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 3000);
+}
+if (Notification.permission === 'default') Notification.requestPermission();
 
 async function startVideoRecording() {
     document.getElementById('videoModal').style.display = 'flex';
@@ -856,8 +1090,12 @@ function applyFontSize() {
     style.innerHTML = `.message-text { font-size: ${size} !important; }`;
     localStorage.setItem('atomgram_fontSize', size);
 }
+function applySound() {
+    const sound = document.getElementById('soundSelect').value;
+    localStorage.setItem('atomgram_sound', sound);
+}
 function saveSettings() {
-    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize();
+    applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize(); applySound();
     closeSettingsModal();
     alert('Настройки сохранены');
 }
@@ -867,6 +1105,7 @@ function openSettingsModal() {
     document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
     document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
     document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '15px';
+    document.getElementById('soundSelect').value = localStorage.getItem('atomgram_sound') || 'on';
     document.getElementById('settingsModal').style.display = 'flex';
 }
 function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
@@ -910,6 +1149,7 @@ function login() {
             updateUI(); loadData();
             applySavedSettings();
             socket.emit('getPublicKeys', (keys) => { friendsPublicKeys = keys; });
+            socket.emit('get stories');
         } else document.getElementById('authError').innerText = res.error;
     });
 }
@@ -930,10 +1170,12 @@ if (savedUsername && savedPassword) { document.getElementById('loginUsername').v
 function loadData() {
     socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
     socket.emit('getChannels', (c) => { allChannels = c; renderAll(); });
+    socket.emit('get stories');
 }
 socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('channels update', (c) => { allChannels = c; renderAll(); });
 socket.on('public keys update', (keys) => { friendsPublicKeys = keys; });
+socket.on('stories update', (stories) => { renderStories(stories); });
 socket.on('chat history', async (data) => {
     if ((currentChatType === 'private' && data.type === 'private' && data.with === currentChatTarget) ||
         (currentChatType === 'channel' && data.type === 'channel' && data.channel === currentChatTarget)) {
@@ -948,6 +1190,10 @@ socket.on('chat message', async (msg) => {
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
     if (show) { await addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
+    if (msg.from !== currentUser && localStorage.getItem('atomgram_sound') !== 'off') {
+        const audio = new Audio();
+        audio.play().catch(e => console.log('Звук не воспроизведён'));
+    }
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
@@ -971,6 +1217,11 @@ async function addMessage(m) {
     
     let messageText = m.text;
     let encryptedBadge = '';
+    let replyHtml = '';
+    
+    if (m.replyTo) {
+        replyHtml = `<div class="message-reply"><div class="reply-name">↩️ Ответ ${m.replyTo.from}</div><div class="reply-text">${escape(m.replyTo.text)}</div></div>`;
+    }
     
     if (m.encrypted && m.from !== currentUser && currentChatType === 'private') {
         try {
@@ -990,8 +1241,12 @@ async function addMessage(m) {
     }
     
     div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + m.from + '\')">👤</div>' +
-        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + m.from + '\')">' + escape(m.from) + '</div>' +
-        '<div class="message-text">' + escape(messageText) + encryptedBadge + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
+        '<div class="message-bubble"><div class="message-content">' + replyHtml +
+        '<div class="message-username" onclick="viewUserProfile(\'' + m.from + '\')">' + escape(m.from) + '</div>' +
+        '<div class="message-text" ondblclick="setReply(' + m.id + ', \'' + escape(m.from) + '\', \'' + escape(messageText) + '\')">' + escape(messageText) + encryptedBadge + '</div>' +
+        '<div class="message-time">' + (m.time || getLocalTime()) + '</div>' +
+        '<div style="display:flex; gap:8px; margin-top:4px;"><button onclick="saveMessage(' + m.id + ', \'' + escape(messageText) + '\', \'' + escape(m.from) + '\')" style="background:none; border:none; color:#888; cursor:pointer;">⭐ Сохранить</button></div>' +
+        '</div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVoiceMessage(d) {
@@ -1067,6 +1322,7 @@ io.on('connection', (socket) => {
             socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
             socket.emit('public keys update', userPublicKeys);
             sendProfileList();
+            sendStoriesToUser(socket);
         }
     });
 
@@ -1081,6 +1337,67 @@ io.on('connection', (socket) => {
     });
 
     socket.on('getPublicKeys', (cb) => { cb(userPublicKeys); });
+
+    // ========== ИСТОРИИ ==========
+    socket.on('add story', (data) => {
+        if (!currentUser) return;
+        if (!stories[currentUser]) stories[currentUser] = [];
+        stories[currentUser].push({
+            media: data.media,
+            type: data.type,
+            time: Date.now()
+        });
+        if (stories[currentUser].length > 10) stories[currentUser].shift();
+        saveData();
+        io.emit('stories update', getActiveStories());
+    });
+
+    socket.on('get stories', () => {
+        sendStoriesToUser(socket);
+    });
+
+    socket.on('get story', (username) => {
+        if (stories[username] && stories[username].length > 0) {
+            const story = stories[username][stories[username].length - 1];
+            socket.emit('story data', story);
+        }
+    });
+
+    function getActiveStories() {
+        const activeStories = [];
+        for (const [username, userStories] of Object.entries(stories)) {
+            if (userStories.length > 0 && Date.now() - userStories[userStories.length - 1].time < 86400000) {
+                activeStories.push({ username, name: users[username]?.name || username, avatar: users[username]?.avatar });
+            }
+        }
+        return activeStories;
+    }
+
+    function sendStoriesToUser(socket) {
+        socket.emit('stories update', getActiveStories());
+    }
+
+    // ========== СОХРАНЁННЫЕ СООБЩЕНИЯ ==========
+    socket.on('save message', (data) => {
+        if (!currentUser) return;
+        if (!savedMessages[currentUser]) savedMessages[currentUser] = [];
+        savedMessages[currentUser].push({
+            id: data.msgId,
+            from: data.from,
+            text: data.text,
+            time: new Date().toLocaleTimeString()
+        });
+        if (savedMessages[currentUser].length > 200) savedMessages[currentUser].shift();
+        saveData();
+    });
+
+    socket.on('get saved messages', () => {
+        if (savedMessages[currentUser]) {
+            socket.emit('saved messages history', savedMessages[currentUser]);
+        } else {
+            socket.emit('saved messages history', []);
+        }
+    });
 
     socket.on('upload avatar', (data, cb) => {
         const { login, avatarData } = data;
@@ -1212,8 +1529,9 @@ io.on('connection', (socket) => {
 
     socket.on('joinPrivate', (target) => { const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; socket.emit('chat history', { type: 'private', with: target, messages: privateChats[id].messages || [] }); });
     socket.on('chat message', (data) => {
-        const { type, target, text, encrypted } = data;
+        const { type, target, text, encrypted, reply } = data;
         const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type, encrypted: encrypted || false };
+        if (reply) msg.replyTo = reply;
         if (type === 'private') { msg.to = target; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; privateChats[id].messages.push(msg); io.emit('chat message', msg); saveData(); }
         else if (type === 'channel') { msg.channel = target; if (channels[target]) { channels[target].messages.push(msg); io.emit('chat message', msg); saveData(); } }
     });
@@ -1244,10 +1562,15 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`║  💻 http://localhost:${PORT}                  ║`);
     console.log(`║  📱 http://${ip}:${PORT}                 ║`);
     console.log(`╠════════════════════════════════════════════╣`);
-    console.log(`║  ✅ End-to-End шифрование!              ║`);
-    console.log(`║  ✅ Современный дизайн                 ║`);
-    console.log(`║  ✅ Тёмная/светлая тема                ║`);
-    console.log(`║  ✅ Видеокружки, голосовые, файлы       ║`);
-    console.log(`║  ✅ Друзья, каналы, стикеры            ║`);
+    console.log(`║  ✅ Все фишки Telegram:                  ║`);
+    console.log(`║  🔐 Сквозное шифрование (E2EE)          ║`);
+    console.log(`║  📸 Истории (как в Telegram)           ║`);
+    console.log(`║  ⭐ Сохранённые сообщения               ║`);
+    console.log(`║  💬 Ответы на сообщения (Reply)         ║`);
+    console.log(`║  🎥 Видеокружки                        ║`);
+    console.log(`║  🎤 Голосовые сообщения                ║`);
+    console.log(`║  📎 Файлы и изображения                ║`);
+    console.log(`║  👥 Друзья, каналы, чаты               ║`);
+    console.log(`║  🌓 Тёмная/светлая тема                ║`);
     console.log(`╚════════════════════════════════════════════╝\n`);
 });
