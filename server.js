@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,6 +46,15 @@ function saveData() {
 loadData();
 setInterval(saveData, 10000);
 
+function generateKeyPair() {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+        modulusLength: 2048,
+        publicKeyEncoding: { type: 'spki', format: 'pem' },
+        privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+    });
+    return { publicKey, privateKey };
+}
+
 function getLocalIP() {
     const interfaces = os.networkInterfaces();
     for (let name of Object.keys(interfaces)) {
@@ -61,33 +71,53 @@ app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>ATOMGRAM</title>
+    <title>ATOMGRAM - Пасхальное обновление 🐣</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial; background: #0a0a0a; color: white; height: 100vh; overflow: hidden; }
-        body.light { background: #f0f0f0; color: #1a1a2e; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: linear-gradient(135deg, #1a0a2e 0%, #2a1a3e 100%); color: white; height: 100vh; overflow: hidden; transition: all 0.3s; }
+        
+        /* ПАСХАЛЬНЫЕ ТЕМЫ */
+        body.easter { background: linear-gradient(135deg, #fce4ec 0%, #fff3e0 100%); color: #4a1a3a; }
+        body.easter-light { background: linear-gradient(135deg, #fff9c4 0%, #fff3e0 100%); color: #5d4037; }
+        body.easter-pink { background: linear-gradient(135deg, #f8bbd0 0%, #fce4ec 100%); color: #880e4f; }
+        body.easter-blue { background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%); color: #0d47a1; }
+        body.easter-green { background: linear-gradient(135deg, #c8e6c9 0%, #e8f5e9 100%); color: #1b5e20; }
+        body.easter-purple { background: linear-gradient(135deg, #e1bee7 0%, #f3e5f5 100%); color: #4a148c; }
+        
+        body.easter .sidebar, body.easter .chat-header, body.easter .input-area { background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); }
+        body.easter .message-content { background: rgba(255,255,255,0.3); color: #4a1a3a; }
+        body.easter .message.my-message .message-content { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #4a1a3a; }
+        
         #authScreen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(135deg, #fce4ec 0%, #fff3e0 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            padding: 20px;
         }
         .auth-card {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.3);
             backdrop-filter: blur(10px);
-            padding: 30px;
+            padding: 30px 25px;
             border-radius: 30px;
-            width: 90%;
+            width: 100%;
             max-width: 350px;
             text-align: center;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+        .auth-card h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #ff6b6b;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
         }
         .auth-card input {
             width: 100%;
@@ -96,49 +126,72 @@ app.get('/', (req, res) => {
             border: none;
             border-radius: 25px;
             font-size: 16px;
+            background: rgba(255,255,255,0.9);
         }
         .auth-card button {
             width: 100%;
             padding: 14px;
             margin-top: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: #4a1a3a;
             border: none;
             border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
         }
-        .switch-btn { background: transparent !important; border: 1px solid #667eea !important; }
+        .switch-btn { background: rgba(255,255,255,0.3) !important; border: 1px solid #ff9a9e !important; color: #4a1a3a !important; }
         .error-msg { color: #ff6b6b; margin-top: 10px; }
         
         #mainApp {
             display: none;
             width: 100%;
             height: 100vh;
-            display: flex;
+            position: relative;
         }
         .sidebar {
-            width: 260px;
-            background: #1a1a2e;
-            border-right: 1px solid rgba(255,255,255,0.1);
+            position: fixed;
+            left: -85%;
+            top: 0;
+            width: 85%;
+            max-width: 300px;
+            height: 100%;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(15px);
+            transition: left 0.3s ease;
+            z-index: 100;
             display: flex;
             flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,0.3);
         }
-        body.light .sidebar { background: white; border-right-color: #ddd; }
+        .sidebar.open { left: 0; }
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 99;
+            display: none;
+        }
+        .sidebar-overlay.open { display: block; }
+        
         .sidebar-header {
-            padding: 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 50px 20px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
             display: flex;
             align-items: center;
             gap: 12px;
             cursor: pointer;
         }
-        .avatar-emoji { font-size: 40px; background: #2a2a3e; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .avatar-img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background: #2a2a3e; }
+        .avatar-emoji { font-size: 45px; background: rgba(255,255,255,0.3); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .avatar-img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.3); }
         .user-info h3 { font-size: 16px; }
-        .user-info .username { font-size: 11px; color: #888; }
-        .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
-        .menu-item:hover { background: rgba(102,126,234,0.1); }
-        .section-title { padding: 10px 20px; font-size: 11px; color: #667eea; }
+        .user-info .username { font-size: 11px; color: rgba(255,255,255,0.7); }
+        .menu-item { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; border-radius: 15px; margin: 2px 10px; }
+        .menu-item:hover { background: rgba(255,255,255,0.2); }
+        .section-title { padding: 10px 20px; font-size: 11px; color: #ff9a9e; text-transform: uppercase; letter-spacing: 1px; }
         .friends-list, .channels-list {
             padding: 5px 10px;
             overflow-y: auto;
@@ -153,32 +206,56 @@ app.get('/', (req, res) => {
             align-items: center;
             gap: 10px;
             justify-content: space-between;
+            font-size: 14px;
+            background: rgba(255,255,255,0.1);
         }
-        .friend-item:hover, .channel-item:hover { background: rgba(102,126,234,0.2); }
-        .friend-request { background: rgba(102,126,234,0.3); }
-        .friend-actions button { margin-left: 5px; padding: 3px 8px; border-radius: 12px; border: none; cursor: pointer; }
+        .friend-item:hover, .channel-item:hover { background: rgba(255,255,255,0.2); }
+        .friend-request { background: rgba(255,154,158,0.3); border-left: 3px solid #ff9a9e; }
+        .friend-actions button { margin-left: 5px; padding: 3px 8px; border-radius: 12px; border: none; cursor: pointer; font-size: 12px; }
         .accept-btn { background: #4ade80; color: white; }
         .reject-btn { background: #ff6b6b; color: white; }
         .ban-btn { background: #ff4444; color: white; }
-        .create-btn { padding: 12px; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .create-btn button { flex: 1; padding: 10px; background: #2a2a3e; border: 1px solid #667eea; border-radius: 20px; color: #667eea; cursor: pointer; }
+        .create-btn { padding: 12px; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.2); margin: 0 10px; }
+        .create-btn button { flex: 1; padding: 10px; background: rgba(255,255,255,0.2); border: 1px solid #ff9a9e; border-radius: 20px; color: #ff9a9e; cursor: pointer; font-size: 14px; }
         
-        .chat-area { flex: 1; display: flex; flex-direction: column; }
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+        }
         .chat-header {
-            padding: 15px 20px;
-            background: #1a1a2e;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 15px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
+            flex-shrink: 0;
         }
-        body.light .chat-header { background: white; border-bottom-color: #ddd; }
-        .chat-title { flex: 1; font-size: 16px; font-weight: bold; }
-        .settings-btn { background: none; border: none; font-size: 20px; cursor: pointer; margin-left: auto; }
+        .menu-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            color: inherit;
+        }
+        .chat-title { flex: 1; font-size: 16px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .encryption-badge {
+            font-size: 10px;
+            background: #ff9a9e;
+            color: #4a1a3a;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+        .settings-btn { background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px; }
+        
         .messages-area {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -188,69 +265,83 @@ app.get('/', (req, res) => {
             align-items: flex-start;
             gap: 8px;
             max-width: 100%;
+            animation: fadeInUp 0.3s ease;
         }
-        .message-avatar { font-size: 32px; min-width: 36px; text-align: center; }
-        .message-bubble { max-width: 70%; }
-        .message-content { padding: 8px 14px; border-radius: 18px; background: #2a2a3e; }
-        body.light .message-content { background: #e8e8e8; color: #1a1a2e; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-avatar { font-size: 32px; min-width: 36px; text-align: center; cursor: pointer; }
+        .message-bubble { max-width: 75%; word-wrap: break-word; }
+        .message-content { padding: 8px 12px; border-radius: 18px; background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); }
         .message.my-message { justify-content: flex-end; }
-        .message.my-message .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .message-username { font-size: 11px; color: #a0a0c0; margin-bottom: 3px; }
+        .message.my-message .message-content { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #4a1a3a; }
+        .message-username { font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 2px; cursor: pointer; }
         .message-text { font-size: 14px; word-wrap: break-word; }
-        .message-time { font-size: 9px; color: #888; margin-top: 3px; }
-        .voice-message { display: flex; align-items: center; gap: 8px; }
+        .encrypted-badge { font-size: 9px; opacity: 0.7; margin-left: 5px; }
+        .message-time { font-size: 9px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+        .voice-message { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .voice-message button { background: none; border: none; font-size: 20px; cursor: pointer; color: white; }
-        .video-circle { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; cursor: pointer; background: #2a2a3e; }
-        .file-attachment { background: rgba(102,126,234,0.2); padding: 8px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; }
+        .voice-message audio { height: 35px; border-radius: 20px; max-width: 150px; }
+        .video-circle { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; cursor: pointer; background: rgba(255,255,255,0.2); }
+        .file-attachment { background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 12px; display: flex; align-items: center; gap: 6px; font-size: 12px; }
         .file-attachment a { color: white; text-decoration: none; }
-        .typing-indicator { font-size: 11px; color: #888; padding: 5px 15px; font-style: italic; }
+        .typing-indicator { font-size: 11px; color: rgba(255,255,255,0.6); padding: 5px 15px; font-style: italic; }
+        
         .input-area {
             display: flex;
-            padding: 15px 20px;
-            background: #1a1a2e;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            gap: 8px;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,255,255,0.2);
+            gap: 6px;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
         .input-area input {
             flex: 1;
-            padding: 12px 15px;
+            padding: 10px 14px;
             border: none;
             border-radius: 25px;
-            background: #2a2a3e;
+            background: rgba(255,255,255,0.3);
             color: white;
-            font-size: 15px;
+            font-size: 14px;
+            min-width: 100px;
         }
-        body.light .input-area input { background: #e8e8e8; color: #1a1a2e; }
+        .input-area input::placeholder { color: rgba(255,255,255,0.7); }
         .input-area button {
-            padding: 10px 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: #4a1a3a;
             border: none;
             border-radius: 25px;
             cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
         }
-        .attach-btn, .voice-record-btn, .video-record-btn { background: #2a2a3e !important; }
+        .attach-btn, .voice-record-btn, .video-record-btn, .sticker-btn { background: rgba(255,255,255,0.3) !important; color: white !important; }
         .voice-record-btn.recording { animation: pulse 1s infinite; background: #ff4444 !important; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         
         .sticker-picker {
             position: fixed;
-            bottom: 80px;
+            bottom: 75px;
             left: 0;
             right: 0;
-            background: #1a1a2e;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
             border-radius: 20px 20px 0 0;
-            padding: 15px;
+            padding: 12px;
             display: none;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
             z-index: 150;
-            max-height: 200px;
+            max-height: 180px;
             overflow-y: auto;
         }
         .sticker-picker.open { display: flex; }
-        .sticker { font-size: 40px; cursor: pointer; padding: 8px; border-radius: 15px; }
+        .sticker { font-size: 40px; cursor: pointer; padding: 6px; border-radius: 12px; transition: transform 0.1s; }
+        .sticker:active { transform: scale(1.1); }
         
         .video-modal {
             position: fixed;
@@ -265,10 +356,10 @@ app.get('/', (req, res) => {
             align-items: center;
             justify-content: center;
         }
-        .video-preview { width: 100%; max-width: 300px; border-radius: 50%; overflow: hidden; }
+        .video-preview { width: 100%; max-width: 280px; border-radius: 50%; overflow: hidden; }
         video { width: 100%; border-radius: 50%; }
-        .video-controls { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-        .video-controls button { padding: 12px 20px; border-radius: 40px; border: none; font-size: 14px; cursor: pointer; }
+        .video-controls { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .video-controls button { padding: 10px 16px; border-radius: 30px; border: none; font-size: 13px; cursor: pointer; }
         .start-record { background: #ff6b6b; color: white; }
         .stop-record { background: #ff4444; color: white; }
         .send-video { background: #4ade80; color: white; }
@@ -279,16 +370,19 @@ app.get('/', (req, res) => {
             bottom: 70px;
             left: 50%;
             transform: translateX(-50%);
-            background: #667eea;
-            color: white;
-            padding: 10px 16px;
+            background: #ff9a9e;
+            color: #4a1a3a;
+            padding: 8px 14px;
             border-radius: 25px;
-            font-size: 13px;
+            font-size: 12px;
             z-index: 1000;
-            white-space: nowrap;
-            max-width: 90%;
-            white-space: normal;
             text-align: center;
+            animation: bounce 0.5s ease;
+        }
+        @keyframes bounce {
+            0% { transform: translateX(-50%) scale(0.8); opacity: 0; }
+            80% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
         
         .modal {
@@ -304,37 +398,49 @@ app.get('/', (req, res) => {
             z-index: 2000;
         }
         .modal-content {
-            background: #1a1a2e;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(20px);
             border-radius: 25px;
             width: 90%;
-            max-width: 400px;
+            max-width: 380px;
             max-height: 85vh;
             overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.3);
         }
-        .modal-header { padding: 15px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .modal-header { padding: 15px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); position: relative; }
         .modal-header h3 { color: white; font-size: 18px; }
-        .close-modal { float: right; background: none; border: none; color: #888; font-size: 22px; cursor: pointer; }
+        .close-modal { position: absolute; right: 15px; top: 12px; background: none; border: none; color: rgba(255,255,255,0.7); font-size: 22px; cursor: pointer; }
         .profile-avatar-section { text-align: center; padding: 20px; }
-        .profile-avatar-emoji { font-size: 70px; background: #2a2a3e; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
-        .profile-field { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .profile-field label { display: block; font-size: 11px; color: #667eea; }
-        .profile-field input, .profile-field textarea, .profile-field select { width: 100%; padding: 10px; background: #2a2a3e; border: none; border-radius: 12px; color: white; }
-        .avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; padding: 10px; background: #2a2a3e; border-radius: 20px; }
+        .profile-avatar-emoji { font-size: 70px; background: rgba(255,255,255,0.2); width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
+        .profile-field { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .profile-field label { display: block; font-size: 11px; color: #ff9a9e; margin-bottom: 3px; text-transform: uppercase; }
+        .profile-field input, .profile-field textarea, .profile-field select { width: 100%; padding: 10px; background: rgba(255,255,255,0.2); border: none; border-radius: 12px; color: white; font-size: 14px; }
+        .avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 20px; }
         .avatar-option { font-size: 30px; cursor: pointer; padding: 5px; border-radius: 50%; }
         .modal-footer { padding: 15px; display: flex; gap: 10px; }
-        .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; }
-        .upload-btn { flex: 1; padding: 12px; background: #2a2a3e; color: white; border: 1px solid #667eea; border-radius: 25px; cursor: pointer; }
-        .delete-avatar-btn { background: #ff4444; color: white; border: none; padding: 12px; border-radius: 25px; cursor: pointer; flex: 1; }
+        .save-btn { flex: 1; padding: 12px; background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #4a1a3a; border: none; border-radius: 25px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .upload-btn { flex: 1; padding: 12px; background: rgba(255,255,255,0.2); color: white; border: 1px solid #ff9a9e; border-radius: 25px; cursor: pointer; font-size: 14px; }
+        .delete-avatar-btn { background: #ff4444; color: white; border: none; padding: 12px; border-radius: 25px; cursor: pointer; flex: 1; font-size: 14px; }
         
-        @media (max-width: 768px) {
-            .sidebar { display: none; }
+        @media (min-width: 768px) {
+            .sidebar { position: relative; left: 0 !important; width: 280px; }
+            .sidebar-overlay { display: none !important; }
+            .menu-btn { display: none; }
+            .message-bubble { max-width: 60%; }
+            .video-circle { width: 130px; height: 130px; }
+        }
+        @media (max-width: 480px) {
+            .message-bubble { max-width: 85%; }
+            .video-circle { width: 90px; height: 90px; }
+            .sticker { font-size: 35px; }
         }
     </style>
 </head>
-<body>
+<body class="easter">
 <div id="authScreen">
     <div class="auth-card">
-        <div style="font-size: 36px; margin-bottom: 20px;">⚡</div>
+        <h1>🐣 ATOMGRAM</h1>
+        <div style="font-size: 14px; margin-bottom: 15px;">🌸 Пасхальное обновление 🌸</div>
         <div id="authForm">
             <input type="text" id="loginUsername" placeholder="Username">
             <input type="password" id="loginPassword" placeholder="Пароль">
@@ -354,18 +460,19 @@ app.get('/', (req, res) => {
 </div>
 
 <div id="mainApp">
-    <div class="sidebar">
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header" onclick="openProfileModal()">
-            <div id="userAvatar"><div class="avatar-emoji">👤</div></div>
+            <div id="userAvatar"><div class="avatar-emoji">🐣</div></div>
             <div class="user-info">
                 <h3 id="userName">Загрузка...</h3>
                 <div class="username" id="userLogin">@</div>
             </div>
         </div>
-        <div class="menu-item" onclick="openProfileModal()"><span>👤</span> <span>Профиль</span></div>
-        <div class="menu-item" onclick="openSettingsModal()"><span>⚙️</span> <span>Настройки</span></div>
-        <div class="menu-item" onclick="addFriend()"><span>➕</span> <span>Добавить друга</span></div>
-        <div class="section-title">👥 ДРУЗЬЯ</div>
+        <div class="menu-item" onclick="openProfileModal()"><span>🐰</span> <span>Профиль</span></div>
+        <div class="menu-item" onclick="openSettingsModal()"><span>🌸</span> <span>Настройки</span></div>
+        <div class="menu-item" onclick="addFriend()"><span>🥚</span> <span>Добавить друга</span></div>
+        <div class="section-title">🐣 ДРУЗЬЯ</div>
         <div class="friends-list" id="friendsList"></div>
         <div class="section-title">📢 КАНАЛЫ</div>
         <div class="channels-list" id="channelsList"></div>
@@ -375,18 +482,21 @@ app.get('/', (req, res) => {
     </div>
     <div class="chat-area">
         <div class="chat-header">
-            <div style="font-weight: bold;">⚡ ATOMGRAM</div>
+            <button class="menu-btn" onclick="toggleSidebar()">🌸</button>
+            <div style="font-weight: bold; font-size: 14px;">🐣 ATOMGRAM</div>
             <div class="chat-title" id="chatTitle">Выберите чат</div>
+            <div class="encryption-badge" id="encryptionBadge" style="display:none;">🔒 E2EE</div>
             <button class="settings-btn" onclick="openSettingsModal()">⚙️</button>
         </div>
         <div class="messages-area" id="messages"></div>
         <div class="typing-indicator" id="typingIndicator" style="display:none"></div>
         <div class="sticker-picker" id="stickerPicker">
+            <div class="sticker" onclick="sendSticker('🐣')">🐣</div><div class="sticker" onclick="sendSticker('🐰')">🐰</div>
+            <div class="sticker" onclick="sendSticker('🥚')">🥚</div><div class="sticker" onclick="sendSticker('🌸')">🌸</div>
+            <div class="sticker" onclick="sendSticker('🌷')">🌷</div><div class="sticker" onclick="sendSticker('💐')">💐</div>
+            <div class="sticker" onclick="sendSticker('🐇')">🐇</div><div class="sticker" onclick="sendSticker('🍫')">🍫</div>
             <div class="sticker" onclick="sendSticker('😀')">😀</div><div class="sticker" onclick="sendSticker('😂')">😂</div>
-            <div class="sticker" onclick="sendSticker('😍')">😍</div><div class="sticker" onclick="sendSticker('😎')">😎</div>
-            <div class="sticker" onclick="sendSticker('🥳')">🥳</div><div class="sticker" onclick="sendSticker('🔥')">🔥</div>
-            <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('🎉')">🎉</div>
-            <div class="sticker" onclick="sendSticker('🐱')">🐱</div><div class="sticker" onclick="sendSticker('🐶')">🐶</div>
+            <div class="sticker" onclick="sendSticker('😍')">😍</div><div class="sticker" onclick="sendSticker('🔥')">🔥</div>
         </div>
         <div class="input-area">
             <input type="text" id="messageInput" placeholder="Сообщение...">
@@ -402,23 +512,24 @@ app.get('/', (req, res) => {
 
 <div id="profileModal" class="modal" style="display:none">
     <div class="modal-content">
-        <div class="modal-header"><h3>Профиль</h3><button class="close-modal" onclick="closeProfileModal()">✕</button></div>
+        <div class="modal-header"><h3>🐣 Профиль</h3><button class="close-modal" onclick="closeProfileModal()">✕</button></div>
         <div class="profile-avatar-section">
-            <div id="profileAvatar"><div class="profile-avatar-emoji">👤</div></div>
+            <div id="profileAvatar"><div class="profile-avatar-emoji">🐣</div></div>
             <div id="avatarPicker" class="avatar-picker" style="display:none;">
+                <div class="avatar-option" onclick="selectAvatar('🐣')">🐣</div><div class="avatar-option" onclick="selectAvatar('🐰')">🐰</div>
+                <div class="avatar-option" onclick="selectAvatar('🥚')">🥚</div><div class="avatar-option" onclick="selectAvatar('🌸')">🌸</div>
+                <div class="avatar-option" onclick="selectAvatar('🐇')">🐇</div><div class="avatar-option" onclick="selectAvatar('🌷')">🌷</div>
                 <div class="avatar-option" onclick="selectAvatar('😀')">😀</div><div class="avatar-option" onclick="selectAvatar('😎')">😎</div>
-                <div class="avatar-option" onclick="selectAvatar('👨')">👨</div><div class="avatar-option" onclick="selectAvatar('👩')">👩</div>
-                <div class="avatar-option" onclick="selectAvatar('🐱')">🐱</div><div class="avatar-option" onclick="selectAvatar('🐶')">🐶</div>
             </div>
             <input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()">
         </div>
         <div class="profile-field"><label>Имя</label><input type="text" id="editName"></div>
         <div class="profile-field"><label>Фамилия</label><input type="text" id="editSurname"></div>
-        <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2"></textarea></div>
+        <div class="profile-field"><label>О себе</label><textarea id="editBio" rows="2" placeholder="🐣 С Пасхой! 🥚"></textarea></div>
         <div class="profile-field"><label>Новый пароль</label><input type="password" id="editPassword" placeholder="Оставьте пустым"></div>
         <div class="modal-footer">
-            <button class="upload-btn" onclick="document.getElementById('avatarUpload').click()">📷 Загрузить фото</button>
-            <button class="delete-avatar-btn" onclick="deleteAvatar()">🗑️ Удалить фото</button>
+            <button class="upload-btn" onclick="document.getElementById('avatarUpload').click()">📷 Фото</button>
+            <button class="delete-avatar-btn" onclick="deleteAvatar()">🗑️ Удалить</button>
             <button class="save-btn" onclick="saveProfile()">Сохранить</button>
         </div>
     </div>
@@ -426,12 +537,26 @@ app.get('/', (req, res) => {
 
 <div id="settingsModal" class="modal" style="display:none">
     <div class="modal-content">
-        <div class="modal-header"><h3>Настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
-        <div class="profile-field"><label>🌓 Тема</label><select id="themeSelect" onchange="applyTheme()"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></div>
-        <div class="profile-field"><label>🎨 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()"><option value="#0a0a0a">Тёмный</option><option value="#f0f0f0">Светлый</option><option value="linear-gradient(135deg, #1a4a2a 0%, #0a2a1a 100%)">Лес</option><option value="linear-gradient(135deg, #0a2a4a 0%, #001a3a 100%)">Океан</option><option value="radial-gradient(circle at 20% 30%, #1a0a3a, #0a0a1a)">Галактика</option></select></div>
-        <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#667eea" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="#2a2a3e" onchange="applyMsgColor()"></div>
-        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()"><option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option><option value="18px">Очень большой</option></select></div>
+        <div class="modal-header"><h3>🌸 Пасхальные настройки</h3><button class="close-modal" onclick="closeSettingsModal()">✕</button></div>
+        <div class="profile-field"><label>🐣 Тема</label><select id="themeSelect" onchange="applyTheme()">
+            <option value="easter">Розовая Пасха</option>
+            <option value="easter-light">Светлая Пасха</option>
+            <option value="easter-pink">Нежно-розовая</option>
+            <option value="easter-blue">Голубая Пасха</option>
+            <option value="easter-green">Зелёная Пасха</option>
+            <option value="easter-purple">Сиреневая Пасха</option>
+        </select></div>
+        <div class="profile-field"><label>🥚 Фон чата</label><select id="chatBgSelect" onchange="applyChatBg()">
+            <option value="rgba(255,255,255,0.1)">Прозрачный</option>
+            <option value="linear-gradient(135deg, #fce4ec 0%, #fff3e0 100%)">Розовый градиент</option>
+            <option value="linear-gradient(135deg, #c8e6c9 0%, #e8f5e9 100%)">Зелёный градиент</option>
+            <option value="linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%)">Голубой градиент</option>
+        </select></div>
+        <div class="profile-field"><label>💬 Мои сообщения</label><input type="color" id="myMsgColor" value="#ff9a9e" onchange="applyMsgColor()"></div>
+        <div class="profile-field"><label>💭 Чужие сообщения</label><input type="color" id="otherMsgColor" value="rgba(255,255,255,0.2)" onchange="applyMsgColor()"></div>
+        <div class="profile-field"><label>📏 Размер шрифта</label><select id="fontSizeSelect" onchange="applyFontSize()">
+            <option value="12px">Маленький</option><option value="14px" selected>Средний</option><option value="16px">Большой</option>
+        </select></div>
         <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">Сохранить</button></div>
     </div>
 </div>
@@ -457,11 +582,57 @@ let videoStream = null, videoRecorder = null, videoChunks = [];
 let recordedVideoBlob = null;
 let currentAudio = null;
 
+let myPrivateKey = null;
+let friendsPublicKeys = {};
+
+async function generateClientKeys() {
+    const keyPair = await window.crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+        true, ["encrypt", "decrypt"]
+    );
+    return keyPair;
+}
+
+async function exportPublicKey(key) {
+    const exported = await window.crypto.subtle.exportKey("spki", key);
+    const exportedAsString = String.fromCharCode.apply(null, new Uint8Array(exported));
+    return "-----BEGIN PUBLIC KEY-----\n" + btoa(exportedAsString).match(/.{1,64}/g).join('\n') + "\n-----END PUBLIC KEY-----";
+}
+
+async function importPublicKey(pem) {
+    const binary = atob(pem.replace(/-----BEGIN PUBLIC KEY-----/, '').replace(/-----END PUBLIC KEY-----/, '').replace(/\s/g, ''));
+    const buffer = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+    return await window.crypto.subtle.importKey("spki", buffer, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
+}
+
+async function encryptMessageClient(message, publicKeyPem) {
+    const publicKey = await importPublicKey(publicKeyPem);
+    const encoded = new TextEncoder().encode(message);
+    const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoded);
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(encrypted)));
+}
+
+async function decryptMessageClient(encryptedBase64, privateKey) {
+    const encrypted = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+    const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, encrypted);
+    return new TextDecoder().decode(decrypted);
+}
+
 const savedUsername = localStorage.getItem('atomgram_username');
 const savedPassword = localStorage.getItem('atomgram_password');
 
 function getLocalTime() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
 function toggleStickerPicker() { document.getElementById('stickerPicker').classList.toggle('open'); }
 function sendSticker(sticker) {
     if (!currentChat) { alert('Выберите чат'); return; }
@@ -474,7 +645,7 @@ function renderAvatar(avatarData, avatarType, size) {
         if (size === 'large') return '<img src="' + avatarData + '" class="profile-avatar-img" style="width:100px; height:100px; border-radius:50%; object-fit:cover;">';
         return '<img src="' + avatarData + '" class="avatar-img">';
     } else {
-        const emoji = avatarData || '👤';
+        const emoji = avatarData || '🐣';
         if (size === 'large') return '<div class="profile-avatar-emoji">' + emoji + '</div>';
         return '<div class="avatar-emoji">' + emoji + '</div>';
     }
@@ -489,22 +660,24 @@ function joinChannel(name) {
     currentChat = 'channel:' + name; currentChatType = 'channel'; currentChatTarget = name;
     socket.emit('joinChannel', name);
     document.getElementById('chatTitle').innerHTML = '📢 ' + name;
+    document.getElementById('encryptionBadge').style.display = 'none';
     renderAll();
 }
 function startPrivateChat(user) {
     currentChat = 'user:' + user; currentChatType = 'private'; currentChatTarget = user;
     socket.emit('joinPrivate', user);
     document.getElementById('chatTitle').innerHTML = '💬 ' + user;
+    document.getElementById('encryptionBadge').style.display = 'inline-block';
     renderAll();
 }
 function renderAll() {
     const cl = document.getElementById('channelsList');
     cl.innerHTML = allChannels.map(c => '<div class="channel-item" onclick="joinChannel(\\'' + c + '\\')">📢 ' + c + '</div>').join('');
     let fl = '';
-    friendRequests.forEach(req => { fl += '<div class="friend-item friend-request"><span>👤 ' + req + '</span><div class="friend-actions"><button class="accept-btn" onclick="acceptFriend(\\'' + req + '\\')">✅</button><button class="reject-btn" onclick="rejectFriend(\\'' + req + '\\')">❌</button></div></div>'; });
-    allFriends.forEach(f => { fl += '<div class="friend-item" onclick="startPrivateChat(\\'' + f + '\\')"><span>👤 ' + f + '</span><button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + f + '\\')">🚫</button></div>'; });
-    bannedUsers.forEach(b => { fl += '<div class="friend-item" style="opacity:0.7;"><span>👤 ' + b + ' (забанен)</span><button class="accept-btn" onclick="unbanUser(\\'' + b + '\\')">🔓</button></div>'; });
-    document.getElementById('friendsList').innerHTML = fl || '<div style="padding:10px; text-align:center; color:#666;">Нет друзей</div>';
+    friendRequests.forEach(req => { fl += '<div class="friend-item friend-request"><span>🐣 ' + req + '</span><div class="friend-actions"><button class="accept-btn" onclick="acceptFriend(\\'' + req + '\\')">✅</button><button class="reject-btn" onclick="rejectFriend(\\'' + req + '\\')">❌</button></div></div>'; });
+    allFriends.forEach(f => { fl += '<div class="friend-item" onclick="startPrivateChat(\\'' + f + '\\')"><span>🐰 ' + f + '</span><button class="ban-btn" onclick="event.stopPropagation(); banUser(\\'' + f + '\\')">🚫</button></div>'; });
+    bannedUsers.forEach(b => { fl += '<div class="friend-item" style="opacity:0.7;"><span>🥚 ' + b + ' (забанен)</span><button class="accept-btn" onclick="unbanUser(\\'' + b + '\\')">🔓</button></div>'; });
+    document.getElementById('friendsList').innerHTML = fl || '<div style="padding:10px; text-align:center;">🌸 Нет друзей</div>';
 }
 function addFriend() {
     const u = prompt('Введите username друга:');
@@ -515,11 +688,23 @@ function acceptFriend(from) { socket.emit('accept friend', { fromUser: from }); 
 function rejectFriend(from) { socket.emit('reject friend', { fromUser: from }); }
 function banUser(u) { if (confirm('Забанить ' + u + '?')) socket.emit('ban user', { userToBan: u }); }
 function unbanUser(u) { socket.emit('unban user', { userToUnban: u }); }
-function sendMessage() {
+async function sendMessage() {
     const input = document.getElementById('messageInput');
-    const text = input.value.trim();
+    let text = input.value.trim();
     if (!text || !currentChat) return;
-    socket.emit('chat message', { type: currentChatType, target: currentChatTarget, text });
+    
+    let encryptedText = text;
+    let isEncrypted = false;
+    
+    if (currentChatType === 'private') {
+        const friendPublicKey = friendsPublicKeys[currentChatTarget];
+        if (friendPublicKey) {
+            encryptedText = await encryptMessageClient(text, friendPublicKey);
+            isEncrypted = true;
+        }
+    }
+    
+    socket.emit('chat message', { type: currentChatType, target: currentChatTarget, text: encryptedText, encrypted: isEncrypted });
     input.value = '';
 }
 
@@ -612,14 +797,14 @@ function playAudio(btn) {
 function openProfileModal() {
     document.getElementById('editName').value = currentUserData?.name || '';
     document.getElementById('editSurname').value = currentUserData?.surname || '';
-    document.getElementById('editBio').value = currentUserData?.bio || '';
+    document.getElementById('editBio').value = currentUserData?.bio || '🐣 С Пасхой! 🥚';
     document.getElementById('editPassword').value = '';
     document.getElementById('profileAvatar').innerHTML = renderAvatar(currentUserData?.avatarData, currentUserData?.avatarType, 'large');
     document.getElementById('profileModal').style.display = 'flex';
 }
 function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; document.getElementById('avatarPicker').style.display = 'none'; }
 function toggleAvatarPicker() { const p = document.getElementById('avatarPicker'); p.style.display = p.style.display === 'none' ? 'flex' : 'none'; }
-let selectedAvatar = '👤';
+let selectedAvatar = '🐣';
 function selectAvatar(avatar) { selectedAvatar = avatar; document.getElementById('profileAvatar').innerHTML = '<div class="profile-avatar-emoji">' + avatar + '</div>'; document.getElementById('avatarPicker').style.display = 'none'; }
 function uploadAvatar() {
     const file = document.getElementById('avatarUpload').files[0];
@@ -649,8 +834,9 @@ function updateUI() {
 
 function applyTheme() {
     const theme = document.getElementById('themeSelect').value;
-    if (theme === 'light') document.body.classList.add('light');
-    else document.body.classList.remove('light');
+    const themes = ['easter', 'easter-light', 'easter-pink', 'easter-blue', 'easter-green', 'easter-purple'];
+    document.body.classList.remove(...themes);
+    document.body.classList.add(theme);
     localStorage.setItem('atomgram_theme', theme);
 }
 function applyChatBg() {
@@ -679,13 +865,17 @@ function applyFontSize() {
 function saveSettings() {
     applyTheme(); applyChatBg(); applyMsgColor(); applyFontSize();
     closeSettingsModal();
-    alert('Настройки сохранены');
+    alert('🌸 Пасхальные настройки сохранены!');
 }
 function openSettingsModal() {
-    document.getElementById('themeSelect').value = document.body.classList.contains('light') ? 'light' : 'dark';
-    document.getElementById('chatBgSelect').value = localStorage.getItem('atomgram_chatBg') || '#0a0a0a';
-    document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#667eea';
-    document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || '#2a2a3e';
+    document.getElementById('themeSelect').value = document.body.classList.contains('easter-light') ? 'easter-light' : 
+        document.body.classList.contains('easter-pink') ? 'easter-pink' :
+        document.body.classList.contains('easter-blue') ? 'easter-blue' :
+        document.body.classList.contains('easter-green') ? 'easter-green' :
+        document.body.classList.contains('easter-purple') ? 'easter-purple' : 'easter';
+    document.getElementById('chatBgSelect').value = localStorage.getItem('atomgram_chatBg') || 'rgba(255,255,255,0.1)';
+    document.getElementById('myMsgColor').value = localStorage.getItem('atomgram_myMsgColor') || '#ff9a9e';
+    document.getElementById('otherMsgColor').value = localStorage.getItem('atomgram_otherMsgColor') || 'rgba(255,255,255,0.2)';
     document.getElementById('fontSizeSelect').value = localStorage.getItem('atomgram_fontSize') || '14px';
     document.getElementById('settingsModal').style.display = 'flex';
 }
@@ -698,8 +888,8 @@ function applySavedSettings() {
     if (myColor || otherColor) {
         let style = document.getElementById('msgColorStyle');
         if (!style) { style = document.createElement('style'); style.id = 'msgColorStyle'; document.head.appendChild(style); }
-        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#667eea'} !important; }
-            .message:not(.my-message) .message-content { background: ${otherColor || '#2a2a3e'} !important; }`;
+        style.innerHTML = `.message.my-message .message-content { background: ${myColor || '#ff9a9e'} !important; }
+            .message:not(.my-message) .message-content { background: ${otherColor || 'rgba(255,255,255,0.2)'} !important; }`;
     }
     const fontSize = localStorage.getItem('atomgram_fontSize');
     if (fontSize) {
@@ -713,16 +903,23 @@ function login() {
     const u = document.getElementById('loginUsername').value.trim();
     const p = document.getElementById('loginPassword').value.trim();
     if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
-    socket.emit('login', { username: u, password: p }, (res) => {
+    socket.emit('login', { username: u, password: p }, async (res) => {
         if (res.success) {
             currentUser = u;
             currentUserData = res.userData;
             localStorage.setItem('atomgram_username', u);
             localStorage.setItem('atomgram_password', p);
+            
+            const keyPair = await generateClientKeys();
+            const publicKeyPem = await exportPublicKey(keyPair.publicKey);
+            myPrivateKey = keyPair.privateKey;
+            socket.emit('save public key', { publicKey: publicKeyPem });
+            
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             updateUI(); loadData();
             applySavedSettings();
+            socket.emit('getPublicKeys', (keys) => { friendsPublicKeys = keys; });
         } else document.getElementById('authError').innerText = res.error;
     });
 }
@@ -746,18 +943,21 @@ function loadData() {
 }
 socket.on('friends update', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; bannedUsers = d.banned || []; renderAll(); });
 socket.on('channels update', (c) => { allChannels = c; renderAll(); });
-socket.on('chat history', (data) => {
+socket.on('public keys update', (keys) => { friendsPublicKeys = keys; });
+socket.on('chat history', async (data) => {
     if ((currentChatType === 'private' && data.type === 'private' && data.with === currentChatTarget) ||
         (currentChatType === 'channel' && data.type === 'channel' && data.channel === currentChatTarget)) {
         document.getElementById('messages').innerHTML = '';
-        data.messages.forEach(m => addMessage(m));
+        for (const m of data.messages) {
+            await addMessage(m);
+        }
     }
 });
-socket.on('chat message', (msg) => {
+socket.on('chat message', async (msg) => {
     let show = false;
     if (msg.type === 'private' && currentChatType === 'private' && (msg.to === currentChatTarget || msg.from === currentChatTarget)) show = true;
     if (msg.type === 'channel' && currentChatType === 'channel' && msg.channel === currentChatTarget) show = true;
-    if (show) { addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
+    if (show) { await addMessage(msg); document.getElementById('messages').scrollTop = 9999; }
 });
 socket.on('voice message', (data) => {
     if (data.type === 'private' && currentChatType === 'private' && (data.to === currentChatTarget || data.from === currentChatTarget)) {
@@ -774,25 +974,54 @@ socket.on('file attachment', (data) => {
         addFileMessage(data);
     }
 });
-function addMessage(m) {
+async function addMessage(m) {
     const div = document.createElement('div');
     div.className = 'message';
     if (m.from === currentUser) div.classList.add('my-message');
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(m.from) + '</div><div class="message-text">' + escape(m.text) + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
+    
+    let messageText = m.text;
+    let encryptedBadge = '';
+    
+    if (m.encrypted && m.from !== currentUser && currentChatType === 'private') {
+        try {
+            if (myPrivateKey) {
+                messageText = await decryptMessageClient(m.text, myPrivateKey);
+                encryptedBadge = '<span class="encrypted-badge">🔓</span>';
+            } else {
+                messageText = '🔒 Зашифрованное сообщение';
+                encryptedBadge = '<span class="encrypted-badge">🔒</span>';
+            }
+        } catch(e) {
+            messageText = '🔒 Зашифрованное сообщение';
+            encryptedBadge = '<span class="encrypted-badge">🔒</span>';
+        }
+    } else if (m.encrypted && m.from === currentUser) {
+        encryptedBadge = '<span class="encrypted-badge">🔒</span>';
+    }
+    
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + m.from + '\')">🐣</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + m.from + '\')">' + escape(m.from) + '</div>' +
+        '<div class="message-text">' + escape(messageText) + encryptedBadge + '</div><div class="message-time">' + (m.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVoiceMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><div class="voice-message"><button onclick="playAudio(this)" data-audio="' + d.audio + '">▶️</button><span>Голосовое</span></div><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">🐣</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(d.from) + '</div>' +
+        '<div class="voice-message"><button onclick="playAudio(this)" data-audio="' + d.audio + '">▶️</button><span>Голосовое</span></div>' +
+        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addVideoMessage(d) {
     const div = document.createElement('div');
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><video class="video-circle" controls autoplay loop src="' + d.video + '"></video><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">🐣</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(d.from) + '</div>' +
+        '<video class="video-circle" controls autoplay loop src="' + d.video + '"></video>' +
+        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
 }
 function addFileMessage(d) {
@@ -800,8 +1029,18 @@ function addFileMessage(d) {
     div.className = 'message';
     if (d.from === currentUser) div.classList.add('my-message');
     const icon = d.fileType?.startsWith('image/') ? '🖼️' : '📄';
-    div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-username">' + escape(d.from) + '</div><div class="file-attachment"><span>' + icon + '</span><a href="' + d.fileData + '" download="' + d.fileName + '">' + d.fileName + '</a></div><div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
+    div.innerHTML = '<div class="message-avatar" onclick="viewUserProfile(\'' + d.from + '\')">🐣</div>' +
+        '<div class="message-bubble"><div class="message-content"><div class="message-username" onclick="viewUserProfile(\'' + d.from + '\')">' + escape(d.from) + '</div>' +
+        '<div class="file-attachment"><span>' + icon + '</span><a href="' + d.fileData + '" download="' + d.fileName + '">' + d.fileName + '</a></div>' +
+        '<div class="message-time">' + (d.time || getLocalTime()) + '</div></div></div>';
     document.getElementById('messages').appendChild(div);
+}
+function viewUserProfile(username) {
+    socket.emit('getUserProfile', username, (profile) => {
+        if (profile) {
+            alert('🐣 ' + (profile.name || username) + '\n🌸 ' + (profile.bio || 'С Пасхой! 🥚'));
+        }
+    });
 }
 function escape(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 </script>
@@ -811,6 +1050,7 @@ function escape(t) { const d = document.createElement('div'); d.textContent = t;
 
 // ========== СОКЕТЫ ==========
 const usersOnline = new Map();
+const userPublicKeys = {};
 
 io.on('connection', (socket) => {
     let currentUser = null;
@@ -819,7 +1059,7 @@ io.on('connection', (socket) => {
         const { username, name, surname, password } = data;
         if (users[username]) cb({ success: false, error: 'Username занят' });
         else {
-            users[username] = { username, password, name: name || '', surname: surname || '', bio: '', avatar: '👤', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
+            users[username] = { username, password, name: name || '', surname: surname || '', bio: '🐣 С Пасхой! 🥚', avatar: '🐣', avatarType: 'emoji', avatarData: null, friends: [], friendRequests: [], banned: [] };
             saveData();
             cb({ success: true });
             sendProfileList();
@@ -835,9 +1075,22 @@ io.on('connection', (socket) => {
             usersOnline.set(socket.id, username);
             cb({ success: true, userData: users[username] });
             socket.emit('friends update', { friends: users[username].friends || [], requests: users[username].friendRequests || [], banned: users[username].banned || [] });
+            socket.emit('public keys update', userPublicKeys);
             sendProfileList();
         }
     });
+
+    socket.on('save public key', (data) => {
+        const { publicKey } = data;
+        if (currentUser && publicKey) {
+            userPublicKeys[currentUser] = publicKey;
+            if (users[currentUser]) users[currentUser].publicKey = publicKey;
+            saveData();
+            io.emit('public keys update', userPublicKeys);
+        }
+    });
+
+    socket.on('getPublicKeys', (cb) => { cb(userPublicKeys); });
 
     socket.on('upload avatar', (data, cb) => {
         const { login, avatarData } = data;
@@ -865,7 +1118,7 @@ io.on('connection', (socket) => {
             }
             users[login].avatarType = 'emoji';
             users[login].avatarData = null;
-            users[login].avatar = '👤';
+            users[login].avatar = '🐣';
             saveData();
             cb({ success: true, userData: users[login] });
             io.emit('profile updated', users[login]);
@@ -884,9 +1137,12 @@ io.on('connection', (socket) => {
             else {
                 users[friendUsername].friendRequests.push(currentUser);
                 saveData();
-                cb({ success: true, message: '✅ Запрос в друзья отправлен!' });
+                cb({ success: true, message: '🥚 Запрос в друзья отправлен! 🐣' });
                 const fs = getSocketByUsername(friendUsername);
-                if (fs) fs.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [], banned: users[friendUsername].banned || [] });
+                if (fs) {
+                    fs.emit('friends update', { friends: users[friendUsername].friends || [], requests: users[friendUsername].friendRequests || [], banned: users[friendUsername].banned || [] });
+                    fs.emit('public keys update', userPublicKeys);
+                }
             }
         }
     });
@@ -901,8 +1157,12 @@ io.on('connection', (socket) => {
             if (!users[fromUser].friends.includes(currentUser)) users[fromUser].friends.push(currentUser);
             saveData();
             socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
+            socket.emit('public keys update', userPublicKeys);
             const fs = getSocketByUsername(fromUser);
-            if (fs) fs.emit('friends update', { friends: users[fromUser].friends, requests: users[fromUser].friendRequests, banned: users[fromUser].banned || [] });
+            if (fs) {
+                fs.emit('friends update', { friends: users[fromUser].friends, requests: users[fromUser].friendRequests, banned: users[fromUser].banned || [] });
+                fs.emit('public keys update', userPublicKeys);
+            }
         }
     });
 
@@ -922,7 +1182,7 @@ io.on('connection', (socket) => {
             users[currentUser].banned.push(userToBan);
             if (users[currentUser].friends?.includes(userToBan)) users[currentUser].friends = users[currentUser].friends.filter(f => f !== userToBan);
             saveData();
-            socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
+                        socket.emit('friends update', { friends: users[currentUser].friends, requests: users[currentUser].friendRequests, banned: users[currentUser].banned || [] });
         }
     });
 
@@ -940,7 +1200,7 @@ io.on('connection', (socket) => {
     socket.on('create channel', (data, cb) => {
         const { channelName } = data;
         if (channels[channelName]) cb({ success: false, error: 'Канал уже существует' });
-        else { channels[channelName] = { name: channelName, messages: [] }; saveData(); cb({ success: true, message: 'Канал создан' }); io.emit('channels update', Object.keys(channels)); }
+        else { channels[channelName] = { name: channelName, messages: [] }; saveData(); cb({ success: true, message: '🌸 Канал создан! 🐣' }); io.emit('channels update', Object.keys(channels)); }
     });
     socket.on('joinChannel', (name) => { if (channels[name]) socket.emit('chat history', { type: 'channel', channel: name, messages: channels[name].messages || [] }); });
     socket.on('channel message', (data) => { const { channel, text } = data; if (channels[channel]) { const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type: 'channel', channel }; channels[channel].messages.push(msg); io.emit('chat message', msg); saveData(); } });
@@ -962,8 +1222,8 @@ io.on('connection', (socket) => {
 
     socket.on('joinPrivate', (target) => { const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; socket.emit('chat history', { type: 'private', with: target, messages: privateChats[id].messages || [] }); });
     socket.on('chat message', (data) => {
-        const { type, target, text } = data;
-        const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type };
+        const { type, target, text, encrypted } = data;
+        const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), type, encrypted: encrypted || false };
         if (type === 'private') { msg.to = target; const id = [currentUser, target].sort().join('_'); if (!privateChats[id]) privateChats[id] = { messages: [] }; privateChats[id].messages.push(msg); io.emit('chat message', msg); saveData(); }
         else if (type === 'channel') { msg.channel = target; if (channels[target]) { channels[target].messages.push(msg); io.emit('chat message', msg); saveData(); } }
     });
@@ -988,12 +1248,16 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 const ip = getLocalIP();
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n╔════════════════════════════════════════╗`);
-    console.log(`║        🚀 ATOMGRAM ЗАПУЩЕН         ║`);
-    console.log(`╠════════════════════════════════════════╣`);
-    console.log(`║  💻 http://localhost:${PORT}              ║`);
-    console.log(`║  📱 http://${ip}:${PORT}             ║`);
-    console.log(`╠════════════════════════════════════════╣`);
-    console.log(`║  ✅ Всё работает!                  ║`);
-    console.log(`╚════════════════════════════════════════╝\n`);
+    console.log(`\n╔════════════════════════════════════════════╗`);
+    console.log(`║   🐣 ATOMGRAM - ПАСХАЛЬНОЕ ОБНОВЛЕНИЕ   ║`);
+    console.log(`╠════════════════════════════════════════════╣`);
+    console.log(`║  💻 http://localhost:${PORT}                  ║`);
+    console.log(`║  📱 http://${ip}:${PORT}                 ║`);
+    console.log(`╠════════════════════════════════════════════╣`);
+    console.log(`║  🥚 End-to-End шифрование!              ║`);
+    console.log(`║  🐣 6 пасхальных тем                   ║`);
+    console.log(`║  🌸 Пасхальные стикеры                  ║`);
+    console.log(`║  🐰 Пасхальные аватарки                 ║`);
+    console.log(`║  🎥 Видеокружки, голосовые, файлы       ║`);
+    console.log(`╚════════════════════════════════════════════╝\n`);
 });
