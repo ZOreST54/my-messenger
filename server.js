@@ -63,7 +63,7 @@ app.get('/', (req, res) => {
         .menu-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: white; display: none; }
         .logo { font-size: 20px; font-weight: bold; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .online-badge { margin-left: auto; font-size: 12px; color: #4ade80; display: flex; align-items: center; gap: 6px; }
-        .online-badge::before { content: ''; width: 8px; height: 8px; background: #4ade80; border-radius: 50%; display: inline-block; animation: pulse 1s infinite; }
+        .online-badge::before { content: ""; width: 8px; height: 8px; background: #4ade80; border-radius: 50%; display: inline-block; animation: pulse 1s infinite; }
         
         .container { display: flex; flex: 1; overflow: hidden; }
         .sidebar { width: 300px; background: #1a1a1e; border-right: 1px solid #2a2a2e; display: flex; flex-direction: column; transition: transform 0.3s; z-index: 100; }
@@ -130,7 +130,6 @@ app.get('/', (req, res) => {
         .sticker-picker { position: fixed; bottom: 80px; left: 0; right: 0; background: #1a1a1e; border-radius: 24px 24px 0 0; padding: 16px; display: none; flex-wrap: wrap; gap: 12px; justify-content: center; z-index: 150; max-height: 250px; overflow-y: auto; }
         .sticker-picker.open { display: flex; }
         
-        /* ИГРЫ */
         .game-container { background: #1e1e2e; border-radius: 20px; padding: 20px; margin-bottom: 12px; border: 1px solid #2a2a2e; }
         .game-title { text-align: center; margin-bottom: 16px; font-size: 20px; font-weight: bold; }
         .game-boards { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
@@ -205,7 +204,7 @@ app.get('/', (req, res) => {
 
 <div class="auth-screen" id="authScreen">
     <div class="auth-card">
-        <h1>⚡ ATOMGRAM</h1>
+        <h1>ATOMGRAM</h1>
         <div class="subtitle">Мессенджер будущего</div>
         <div id="loginPanel">
             <input type="text" id="loginUsername" placeholder="Логин">
@@ -227,7 +226,7 @@ app.get('/', (req, res) => {
 <div class="app" id="mainApp">
     <div class="header">
         <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-        <div class="logo">⚡ ATOMGRAM</div>
+        <div class="logo">ATOMGRAM</div>
         <div class="online-badge">Онлайн</div>
     </div>
     <div class="container">
@@ -289,32 +288,31 @@ app.get('/', (req, res) => {
     </div>
 </div>
 
-<div id="addFriendModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>➕ Добавить друга</h3><button class="modal-close" onclick="closeAddFriendModal()">✕</button></div><div class="modal-body"><input type="text" id="friendUsername" class="modal-input" placeholder="Логин друга"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeAddFriendModal()">Отмена</button><button class="modal-btn" onclick="addFriend()">Добавить</button></div></div></div>
-<div id="createGroupModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>👥 Создать группу</h3><button class="modal-close" onclick="closeCreateGroupModal()">✕</button></div><div class="modal-body"><input type="text" id="groupName" class="modal-input" placeholder="Название группы"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button><button class="modal-btn" onclick="createGroup()">Создать</button></div></div></div>
-<div id="createChannelModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>📢 Создать канал</h3><button class="modal-close" onclick="closeCreateChannelModal()">✕</button></div><div class="modal-body"><input type="text" id="channelName" class="modal-input" placeholder="Название канала"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateChannelModal()">Отмена</button><button class="modal-btn" onclick="createChannel()">Создать</button></div></div></div>
-<div id="profileModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>👤 Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div><div class="modal-body"><div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:#2a2a2e;border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">📷 Загрузить</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div><input type="text" id="editName" class="modal-input" placeholder="Ваше имя"><textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea><input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeProfileModal()">Отмена</button><button class="modal-btn" onclick="saveProfile()">Сохранить</button></div></div></div>
-<div id="gameMenuModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>🎮 Игры в чате</h3><button class="modal-close" onclick="closeGameMenu()">✕</button></div><div class="modal-body"><button class="modal-btn" onclick="startGame('battleship')" style="margin-bottom:12px">⚓ Морской бой</button><button class="modal-btn" onclick="startGame('tictactoe')" style="margin-bottom:12px">❌ Крестики-нолики (чичико)</button><button class="modal-btn" onclick="startGame('dice')" style="margin-bottom:12px">🎲 Кости</button><button class="modal-btn" onclick="startGame('darts')">🎯 Дартс</button></div></div></div>
+<div id="addFriendModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Добавить друга</h3><button class="modal-close" onclick="closeAddFriendModal()">✕</button></div><div class="modal-body"><input type="text" id="friendUsername" class="modal-input" placeholder="Логин друга"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeAddFriendModal()">Отмена</button><button class="modal-btn" onclick="addFriend()">Добавить</button></div></div></div>
+<div id="createGroupModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать группу</h3><button class="modal-close" onclick="closeCreateGroupModal()">✕</button></div><div class="modal-body"><input type="text" id="groupName" class="modal-input" placeholder="Название группы"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button><button class="modal-btn" onclick="createGroup()">Создать</button></div></div></div>
+<div id="createChannelModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать канал</h3><button class="modal-close" onclick="closeCreateChannelModal()">✕</button></div><div class="modal-body"><input type="text" id="channelName" class="modal-input" placeholder="Название канала"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateChannelModal()">Отмена</button><button class="modal-btn" onclick="createChannel()">Создать</button></div></div></div>
+<div id="profileModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div><div class="modal-body"><div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:#2a2a2e;border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">Загрузить</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div><input type="text" id="editName" class="modal-input" placeholder="Ваше имя"><textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea><input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeProfileModal()">Отмена</button><button class="modal-btn" onclick="saveProfile()">Сохранить</button></div></div></div>
+<div id="gameMenuModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Игры в чате</h3><button class="modal-close" onclick="closeGameMenu()">✕</button></div><div class="modal-body"><button class="modal-btn" onclick="startGame('battleship')" style="margin-bottom:12px">Морской бой</button><button class="modal-btn" onclick="startGame('tictactoe')" style="margin-bottom:12px">Крестики-нолики</button><button class="modal-btn" onclick="startGame('dice')" style="margin-bottom:12px">Кости</button><button class="modal-btn" onclick="startGame('darts')">Дартс</button></div></div></div>
 <div id="storyViewer" class="story-viewer"><div class="story-container"><div class="story-progress"><div class="story-progress-bar" id="storyProgressBar"></div></div><img id="storyImage" class="story-media" style="display:none"><video id="storyVideo" class="story-media" style="display:none" autoplay muted></video><button class="story-close" onclick="closeStoryViewer()">✕</button></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
-let currentUser = null, currentUserData = null;
-let currentChatTarget = null, currentChatType = null;
-let allFriends = [], friendRequests = [], allGroups = [], allChannels = [];
-let onlineUsers = new Set();
-let mediaRecorder = null, audioChunks = [], isRecording = false;
-let typingTimeout = null;
-let currentGame = null;
-let battleMyGrid = null, battleEnemyGrid = null;
-let tttBoard = null, tttCurrentPlayer = null;
+var socket = io();
+var currentUser = null, currentUserData = null;
+var currentChatTarget = null, currentChatType = null;
+var allFriends = [], friendRequests = [], allGroups = [], allChannels = [];
+var onlineUsers = new Set();
+var mediaRecorder = null, audioChunks = [], isRecording = false;
+var typingTimeout = null;
+var currentGame = null;
+var battleMyGrid = null, battleEnemyGrid = null;
+var tttBoard = null, tttCurrentPlayer = null;
 
-// АВТОРИЗАЦИЯ
 function login() {
-    const u = document.getElementById('loginUsername').value.trim();
-    const p = document.getElementById('loginPassword').value.trim();
+    var u = document.getElementById('loginUsername').value.trim();
+    var p = document.getElementById('loginPassword').value.trim();
     if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
-    socket.emit('login', { username: u, password: p }, (res) => {
+    socket.emit('login', { username: u, password: p }, function(res) {
         if (res.success) {
             currentUser = u; currentUserData = res.userData;
             localStorage.setItem('atomgram_user', u);
@@ -325,12 +323,12 @@ function login() {
     });
 }
 function register() {
-    const u = document.getElementById('regUsername').value.trim();
-    const n = document.getElementById('regName').value.trim();
-    const p = document.getElementById('regPassword').value.trim();
+    var u = document.getElementById('regUsername').value.trim();
+    var n = document.getElementById('regName').value.trim();
+    var p = document.getElementById('regPassword').value.trim();
     if (!u || !p) { document.getElementById('authError').innerText = 'Заполните поля'; return; }
-    socket.emit('register', { username: u, name: n, password: p }, (res) => {
-        if (res.success) { document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.'; showLogin(); }
+    socket.emit('register', { username: u, name: n, password: p }, function(res) {
+        if (res.success) { document.getElementById('authError').innerText = 'Регистрация успешна! Войдите.'; showLogin(); }
         else { document.getElementById('authError').innerText = res.error; }
     });
 }
@@ -339,43 +337,43 @@ function showLogin() { document.getElementById('loginPanel').style.display = 'bl
 function updateUI() { document.getElementById('userName').innerText = currentUserData?.name || currentUser; document.getElementById('userLogin').innerText = '@' + currentUser; }
 
 function loadData() {
-    socket.emit('getFriends', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; renderFriends(); });
-    socket.emit('getGroups', (g) => { allGroups = g; renderGroups(); });
-    socket.emit('getChannels', (c) => { allChannels = c; renderChannels(); });
+    socket.emit('getFriends', function(d) { allFriends = d.friends || []; friendRequests = d.requests || []; renderFriends(); });
+    socket.emit('getGroups', function(g) { allGroups = g; renderGroups(); });
+    socket.emit('getChannels', function(c) { allChannels = c; renderChannels(); });
 }
 function renderFriends() {
-    let html = '';
-    friendRequests.forEach(r => { html += '<div class="chat-item" style="background:rgba(102,126,234,0.2)"><div class="chat-avatar">📨</div><div class="chat-info"><div class="chat-name">' + r + '</div><div class="chat-message">Запрос в друзья</div></div><button onclick="acceptFriend(\\'' + r + '\\')" style="background:#10b981;border:none;border-radius:20px;padding:6px 12px;margin:0 5px;cursor:pointer">✓</button><button onclick="rejectFriend(\\'' + r + '\\')" style="background:#ef4444;border:none;border-radius:20px;padding:6px 12px;cursor:pointer">✗</button></div>'; });
-    allFriends.forEach(f => { const online = onlineUsers.has(f); html += '<div class="chat-item" onclick="openChat(\\'' + f + '\\',\\'private\\')"><div class="chat-avatar">👤' + (online ? '<div class="online-dot"></div>' : '') + '</div><div class="chat-info"><div class="chat-name">' + f + '</div><div class="chat-status ' + (online ? '' : 'offline') + '">' + (online ? '● Онлайн' : '○ Офлайн') + '</div></div></div>'; });
+    var html = '';
+    for(var i=0;i<friendRequests.length;i++) { var r=friendRequests[i]; html += '<div class="chat-item" style="background:rgba(102,126,234,0.2)"><div class="chat-avatar">📨</div><div class="chat-info"><div class="chat-name">' + r + '</div><div class="chat-message">Запрос в друзья</div></div><button onclick="acceptFriend(\\'' + r + '\\')" style="background:#10b981;border:none;border-radius:20px;padding:6px 12px;margin:0 5px;cursor:pointer">✓</button><button onclick="rejectFriend(\\'' + r + '\\')" style="background:#ef4444;border:none;border-radius:20px;padding:6px 12px;cursor:pointer">✗</button></div>'; }
+    for(var i=0;i<allFriends.length;i++) { var f=allFriends[i]; var online=onlineUsers.has(f); html += '<div class="chat-item" onclick="openChat(\\'' + f + '\\',\\'private\\')"><div class="chat-avatar">👤' + (online ? '<div class="online-dot"></div>' : '') + '</div><div class="chat-info"><div class="chat-name">' + f + '</div><div class="chat-status ' + (online ? '' : 'offline') + '">' + (online ? 'Онлайн' : 'Офлайн') + '</div></div></div>'; }
     if (html === '') html = '<div style="padding:20px;text-align:center;color:#888">Нет друзей</div>';
     document.getElementById('friendsList').innerHTML = html;
 }
 function renderGroups() {
-    let html = '';
-    allGroups.forEach(g => { html += '<div class="chat-item" onclick="openChat(\\'' + g.id + '\\',\\'group\\')"><div class="chat-avatar">👥</div><div class="chat-info"><div class="chat-name">' + g.name + '</div><div class="chat-message">' + (g.members?.length || 1) + ' участников</div></div></div>'; });
+    var html = '';
+    for(var i=0;i<allGroups.length;i++) { var g=allGroups[i]; html += '<div class="chat-item" onclick="openChat(\\'' + g.id + '\\',\\'group\\')"><div class="chat-avatar">👥</div><div class="chat-info"><div class="chat-name">' + g.name + '</div><div class="chat-message">' + (g.members?.length || 1) + ' участников</div></div></div>'; }
     if (html === '') html = '<div style="padding:20px;text-align:center;color:#888">Нет групп</div>';
     document.getElementById('groupsList').innerHTML = html;
 }
 function renderChannels() {
-    let html = '';
-    allChannels.forEach(c => { html += '<div class="chat-item" onclick="openChat(\\'' + c + '\\',\\'channel\\')"><div class="chat-avatar">📢</div><div class="chat-info"><div class="chat-name">#' + c + '</div></div></div>'; });
+    var html = '';
+    for(var i=0;i<allChannels.length;i++) { var c=allChannels[i]; html += '<div class="chat-item" onclick="openChat(\\'' + c + '\\',\\'channel\\')"><div class="chat-avatar">📢</div><div class="chat-info"><div class="chat-name">#' + c + '</div></div></div>'; }
     if (html === '') html = '<div style="padding:20px;text-align:center;color:#888">Нет каналов</div>';
     document.getElementById('channelsList').innerHTML = html;
 }
 
 function openChat(target, type) {
     currentChatTarget = target; currentChatType = type;
-    let title = '', actions = '';
-    if (type === 'private') { title = target; document.getElementById('chatStatus').innerHTML = onlineUsers.has(target) ? '● Онлайн' : '○ Офлайн'; socket.emit('joinPrivate', target); actions = '<button class="chat-action-btn" onclick="openGameMenu()">🎮</button>'; }
-    else if (type === 'group') { const g = allGroups.find(x => x.id === target); title = g ? g.name : target; document.getElementById('chatStatus').innerHTML = '👥 Группа • ' + (g?.members?.length || 1) + ' участников'; socket.emit('joinGroup', target); actions = '<button class="chat-action-btn" onclick="openGameMenu()">🎮</button><button class="chat-action-btn" onclick="addMemberToGroup()">➕</button>'; }
-    else if (type === 'channel') { title = '# ' + target; document.getElementById('chatStatus').innerHTML = '📢 Публичный канал'; socket.emit('joinChannel', target); actions = '<button class="chat-action-btn" onclick="openGameMenu()">🎮</button>'; }
+    var title = '', actions = '';
+    if (type === 'private') { title = target; document.getElementById('chatStatus').innerHTML = onlineUsers.has(target) ? 'Онлайн' : 'Офлайн'; socket.emit('joinPrivate', target); actions = '<button class="chat-action-btn" onclick="openGameMenu()">🎮</button>'; }
+    else if (type === 'group') { var g = allGroups.find(function(x) { return x.id === target; }); title = g ? g.name : target; document.getElementById('chatStatus').innerHTML = 'Группа • ' + (g?.members?.length || 1) + ' участников'; socket.emit('joinGroup', target); actions = '<button class="chat-action-btn" onclick="openGameMenu()">🎮</button><button class="chat-action-btn" onclick="addMemberToGroup()">➕</button>'; }
+    else if (type === 'channel') { title = '# ' + target; document.getElementById('chatStatus').innerHTML = 'Публичный канал'; socket.emit('joinChannel', target); actions = '<button class="chat-action-btn" onclick="openGameMenu()">🎮</button>'; }
     document.getElementById('chatTitle').innerHTML = title;
     document.getElementById('chatActions').innerHTML = actions;
     closeSidebar();
 }
 function sendMessage() {
-    const input = document.getElementById('messageInput');
-    let text = input.value.trim();
+    var input = document.getElementById('messageInput');
+    var text = input.value.trim();
     if (!text || !currentChatTarget) return;
     socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: text });
     input.value = '';
@@ -384,25 +382,22 @@ function sendSticker(s) { if (!currentChatTarget) return; socket.emit('sendMessa
 function toggleStickerPicker() { document.getElementById('stickerPicker').classList.toggle('open'); }
 
 function addMessage(msg) {
-    const div = document.createElement('div');
+    var div = document.createElement('div');
     div.className = 'message ' + (msg.from === currentUser ? 'mine' : '');
-    let reactionsHtml = '';
-    if (msg.reactions) { reactionsHtml = '<div class="message-reactions">' + Object.entries(msg.reactions).map(([r,c]) => '<span class="reaction" onclick="addReaction(\\'' + msg.id + '\\',\\'' + r + '\\')">' + r + ' ' + c + '</span>').join('') + '</div>'; }
+    var reactionsHtml = '';
+    if (msg.reactions) { reactionsHtml = '<div class="message-reactions">'; for (var r in msg.reactions) { reactionsHtml += '<span class="reaction" onclick="addReaction(\\'' + msg.id + '\\',\\'' + r + '\\')">' + r + ' ' + msg.reactions[r] + '</span>'; } reactionsHtml += '</div>'; }
     div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content">' + (msg.from !== currentUser ? '<div class="message-name">' + escapeHtml(msg.from) + '</div>' : '') + '<div class="message-text">' + escapeHtml(msg.text) + '</div>' + reactionsHtml + '<div class="message-time">' + (msg.time || new Date().toLocaleTimeString()) + '</div><div style="display:flex;gap:8px;margin-top:6px"><span class="reaction" onclick="addReaction(\\'' + msg.id + '\\',\\'❤️\\')">❤️</span><span class="reaction" onclick="addReaction(\\'' + msg.id + '\\',\\'👍\\')">👍</span><span class="reaction" onclick="addReaction(\\'' + msg.id + '\\',\\'😂\\')">😂</span></div></div></div>';
     document.getElementById('messages').appendChild(div);
     document.getElementById('messages').scrollTop = 9999;
 }
 function addReaction(msgId, reaction) { socket.emit('addReaction', { messageId: msgId, chatId: currentChatTarget, reaction: reaction }); }
 
-// ГОЛОСОВЫЕ
 async function toggleRecording() {
     if (isRecording) { if (mediaRecorder) mediaRecorder.stop(); isRecording = false; document.getElementById('voiceBtn').classList.remove('recording'); document.getElementById('voiceBtn').innerHTML = '🎤'; return; }
-    try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorder = new MediaRecorder(stream); audioChunks = []; mediaRecorder.ondataavailable = e => audioChunks.push(e.data); mediaRecorder.onstop = () => { const blob = new Blob(audioChunks, { type: 'audio/webm' }); const reader = new FileReader(); reader.onloadend = () => socket.emit('voiceMessage', { type: currentChatType, target: currentChatTarget, audio: reader.result }); reader.readAsDataURL(blob); stream.getTracks().forEach(t => t.stop()); }; mediaRecorder.start(); isRecording = true; document.getElementById('voiceBtn').classList.add('recording'); document.getElementById('voiceBtn').innerHTML = '⏹️'; } catch(e) { alert('Нет микрофона'); } }
+    try { var stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaRecorder = new MediaRecorder(stream); audioChunks = []; mediaRecorder.ondataavailable = function(e) { audioChunks.push(e.data); }; mediaRecorder.onstop = function() { var blob = new Blob(audioChunks, { type: 'audio/webm' }); var reader = new FileReader(); reader.onloadend = function() { socket.emit('voiceMessage', { type: currentChatType, target: currentChatTarget, audio: reader.result }); }; reader.readAsDataURL(blob); stream.getTracks().forEach(function(t) { t.stop(); }); }; mediaRecorder.start(); isRecording = true; document.getElementById('voiceBtn').classList.add('recording'); document.getElementById('voiceBtn').innerHTML = '⏹️'; } catch(e) { alert('Нет микрофона'); } }
 
-// ФАЙЛЫ
-function sendFile() { const file = document.getElementById('fileInput').files[0]; if (!file || !currentChatTarget) return; const reader = new FileReader(); reader.onloadend = () => socket.emit('fileMessage', { type: currentChatType, target: currentChatTarget, fileName: file.name, fileData: reader.result }); reader.readAsDataURL(file); }
+function sendFile() { var file = document.getElementById('fileInput').files[0]; if (!file || !currentChatTarget) return; var reader = new FileReader(); reader.onloadend = function() { socket.emit('fileMessage', { type: currentChatType, target: currentChatTarget, fileName: file.name, fileData: reader.result }); }; reader.readAsDataURL(file); }
 
-// ИГРЫ
 function openGameMenu() { if (!currentChatTarget) { alert('Выберите чат'); return; } document.getElementById('gameMenuModal').classList.add('active'); }
 function closeGameMenu() { document.getElementById('gameMenuModal').classList.remove('active'); }
 
@@ -414,256 +409,107 @@ function startGame(gameType) {
     else if (gameType === 'darts') { playDarts(); }
 }
 
-// МОРСКОЙ БОЙ
 function startBattleship() {
     battleMyGrid = initBattleGrid();
     battleEnemyGrid = initEmptyGrid();
-    
-    const gameDiv = document.createElement('div');
+    var gameDiv = document.createElement('div');
     gameDiv.className = 'game-container';
     gameDiv.id = 'battleshipGame';
-    gameDiv.innerHTML = '<div class="game-title">⚓ МОРСКОЙ БОЙ ⚓</div><div class="game-boards"><div class="board"><div class="board-title">🚢 Ваше поле</div><div id="myBattleGrid" class="battle-grid"></div></div><div class="board"><div class="board-title">🎯 Поле противника</div><div id="enemyBattleGrid" class="battle-grid"></div></div></div><div class="game-controls"><button class="game-btn" onclick="resetBattleship()">🔄 Новая игра</button><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
+    gameDiv.innerHTML = '<div class="game-title">МОРСКОЙ БОЙ</div><div class="game-boards"><div class="board"><div class="board-title">Ваше поле</div><div id="myBattleGrid" class="battle-grid"></div></div><div class="board"><div class="board-title">Поле противника</div><div id="enemyBattleGrid" class="battle-grid"></div></div></div><div class="game-controls"><button class="game-btn" onclick="resetBattleship()">Новая игра</button><button class="game-btn" onclick="closeGame()">Закрыть</button></div>';
     document.getElementById('messages').appendChild(gameDiv);
     renderBattleGrid('myBattleGrid', battleMyGrid, true);
     renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
 }
-
 function initBattleGrid() {
-    const grid = Array(10).fill().map(() => Array(10).fill().map(() => ({ ship: false, hit: false, miss: false })));
-    const ships = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
-    ships.forEach(size => placeShip(grid, size));
+    var grid = Array(10); for(var i=0;i<10;i++) { grid[i]=Array(10); for(var j=0;j<10;j++) { grid[i][j]={ship:false,hit:false,miss:false}; } }
+    var ships = [4,3,3,2,2,2,1,1,1,1];
+    for(var s=0;s<ships.length;s++) { placeShip(grid, ships[s]); }
     return grid;
 }
-
-function initEmptyGrid() {
-    return Array(10).fill().map(() => Array(10).fill().map(() => ({ ship: false, hit: false, miss: false })));
-}
-
-function placeShip(grid, size) {
-    let placed = false;
-    while (!placed) {
-        const horizontal = Math.random() < 0.5;
-        const row = Math.floor(Math.random() * 10);
-        const col = Math.floor(Math.random() * 10);
-        if (canPlaceShip(grid, row, col, size, horizontal)) {
-            for (let i = 0; i < size; i++) {
-                const r = horizontal ? row : row + i;
-                const c = horizontal ? col + i : col;
-                if (r < 10 && c < 10) grid[r][c].ship = true;
-            }
-            placed = true;
-        }
-    }
-}
-
-function canPlaceShip(grid, row, col, size, horizontal) {
-    for (let i = 0; i < size; i++) {
-        const r = horizontal ? row : row + i;
-        const c = horizontal ? col + i : col;
-        if (r >= 10 || c >= 10) return false;
-        if (grid[r][c].ship) return false;
-    }
-    return true;
-}
-
-function renderBattleGrid(containerId, grid, isMyGrid) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    let html = '';
-    for (let i = 0; i < 10; i++) {
-        for (let j = 0; j < 10; j++) {
-            let cellClass = 'battle-cell';
-            if (grid[i][j].hit) { cellClass += ' hit'; }
-            else if (grid[i][j].miss) { cellClass += ' miss'; }
-            else if (isMyGrid && grid[i][j].ship) { cellClass += ' ship'; }
-            html += `<div class="${cellClass}" onclick="battleAttack(${i}, ${j})"></div>`;
-        }
-    }
-    container.innerHTML = html;
-}
-
-function battleAttack(row, col) {
-    if (!battleEnemyGrid) return;
-    if (battleEnemyGrid[row][col].hit || battleEnemyGrid[row][col].miss) return;
-    
-    if (battleEnemyGrid[row][col].ship) {
-        battleEnemyGrid[row][col].hit = true;
-        showToast('💥 ПОПАДАНИЕ!');
-        socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '💥 Попадание в Морском бое!' });
-        renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
-        if (checkWin(battleEnemyGrid)) {
-            showToast('🏆 ПОБЕДА! Вы уничтожили все корабли!');
-            socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 ПОБЕДА в Морском бое!' });
-            closeGame();
-        } else {
-            setTimeout(() => computerAttack(), 500);
-        }
-    } else {
-        battleEnemyGrid[row][col].miss = true;
-        showToast('💧 МИМО!');
-        renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
-        setTimeout(() => computerAttack(), 500);
-    }
-}
-
-function computerAttack() {
-    if (!battleMyGrid) return;
-    let attacked = false;
-    while (!attacked) {
-        const row = Math.floor(Math.random() * 10);
-        const col = Math.floor(Math.random() * 10);
-        if (!battleMyGrid[row][col].hit && !battleMyGrid[row][col].miss) {
-            if (battleMyGrid[row][col].ship) {
-                battleMyGrid[row][col].hit = true;
-                showToast('😢 Противник попал!');
-                socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '💥 Противник попал в ваш корабль!' });
-            } else {
-                battleMyGrid[row][col].miss = true;
-                showToast('😅 Противник промахнулся!');
-            }
-            renderBattleGrid('myBattleGrid', battleMyGrid, true);
-            attacked = true;
-            if (checkWin(battleMyGrid)) {
-                showToast('😭 Поражение! Противник уничтожил все ваши корабли');
-                socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '😭 Поражение в Морском бое!' });
-                closeGame();
-            }
-        }
-    }
-}
-
-function checkWin(grid) {
-    for (let i = 0; i < 10; i++) {
-        for (let j = 0; j < 10; j++) {
-            if (grid[i][j].ship && !grid[i][j].hit) return false;
-        }
-    }
-    return true;
-}
-
+function initEmptyGrid() { var grid = Array(10); for(var i=0;i<10;i++) { grid[i]=Array(10); for(var j=0;j<10;j++) { grid[i][j]={ship:false,hit:false,miss:false}; } } return grid; }
+function placeShip(grid, size) { var placed=false; while(!placed) { var horizontal=Math.random()<0.5; var row=Math.floor(Math.random()*10); var col=Math.floor(Math.random()*10); if(canPlaceShip(grid,row,col,size,horizontal)) { for(var i=0;i<size;i++) { var r=horizontal?row:row+i; var c=horizontal?col+i:col; if(r<10&&c<10) grid[r][c].ship=true; } placed=true; } } }
+function canPlaceShip(grid,row,col,size,horizontal) { for(var i=0;i<size;i++) { var r=horizontal?row:row+i; var c=horizontal?col+i:col; if(r>=10||c>=10) return false; if(grid[r][c].ship) return false; } return true; }
+function renderBattleGrid(containerId, grid, isMyGrid) { var container=document.getElementById(containerId); if(!container) return; var html=''; for(var i=0;i<10;i++) { for(var j=0;j<10;j++) { var cellClass='battle-cell'; if(grid[i][j].hit) cellClass+=' hit'; else if(grid[i][j].miss) cellClass+=' miss'; else if(isMyGrid&&grid[i][j].ship) cellClass+=' ship'; html+='<div class="'+cellClass+'" onclick="battleAttack('+i+','+j+')"></div>'; } } container.innerHTML=html; }
+function battleAttack(row,col) { if(!battleEnemyGrid) return; if(battleEnemyGrid[row][col].hit||battleEnemyGrid[row][col].miss) return; if(battleEnemyGrid[row][col].ship) { battleEnemyGrid[row][col].hit=true; showToast('ПОПАДАНИЕ!'); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Попадание в Морском бое!'}); renderBattleGrid('enemyBattleGrid',battleEnemyGrid,false); if(checkWin(battleEnemyGrid)) { showToast('ПОБЕДА!'); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Победа в Морском бое!'}); closeGame(); } else { setTimeout(function(){computerAttack();},500); } } else { battleEnemyGrid[row][col].miss=true; showToast('МИМО!'); renderBattleGrid('enemyBattleGrid',battleEnemyGrid,false); setTimeout(function(){computerAttack();},500); } }
+function computerAttack() { if(!battleMyGrid) return; var attacked=false; while(!attacked) { var row=Math.floor(Math.random()*10); var col=Math.floor(Math.random()*10); if(!battleMyGrid[row][col].hit&&!battleMyGrid[row][col].miss) { if(battleMyGrid[row][col].ship) { battleMyGrid[row][col].hit=true; showToast('Противник попал!'); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Противник попал в ваш корабль!'}); } else { battleMyGrid[row][col].miss=true; showToast('Противник промахнулся!'); } renderBattleGrid('myBattleGrid',battleMyGrid,true); attacked=true; if(checkWin(battleMyGrid)) { showToast('Поражение!'); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Поражение в Морском бое!'}); closeGame(); } } } }
+function checkWin(grid) { for(var i=0;i<10;i++) { for(var j=0;j<10;j++) { if(grid[i][j].ship&&!grid[i][j].hit) return false; } } return true; }
 function resetBattleship() { closeGame(); startBattleship(); }
 
-// КРЕСТИКИ-НОЛИКИ
 function startTicTacToe() {
-    tttBoard = ['', '', '', '', '', '', '', '', ''];
+    tttBoard = ['','','','','','','','',''];
     tttCurrentPlayer = 'X';
-    const gameDiv = document.createElement('div');
+    var gameDiv = document.createElement('div');
     gameDiv.className = 'game-container';
     gameDiv.id = 'tttGame';
-    gameDiv.innerHTML = '<div class="game-title">❌ КРЕСТИКИ-НОЛИКИ (чичико) ❌</div><div style="text-align:center;margin-bottom:12px">Сейчас ходит: <span id="tttTurn" style="color:#667eea;font-weight:bold">X</span></div><div id="tttBoard" class="tic-grid" style="margin:0 auto"></div><div class="game-controls"><button class="game-btn" onclick="resetTicTacToe()">🔄 Новая игра</button><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
+    gameDiv.innerHTML = '<div class="game-title">КРЕСТИКИ-НОЛИКИ</div><div style="text-align:center;margin-bottom:12px">Сейчас ходит: <span id="tttTurn" style="color:#667eea;font-weight:bold">X</span></div><div id="tttBoard" class="tic-grid" style="margin:0 auto"></div><div class="game-controls"><button class="game-btn" onclick="resetTicTacToe()">Новая игра</button><button class="game-btn" onclick="closeGame()">Закрыть</button></div>';
     document.getElementById('messages').appendChild(gameDiv);
     renderTicTacToe();
 }
-function renderTicTacToe() {
-    const container = document.getElementById('tttBoard'); if (!container) return;
-    let html = '';
-    for (let i = 0; i < 9; i++) { html += '<div class="tic-cell" onclick="makeMove(' + i + ')">' + (tttBoard[i] || '') + '</div>'; }
-    container.innerHTML = html;
-    const turnSpan = document.getElementById('tttTurn'); if (turnSpan) turnSpan.innerText = tttCurrentPlayer;
-}
-function makeMove(index) {
-    if (tttBoard[index] !== '' || tttCurrentPlayer !== 'X') return;
-    tttBoard[index] = 'X';
-    renderTicTacToe();
-    const winner = checkTicTacToeWinner(tttBoard);
-    if (winner) { showToast('🏆 ПОБЕДА!'); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 Победа в крестики-нолики!' }); closeGame(); return; }
-    if (tttBoard.every(c => c !== '')) { showToast('🤝 НИЧЬЯ!'); closeGame(); return; }
-    tttCurrentPlayer = 'O';
-    renderTicTacToe();
-    setTimeout(() => computerMove(), 500);
-}
-function computerMove() {
-    const empty = tttBoard.reduce((arr, cell, idx) => cell === '' ? [...arr, idx] : arr, []);
-    if (empty.length > 0) {
-        const move = empty[Math.floor(Math.random() * empty.length)];
-        tttBoard[move] = 'O';
-        renderTicTacToe();
-        const winner = checkTicTacToeWinner(tttBoard);
-        if (winner) { showToast('😢 Компьютер победил!'); closeGame(); return; }
-        if (tttBoard.every(c => c !== '')) { showToast('🤝 НИЧЬЯ!'); closeGame(); return; }
-        tttCurrentPlayer = 'X';
-        renderTicTacToe();
-    }
-}
-function checkTicTacToeWinner(board) {
-    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-    for (let line of lines) { const [a,b,c] = line; if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a]; }
-    return null;
-}
+function renderTicTacToe() { var container=document.getElementById('tttBoard'); if(!container) return; var html=''; for(var i=0;i<9;i++) { html+='<div class="tic-cell" onclick="makeMove('+i+')">'+(tttBoard[i]||'')+'</div>'; } container.innerHTML=html; var turnSpan=document.getElementById('tttTurn'); if(turnSpan) turnSpan.innerText=tttCurrentPlayer; }
+function makeMove(index) { if(tttBoard[index]!==''||tttCurrentPlayer!=='X') return; tttBoard[index]='X'; renderTicTacToe(); var winner=checkTicTacToeWinner(tttBoard); if(winner) { showToast('ПОБЕДА!'); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Победа в крестики-нолики!'}); closeGame(); return; } if(tttBoard.every(function(c){return c!=='';})) { showToast('НИЧЬЯ!'); closeGame(); return; } tttCurrentPlayer='O'; renderTicTacToe(); setTimeout(function(){computerMove();},500); }
+function computerMove() { var empty=[]; for(var i=0;i<9;i++) { if(tttBoard[i]==='') empty.push(i); } if(empty.length>0) { var move=empty[Math.floor(Math.random()*empty.length)]; tttBoard[move]='O'; renderTicTacToe(); var winner=checkTicTacToeWinner(tttBoard); if(winner) { showToast('Компьютер победил!'); closeGame(); return; } if(tttBoard.every(function(c){return c!=='';})) { showToast('НИЧЬЯ!'); closeGame(); return; } tttCurrentPlayer='X'; renderTicTacToe(); } }
+function checkTicTacToeWinner(board) { var lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; for(var l=0;l<lines.length;l++) { var a=lines[l][0],b=lines[l][1],c=lines[l][2]; if(board[a]&&board[a]===board[b]&&board[a]===board[c]) return board[a]; } return null; }
 function resetTicTacToe() { closeGame(); startTicTacToe(); }
 
-// КОСТИ И ДАРТС
-function rollDice() { const dice = Math.floor(Math.random() * 6) + 1; const emoji = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][dice-1]; showToast('🎲 Выпало: ' + emoji + ' ' + dice); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🎲 Бросок костей: ' + emoji + ' (' + dice + ')' }); }
-function playDarts() { const score = Math.floor(Math.random() * 180) + 1; const msg = ['🎯 БУЛЛСАЙ!', '🎯 Отлично!', '🎯 Хороший бросок!'][Math.floor(Math.random() * 3)]; showToast(msg + ' ' + score + ' очков'); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🎯 Дартс: ' + msg + ' (' + score + ' очков)' }); }
+function rollDice() { var dice=Math.floor(Math.random()*6)+1; var emoji=['⚀','⚁','⚂','⚃','⚄','⚅'][dice-1]; showToast('Выпало: '+emoji+' '+dice); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Бросок костей: '+emoji+' ('+dice+')'}); }
+function playDarts() { var score=Math.floor(Math.random()*180)+1; var msgs=['БУЛЛСАЙ!','Отлично!','Хороший бросок!']; var msg=msgs[Math.floor(Math.random()*3)]; showToast(msg+' '+score+' очков'); socket.emit('sendMessage',{type:currentChatType,target:currentChatTarget,text:'Дартс: '+msg+' ('+score+' очков)'}); }
 
-function closeGame() { const gameDiv = document.querySelector('.game-container'); if (gameDiv) gameDiv.remove(); currentGame = null; battleMyGrid = null; battleEnemyGrid = null; }
+function closeGame() { var gameDiv=document.querySelector('.game-container'); if(gameDiv) gameDiv.remove(); currentGame=null; battleMyGrid=null; battleEnemyGrid=null; }
 
-// ДРУЗЬЯ И ГРУППЫ
-function openAddFriend() { document.getElementById('addFriendModal').classList.add('active'); document.getElementById('friendUsername').value = ''; }
+function openAddFriend() { document.getElementById('addFriendModal').classList.add('active'); document.getElementById('friendUsername').value=''; }
 function closeAddFriendModal() { document.getElementById('addFriendModal').classList.remove('active'); }
-function addFriend() { const u = document.getElementById('friendUsername').value.trim(); if (!u) { showToast('Введите логин'); return; } socket.emit('addFriend', { friendUsername: u }, (res) => { showToast(res.message || res.error); closeAddFriendModal(); loadData(); }); }
-function acceptFriend(f) { socket.emit('acceptFriend', { fromUser: f }, () => loadData()); }
-function rejectFriend(f) { socket.emit('rejectFriend', { fromUser: f }, () => loadData()); }
-function openCreateGroup() { document.getElementById('createGroupModal').classList.add('active'); document.getElementById('groupName').value = ''; }
+function addFriend() { var u=document.getElementById('friendUsername').value.trim(); if(!u) { showToast('Введите логин'); return; } socket.emit('addFriend',{friendUsername:u},function(res){showToast(res.message||res.error);closeAddFriendModal();loadData();}); }
+function acceptFriend(f) { socket.emit('acceptFriend',{fromUser:f},function(){loadData();}); }
+function rejectFriend(f) { socket.emit('rejectFriend',{fromUser:f},function(){loadData();}); }
+function openCreateGroup() { document.getElementById('createGroupModal').classList.add('active'); document.getElementById('groupName').value=''; }
 function closeCreateGroupModal() { document.getElementById('createGroupModal').classList.remove('active'); }
-function createGroup() { const n = document.getElementById('groupName').value.trim(); if (!n) { showToast('Введите название'); return; } socket.emit('createGroup', { groupName: n }, (res) => { if (res.success) { showToast('Группа создана'); closeCreateGroupModal(); loadData(); } else { showToast(res.error); } }); }
-function addMemberToGroup() { const u = prompt('Логин пользователя:'); if (u) { socket.emit('addGroupMember', { groupId: currentChatTarget, username: u }, (res) => { showToast(res.message || res.error); }); } }
-function openCreateChannel() { document.getElementById('createChannelModal').classList.add('active'); document.getElementById('channelName').value = ''; }
+function createGroup() { var n=document.getElementById('groupName').value.trim(); if(!n) { showToast('Введите название'); return; } socket.emit('createGroup',{groupName:n},function(res){if(res.success){showToast('Группа создана');closeCreateGroupModal();loadData();}else{showToast(res.error);}}); }
+function addMemberToGroup() { var u=prompt('Логин пользователя:'); if(u) { socket.emit('addGroupMember',{groupId:currentChatTarget,username:u},function(res){showToast(res.message||res.error);}); } }
+function openCreateChannel() { document.getElementById('createChannelModal').classList.add('active'); document.getElementById('channelName').value=''; }
 function closeCreateChannelModal() { document.getElementById('createChannelModal').classList.remove('active'); }
-function createChannel() { const n = document.getElementById('channelName').value.trim(); if (!n) { showToast('Введите название'); return; } socket.emit('createChannel', { channelName: n }, (res) => { if (res.success) { showToast('Канал создан'); closeCreateChannelModal(); loadData(); } else { showToast(res.error); } }); }
+function createChannel() { var n=document.getElementById('channelName').value.trim(); if(!n) { showToast('Введите название'); return; } socket.emit('createChannel',{channelName:n},function(res){if(res.success){showToast('Канал создан');closeCreateChannelModal();loadData();}else{showToast(res.error);}}); }
 
-// ПРОФИЛЬ
-function openProfile() { document.getElementById('editName').value = currentUserData?.name || ''; document.getElementById('editBio').value = currentUserData?.bio || ''; document.getElementById('editPassword').value = ''; document.getElementById('profileModal').classList.add('active'); }
+function openProfile() { document.getElementById('editName').value=currentUserData?.name||''; document.getElementById('editBio').value=currentUserData?.bio||''; document.getElementById('editPassword').value=''; document.getElementById('profileModal').classList.add('active'); }
 function closeProfileModal() { document.getElementById('profileModal').classList.remove('active'); }
-function uploadAvatar() { const file = document.getElementById('avatarUpload').files[0]; if (!file) return; const reader = new FileReader(); reader.onloadend = () => socket.emit('uploadAvatar', { avatar: reader.result }, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); showToast('Аватар обновлён'); } }); reader.readAsDataURL(file); }
-function saveProfile() { const data = { name: document.getElementById('editName').value.trim(), bio: document.getElementById('editBio').value.trim() }; const pwd = document.getElementById('editPassword').value.trim(); if (pwd) data.password = pwd; socket.emit('updateProfile', data, (res) => { if (res.success) { currentUserData = res.userData; updateUI(); closeProfileModal(); showToast('Профиль обновлён'); } }); }
+function uploadAvatar() { var file=document.getElementById('avatarUpload').files[0]; if(!file) return; var reader=new FileReader(); reader.onloadend=function(){socket.emit('uploadAvatar',{avatar:reader.result},function(res){if(res.success){currentUserData=res.userData;updateUI();showToast('Аватар обновлён');}});}; reader.readAsDataURL(file); }
+function saveProfile() { var data={name:document.getElementById('editName').value.trim(),bio:document.getElementById('editBio').value.trim()}; var pwd=document.getElementById('editPassword').value.trim(); if(pwd) data.password=pwd; socket.emit('updateProfile',data,function(res){if(res.success){currentUserData=res.userData;updateUI();closeProfileModal();showToast('Профиль обновлён');}}); }
 
-// ИСТОРИИ
-function addStory() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,video/*'; input.onchange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onloadend = () => socket.emit('addStory', { media: reader.result, type: file.type.startsWith('image/') ? 'image' : 'video' }); reader.readAsDataURL(file); }; input.click(); }
-function viewStory(username) { socket.emit('getStory', username); }
-function closeStoryViewer() { document.getElementById('storyViewer').classList.remove('active'); const v = document.getElementById('storyVideo'); if (v) { v.pause(); v.src = ''; } }
+function addStory() { var input=document.createElement('input'); input.type='file'; input.accept='image/*,video/*'; input.onchange=function(e){var file=e.target.files[0];if(!file)return;var reader=new FileReader();reader.onloadend=function(){socket.emit('addStory',{media:reader.result,type:file.type.startsWith('image/')?'image':'video'});};reader.readAsDataURL(file);}; input.click(); }
+function viewStory(username) { socket.emit('getStory',username); }
+function closeStoryViewer() { document.getElementById('storyViewer').classList.remove('active'); var v=document.getElementById('storyVideo'); if(v){v.pause();v.src='';} }
 function loadStories() { socket.emit('getStories'); }
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('open'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
-function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.innerText = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2000); }
-function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
+function showToast(msg) { var t=document.createElement('div'); t.className='toast'; t.innerText=msg; document.body.appendChild(t); setTimeout(function(){t.remove();},2000); }
+function escapeHtml(s) { if(!s) return ''; return s.replace(/[&<>]/g,function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
 
-document.getElementById('messageInput').addEventListener('input', () => { if (currentChatTarget) { socket.emit('typing', { type: currentChatType, target: currentChatTarget }); clearTimeout(typingTimeout); typingTimeout = setTimeout(() => socket.emit('stopTyping', { type: currentChatType, target: currentChatTarget }), 1000); } });
+document.getElementById('messageInput').addEventListener('input',function(){ if(currentChatTarget){ socket.emit('typing',{type:currentChatType,target:currentChatTarget}); clearTimeout(typingTimeout); typingTimeout=setTimeout(function(){socket.emit('stopTyping',{type:currentChatType,target:currentChatTarget});},1000); } });
 
-// СОБЫТИЯ СОКЕТА
-socket.on('friendsUpdate', (d) => { allFriends = d.friends || []; friendRequests = d.requests || []; renderFriends(); });
-socket.on('groupsUpdate', (g) => { allGroups = g; renderGroups(); });
-socket.on('channelsUpdate', (c) => { allChannels = c; renderChannels(); });
-socket.on('chatHistory', (d) => { if (currentChatTarget === d.target) { document.getElementById('messages').innerHTML = ''; d.messages.forEach(m => addMessage(m)); } });
-socket.on('newMessage', (m) => { if (currentChatTarget === m.target || currentChatTarget === m.from || (currentChatType === 'group' && m.target === currentChatTarget)) { addMessage(m); } if (m.from !== currentUser) { showToast('Новое сообщение от ' + m.from); } });
-socket.on('reactionUpdate', (d) => { });
-socket.on('voiceMessage', (d) => { if (currentChatTarget === d.target || currentChatTarget === d.from) { const div = document.createElement('div'); div.className = 'message ' + (d.from === currentUser ? 'mine' : ''); div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><div class="voice-message"><button class="voice-play" onclick="playAudio(this,\\'' + d.audio + '\\')">▶️</button><span>Голосовое сообщение</span></div><div class="message-time">' + (d.time || new Date().toLocaleTimeString()) + '</div></div></div>'; document.getElementById('messages').appendChild(div); } });
-socket.on('fileMessage', (d) => { if (currentChatTarget === d.target || currentChatTarget === d.from) { const div = document.createElement('div'); div.className = 'message ' + (d.from === currentUser ? 'mine' : ''); div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><a class="file-attachment" href="' + d.fileData + '" download="' + d.fileName + '">📎 ' + escapeHtml(d.fileName) + '</a><div class="message-time">' + (d.time || new Date().toLocaleTimeString()) + '</div></div></div>'; document.getElementById('messages').appendChild(div); } });
-socket.on('typing', (d) => { if (currentChatTarget === d.user || currentChatTarget === d.channel) { document.getElementById('typingIndicator').style.display = 'flex'; setTimeout(() => document.getElementById('typingIndicator').style.display = 'none', 1500); } });
-socket.on('userOnline', (u) => { onlineUsers.add(u); if (currentChatTarget === u) { document.getElementById('chatStatus').innerHTML = '● Онлайн'; } renderFriends(); });
-socket.on('userOffline', (u) => { onlineUsers.delete(u); if (currentChatTarget === u) { document.getElementById('chatStatus').innerHTML = '○ Офлайн'; } renderFriends(); });
-socket.on('storiesUpdate', (s) => { const container = document.getElementById('storiesRow'); let html = '<div class="story-item" onclick="addStory()"><div class="story-circle add"><div class="story-avatar">+</div></div><div class="story-name">Моя</div></div>'; s.forEach(st => { html += '<div class="story-item" onclick="viewStory(\\'' + st.username + '\\')"><div class="story-circle"><div class="story-avatar">' + (st.avatar || '👤') + '</div></div><div class="story-name">' + (st.name || st.username) + '</div></div>'; }); container.innerHTML = html; });
-socket.on('storyData', (d) => { 
-    let viewer = document.getElementById('storyViewer');
-    const img = document.getElementById('storyImage'); const video = document.getElementById('storyVideo');
-    if (d.type === 'image') { img.style.display = 'block'; video.style.display = 'none'; img.src = d.media; }
-    else { img.style.display = 'none'; video.style.display = 'block'; video.src = d.media; video.play(); }
-    viewer.classList.add('active');
-    let progress = 0; const interval = setInterval(() => { progress += 2; document.getElementById('storyProgressBar').style.width = progress + '%'; if (progress >= 100) { clearInterval(interval); closeStoryViewer(); } }, 100);
-});
+socket.on('friendsUpdate',function(d){allFriends=d.friends||[];friendRequests=d.requests||[];renderFriends();});
+socket.on('groupsUpdate',function(g){allGroups=g;renderGroups();});
+socket.on('channelsUpdate',function(c){allChannels=c;renderChannels();});
+socket.on('chatHistory',function(d){if(currentChatTarget===d.target){document.getElementById('messages').innerHTML='';for(var i=0;i<d.messages.length;i++){addMessage(d.messages[i]);}}});
+socket.on('newMessage',function(m){if(currentChatTarget===m.target||currentChatTarget===m.from||(currentChatType==='group'&&m.target===currentChatTarget)){addMessage(m);} if(m.from!==currentUser){showToast('Новое сообщение от '+m.from);}});
+socket.on('voiceMessage',function(d){if(currentChatTarget===d.target||currentChatTarget===d.from){var div=document.createElement('div');div.className='message '+(d.from===currentUser?'mine':'');div.innerHTML='<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">'+escapeHtml(d.from)+'</div><div class="voice-message"><button class="voice-play" onclick="playAudio(this,\\''+d.audio+'\\')">▶️</button><span>Голосовое сообщение</span></div><div class="message-time">'+(d.time||new Date().toLocaleTimeString())+'</div></div></div>';document.getElementById('messages').appendChild(div);}});
+socket.on('fileMessage',function(d){if(currentChatTarget===d.target||currentChatTarget===d.from){var div=document.createElement('div');div.className='message '+(d.from===currentUser?'mine':'');div.innerHTML='<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">'+escapeHtml(d.from)+'</div><a class="file-attachment" href="'+d.fileData+'" download="'+d.fileName+'">📎 '+escapeHtml(d.fileName)+'</a><div class="message-time">'+(d.time||new Date().toLocaleTimeString())+'</div></div></div>';document.getElementById('messages').appendChild(div);}});
+socket.on('typing',function(d){if(currentChatTarget===d.user||currentChatTarget===d.channel){document.getElementById('typingIndicator').style.display='flex';setTimeout(function(){document.getElementById('typingIndicator').style.display='none';},1500);}});
+socket.on('userOnline',function(u){onlineUsers.add(u);if(currentChatTarget===u){document.getElementById('chatStatus').innerHTML='Онлайн';}renderFriends();});
+socket.on('userOffline',function(u){onlineUsers.delete(u);if(currentChatTarget===u){document.getElementById('chatStatus').innerHTML='Офлайн';}renderFriends();});
+socket.on('storiesUpdate',function(s){var container=document.getElementById('storiesRow');var html='<div class="story-item" onclick="addStory()"><div class="story-circle add"><div class="story-avatar">+</div></div><div class="story-name">Моя</div></div>';for(var i=0;i<s.length;i++){html+='<div class="story-item" onclick="viewStory(\\''+s[i].username+'\\')"><div class="story-circle"><div class="story-avatar">'+(s[i].avatar||'👤')+'</div></div><div class="story-name">'+(s[i].name||s[i].username)+'</div></div>';}container.innerHTML=html;});
+socket.on('storyData',function(d){var viewer=document.getElementById('storyViewer');var img=document.getElementById('storyImage');var video=document.getElementById('storyVideo');if(d.type==='image'){img.style.display='block';video.style.display='none';img.src=d.media;}else{img.style.display='none';video.style.display='block';video.src=d.media;video.play();}viewer.classList.add('active');var progress=0;var interval=setInterval(function(){progress+=2;document.getElementById('storyProgressBar').style.width=progress+'%';if(progress>=100){clearInterval(interval);closeStoryViewer();}},100);});
 
-function playAudio(btn, audioData) { const audio = new Audio(audioData); audio.play(); btn.innerHTML = '⏸️'; audio.onended = () => btn.innerHTML = '▶️'; btn.onclick = () => { audio.paused ? audio.play() : audio.pause(); btn.innerHTML = audio.paused ? '▶️' : '⏸️'; }; }
+function playAudio(btn,audioData){var audio=new Audio(audioData);audio.play();btn.innerHTML='⏸️';audio.onended=function(){btn.innerHTML='▶️';};btn.onclick=function(){if(audio.paused){audio.play();btn.innerHTML='⏸️';}else{audio.pause();btn.innerHTML='▶️';}};}
 
-const savedUser = localStorage.getItem('atomgram_user');
-if (savedUser) { document.getElementById('loginUsername').value = savedUser; }
+var savedUser=localStorage.getItem('atomgram_user');
+if(savedUser){document.getElementById('loginUsername').value=savedUser;}
 </script>
 </body>
 </html>
     `);
 });
 
-// ========== СЕРВЕРНАЯ ЧАСТЬ ==========
+// ========== СЕРВЕР ==========
 const userSockets = new Map();
 const onlineSet = new Set();
 
@@ -757,11 +603,10 @@ io.on('connection', (socket) => {
 
 function getActiveStories() { const active = []; const now = Date.now(); for (const [username, userStories] of Object.entries(stories)) { if (userStories.length > 0 && now - userStories[userStories.length - 1].time < 86400000 && users[username]) { active.push({ username, name: users[username].name, avatar: users[username].avatar }); } } return active; }
 
-// Awake-bot для Render
 function startKeepAliveBot() {
     const PORT = process.env.PORT || 3000;
     const url = `http://localhost:${PORT}`;
-    console.log('\\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер не уснёт\\n');
+    console.log('\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер не уснёт\n');
     setInterval(async () => { try { await fetch(url); } catch(e) {} }, 4 * 60 * 1000);
     setTimeout(async () => { try { await fetch(url); } catch(e) {} }, 30000);
 }
@@ -770,31 +615,28 @@ if (process.env.RENDER || true) { startKeepAliveBot(); }
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║     🚀 ATOMGRAM — ЛУЧШИЙ МЕССЕНДЖЕР В МИРЕ                ║
-╠═══════════════════════════════════════════════════════════╣
-║  💻 http://localhost:${PORT}                               ║
-║  📱 http://localhost:${PORT}                               ║
-╠═══════════════════════════════════════════════════════════╣
-║  ✨ ВСЕ ФИШКИ TELEGRAM И MAX:                             ║
-║  💬 Личные сообщения + Ответы                             ║
-║  👥 Группы (до 200 участников)                            ║
-║  📢 Каналы                                                 ║
-║  👤 Друзья с запросами                                     ║
-║  🎤 Голосовые сообщения                                    ║
-║  📎 Файлы и изображения                                    ║
-║  😀 40+ стикеров                                           ║
-║  ❤️ Реакции (❤️👍😂)                                       ║
-║  📸 Истории (как в Telegram)                              ║
-║  ⚓ МОРСКОЙ БОЙ — ПОЛНОСТЬЮ РАБОТАЕТ!                      ║
-║  ❌ КРЕСТИКИ-НОЛИКИ (чичико) — игра с ИИ                  ║
-║  🎲 КОСТИ — рандомный бросок                              ║
-║  🎯 ДАРТС — рандомные очки                                ║
-║  ⌨️ Индикатор печати                                       ║
-║  🟢 Онлайн-статус                                          ║
-║  🖼️ Аватары пользователей                                  ║
-║  🌟 УЛЬТРА-СОВРЕМЕННЫЙ ДИЗАЙН                              ║
-║  🤖 AWAKE-BOT (сервер не спит 24/7)                       ║
-╚═══════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════╗
+║     🚀 ATOMGRAM ЗАПУЩЕН НА ${PORT} ПОРТУ      ║
+╠════════════════════════════════════════════╣
+║  💻 http://localhost:${PORT}                  ║
+║  📱 http://localhost:${PORT}                  ║
+╠════════════════════════════════════════════╣
+║  ✨ ВСЕ ФИШКИ РАБОТАЮТ:                     ║
+║  💬 Личные сообщения                        ║
+║  👥 Группы и каналы                         ║
+║  👤 Друзья с запросами                      ║
+║  🎤 Голосовые сообщения                     ║
+║  📎 Файлы и фото                            ║
+║  😀 Стикеры (40+)                          ║
+║  ❤️ Реакции                                ║
+║  📸 Истории                                ║
+║  ⚓ Морской бой                             ║
+║  ❌ Крестики-нолики                        ║
+║  🎲 Кости                                  ║
+║  🎯 Дартс                                  ║
+║  ⌨️ Индикатор печати                       ║
+║  🟢 Онлайн-статус                          ║
+║  🤖 Awake-bot (сервер не спит)             ║
+╚════════════════════════════════════════════╝
     `);
 });
