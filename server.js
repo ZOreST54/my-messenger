@@ -48,8 +48,6 @@ app.get('/', (req, res) => {
         
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-        @keyframes typingAnim { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
-        @keyframes shipPlaced { 0% { transform: scale(1); } 50% { transform: scale(1.2); background: #4ade80; } 100% { transform: scale(1); } }
         
         .auth-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .auth-card { background: rgba(255,255,255,0.95); padding: 40px; border-radius: 28px; width: 90%; max-width: 350px; text-align: center; }
@@ -132,9 +130,9 @@ app.get('/', (req, res) => {
         .sticker-picker { position: fixed; bottom: 80px; left: 0; right: 0; background: #1a1a1e; border-radius: 24px 24px 0 0; padding: 16px; display: none; flex-wrap: wrap; gap: 12px; justify-content: center; z-index: 150; max-height: 250px; overflow-y: auto; }
         .sticker-picker.open { display: flex; }
         
-        /* Игры */
-        .game-container { background: #2a2a2e; border-radius: 20px; padding: 20px; margin-bottom: 12px; }
-        .game-title { text-align: center; margin-bottom: 16px; font-size: 18px; font-weight: bold; }
+        /* ИГРЫ */
+        .game-container { background: #1e1e2e; border-radius: 20px; padding: 20px; margin-bottom: 12px; border: 1px solid #2a2a2e; }
+        .game-title { text-align: center; margin-bottom: 16px; font-size: 20px; font-weight: bold; }
         .game-boards { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
         .board { text-align: center; }
         .board-title { margin-bottom: 8px; font-size: 14px; color: #aaa; }
@@ -142,18 +140,19 @@ app.get('/', (req, res) => {
         .battle-cell { width: 32px; height: 32px; background: #0f0f14; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; font-size: 14px; transition: all 0.2s; }
         .battle-cell:hover { background: #667eea; transform: scale(1.05); }
         .battle-cell.ship { background: #3b82f6; }
-        .battle-cell.ship::before { content: "🚢"; font-size: 14px; }
+        .battle-cell.ship::before { content: "🚢"; font-size: 12px; }
         .battle-cell.hit { background: #ef4444; }
         .battle-cell.hit::before { content: "💥"; }
         .battle-cell.miss { background: #52525b; }
         .battle-cell.miss::before { content: "·"; }
-        .game-controls { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
-        .game-btn { padding: 10px 20px; background: #667eea; border: none; border-radius: 12px; color: white; cursor: pointer; font-size: 14px; }
-        .game-btn:hover { background: #5a67d8; transform: scale(1.02); }
         
         .tic-grid { display: inline-grid; grid-template-columns: repeat(3, 80px); gap: 8px; background: #1a1a1e; padding: 8px; border-radius: 12px; }
         .tic-cell { width: 80px; height: 80px; background: #0f0f14; display: flex; align-items: center; justify-content: center; font-size: 48px; cursor: pointer; border-radius: 12px; transition: all 0.2s; }
         .tic-cell:hover { background: #667eea; transform: scale(1.05); }
+        
+        .game-controls { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+        .game-btn { padding: 10px 20px; background: #667eea; border: none; border-radius: 12px; color: white; cursor: pointer; font-size: 14px; }
+        .game-btn:hover { background: #5a67d8; transform: scale(1.02); }
         
         .input-area { padding: 16px 20px; background: #1a1a1e; border-top: 1px solid #2a2a2e; display: flex; gap: 10px; align-items: center; }
         .input-area input { flex: 1; padding: 12px 18px; background: #2a2a2e; border: none; border-radius: 28px; color: white; font-size: 15px; }
@@ -162,7 +161,7 @@ app.get('/', (req, res) => {
         .input-area button.recording { background: #ff4444; animation: pulse 1s infinite; }
         
         .typing-indicator { padding: 8px 24px; font-size: 12px; color: #888; display: flex; gap: 6px; align-items: center; }
-        .typing-dot { width: 6px; height: 6px; background: #667eea; border-radius: 50%; animation: typingAnim 1.4s infinite; }
+        .typing-dot { width: 6px; height: 6px; background: #667eea; border-radius: 50%; animation: pulse 1s infinite; }
         
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; visibility: hidden; opacity: 0; transition: all 0.2s; }
         .modal.active { visibility: visible; opacity: 1; }
@@ -191,7 +190,7 @@ app.get('/', (req, res) => {
             .menu-btn { display: block; }
             .message { max-width: 85%; }
             .battle-grid { grid-template-columns: repeat(10, 28px); }
-            .battle-cell { width: 28px; height: 28px; font-size: 12px; }
+            .battle-cell { width: 28px; height: 28px; }
             .tic-grid { grid-template-columns: repeat(3, 60px); }
             .tic-cell { width: 60px; height: 60px; font-size: 36px; }
         }
@@ -262,7 +261,7 @@ app.get('/', (req, res) => {
             <div class="messages-area" id="messages"></div>
             <div class="typing-indicator" id="typingIndicator" style="display:none">
                 <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-                <span id="typingText">печатает...</span>
+                <span>печатает...</span>
             </div>
             <div class="sticker-picker" id="stickerPicker">
                 <div class="sticker" onclick="sendSticker('😀')">😀</div><div class="sticker" onclick="sendSticker('😂')">😂</div>
@@ -294,7 +293,7 @@ app.get('/', (req, res) => {
 <div id="createGroupModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>👥 Создать группу</h3><button class="modal-close" onclick="closeCreateGroupModal()">✕</button></div><div class="modal-body"><input type="text" id="groupName" class="modal-input" placeholder="Название группы"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button><button class="modal-btn" onclick="createGroup()">Создать</button></div></div></div>
 <div id="createChannelModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>📢 Создать канал</h3><button class="modal-close" onclick="closeCreateChannelModal()">✕</button></div><div class="modal-body"><input type="text" id="channelName" class="modal-input" placeholder="Название канала"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateChannelModal()">Отмена</button><button class="modal-btn" onclick="createChannel()">Создать</button></div></div></div>
 <div id="profileModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>👤 Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div><div class="modal-body"><div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:#2a2a2e;border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">📷 Загрузить</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div><input type="text" id="editName" class="modal-input" placeholder="Ваше имя"><textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea><input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeProfileModal()">Отмена</button><button class="modal-btn" onclick="saveProfile()">Сохранить</button></div></div></div>
-<div id="gameMenuModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>🎮 Игры в чате</h3><button class="modal-close" onclick="closeGameMenu()">✕</button></div><div class="modal-body"><button class="modal-btn" onclick="startGame('battleship')" style="margin-bottom:12px">⚓ Морской бой</button><button class="modal-btn" onclick="startGame('tictactoe')" style="margin-bottom:12px">❌ Крестики-нолики</button><button class="modal-btn" onclick="startGame('dice')" style="margin-bottom:12px">🎲 Кости</button><button class="modal-btn" onclick="startGame('darts')">🎯 Дартс</button></div></div></div>
+<div id="gameMenuModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>🎮 Игры в чате</h3><button class="modal-close" onclick="closeGameMenu()">✕</button></div><div class="modal-body"><button class="modal-btn" onclick="startGame('battleship')" style="margin-bottom:12px">⚓ Морской бой</button><button class="modal-btn" onclick="startGame('tictactoe')" style="margin-bottom:12px">❌ Крестики-нолики (чичико)</button><button class="modal-btn" onclick="startGame('dice')" style="margin-bottom:12px">🎲 Кости</button><button class="modal-btn" onclick="startGame('darts')">🎯 Дартс</button></div></div></div>
 <div id="storyViewer" class="story-viewer"><div class="story-container"><div class="story-progress"><div class="story-progress-bar" id="storyProgressBar"></div></div><img id="storyImage" class="story-media" style="display:none"><video id="storyVideo" class="story-media" style="display:none" autoplay muted></video><button class="story-close" onclick="closeStoryViewer()">✕</button></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -474,11 +473,10 @@ function renderBattleGrid(containerId, grid, isMyGrid) {
     for (let i = 0; i < 10; i++) {
         for (let j = 0; j < 10; j++) {
             let cellClass = 'battle-cell';
-            let content = '';
             if (grid[i][j].hit) { cellClass += ' hit'; }
             else if (grid[i][j].miss) { cellClass += ' miss'; }
             else if (isMyGrid && grid[i][j].ship) { cellClass += ' ship'; }
-            html += `<div class="${cellClass}" onclick="battleAttack(${i}, ${j})" data-row="${i}" data-col="${j}"></div>`;
+            html += `<div class="${cellClass}" onclick="battleAttack(${i}, ${j})"></div>`;
         }
     }
     container.innerHTML = html;
@@ -493,7 +491,6 @@ function battleAttack(row, col) {
         showToast('💥 ПОПАДАНИЕ!');
         socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '💥 Попадание в Морском бое!' });
         renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
-        
         if (checkWin(battleEnemyGrid)) {
             showToast('🏆 ПОБЕДА! Вы уничтожили все корабли!');
             socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 ПОБЕДА в Морском бое!' });
@@ -526,7 +523,6 @@ function computerAttack() {
             }
             renderBattleGrid('myBattleGrid', battleMyGrid, true);
             attacked = true;
-            
             if (checkWin(battleMyGrid)) {
                 showToast('😭 Поражение! Противник уничтожил все ваши корабли');
                 socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '😭 Поражение в Морском бое!' });
@@ -644,7 +640,7 @@ socket.on('newMessage', (m) => { if (currentChatTarget === m.target || currentCh
 socket.on('reactionUpdate', (d) => { });
 socket.on('voiceMessage', (d) => { if (currentChatTarget === d.target || currentChatTarget === d.from) { const div = document.createElement('div'); div.className = 'message ' + (d.from === currentUser ? 'mine' : ''); div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><div class="voice-message"><button class="voice-play" onclick="playAudio(this,\\'' + d.audio + '\\')">▶️</button><span>Голосовое сообщение</span></div><div class="message-time">' + (d.time || new Date().toLocaleTimeString()) + '</div></div></div>'; document.getElementById('messages').appendChild(div); } });
 socket.on('fileMessage', (d) => { if (currentChatTarget === d.target || currentChatTarget === d.from) { const div = document.createElement('div'); div.className = 'message ' + (d.from === currentUser ? 'mine' : ''); div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><a class="file-attachment" href="' + d.fileData + '" download="' + d.fileName + '">📎 ' + escapeHtml(d.fileName) + '</a><div class="message-time">' + (d.time || new Date().toLocaleTimeString()) + '</div></div></div>'; document.getElementById('messages').appendChild(div); } });
-socket.on('typing', (d) => { if (currentChatTarget === d.user || currentChatTarget === d.channel) { document.getElementById('typingIndicator').style.display = 'flex'; document.getElementById('typingText').innerHTML = d.user + ' печатает...'; setTimeout(() => document.getElementById('typingIndicator').style.display = 'none', 1500); } });
+socket.on('typing', (d) => { if (currentChatTarget === d.user || currentChatTarget === d.channel) { document.getElementById('typingIndicator').style.display = 'flex'; setTimeout(() => document.getElementById('typingIndicator').style.display = 'none', 1500); } });
 socket.on('userOnline', (u) => { onlineUsers.add(u); if (currentChatTarget === u) { document.getElementById('chatStatus').innerHTML = '● Онлайн'; } renderFriends(); });
 socket.on('userOffline', (u) => { onlineUsers.delete(u); if (currentChatTarget === u) { document.getElementById('chatStatus').innerHTML = '○ Офлайн'; } renderFriends(); });
 socket.on('storiesUpdate', (s) => { const container = document.getElementById('storiesRow'); let html = '<div class="story-item" onclick="addStory()"><div class="story-circle add"><div class="story-avatar">+</div></div><div class="story-name">Моя</div></div>'; s.forEach(st => { html += '<div class="story-item" onclick="viewStory(\\'' + st.username + '\\')"><div class="story-circle"><div class="story-avatar">' + (st.avatar || '👤') + '</div></div><div class="story-name">' + (st.name || st.username) + '</div></div>'; }); container.innerHTML = html; });
@@ -695,7 +691,7 @@ io.on('connection', (socket) => {
             userSockets.set(socket.id, username); onlineSet.add(username);
             cb({ success: true, userData: { username: user.username, name: user.name, bio: user.bio, avatar: user.avatar } });
             socket.emit('friendsUpdate', { friends: user.friends || [], requests: user.friendRequests || [] });
-            socket.emit('groupsUpdate', Object.values(groups).filter(g => g.members?.includes(username)));
+            socket.emit('groupsUpdate', Object.values(groups).filter(g => g.members?.includes(currentUser)));
             socket.emit('channelsUpdate', Object.keys(channels));
             socket.broadcast.emit('userOnline', username);
             io.emit('storiesUpdate', getActiveStories());
@@ -761,11 +757,11 @@ io.on('connection', (socket) => {
 
 function getActiveStories() { const active = []; const now = Date.now(); for (const [username, userStories] of Object.entries(stories)) { if (userStories.length > 0 && now - userStories[userStories.length - 1].time < 86400000 && users[username]) { active.push({ username, name: users[username].name, avatar: users[username].avatar }); } } return active; }
 
-// Бот для предотвращения спячки на Render
+// Awake-bot для Render
 function startKeepAliveBot() {
     const PORT = process.env.PORT || 3000;
     const url = `http://localhost:${PORT}`;
-    console.log('\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер будет активен 24/7\n');
+    console.log('\\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер не уснёт\\n');
     setInterval(async () => { try { await fetch(url); } catch(e) {} }, 4 * 60 * 1000);
     setTimeout(async () => { try { await fetch(url); } catch(e) {} }, 30000);
 }
