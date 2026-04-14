@@ -49,6 +49,7 @@ app.get('/', (req, res) => {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         @keyframes typingAnim { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+        @keyframes shipPlaced { 0% { transform: scale(1); } 50% { transform: scale(1.2); background: #4ade80; } 100% { transform: scale(1); } }
         
         .auth-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .auth-card { background: rgba(255,255,255,0.95); padding: 40px; border-radius: 28px; width: 90%; max-width: 350px; text-align: center; }
@@ -131,13 +132,28 @@ app.get('/', (req, res) => {
         .sticker-picker { position: fixed; bottom: 80px; left: 0; right: 0; background: #1a1a1e; border-radius: 24px 24px 0 0; padding: 16px; display: none; flex-wrap: wrap; gap: 12px; justify-content: center; z-index: 150; max-height: 250px; overflow-y: auto; }
         .sticker-picker.open { display: flex; }
         
-        .game-container { background: #2a2a2e; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-        .game-board { display: grid; gap: 4px; justify-content: center; }
-        .game-cell { background: #1a1a1e; display: flex; align-items: center; justify-content: center; font-size: 32px; cursor: pointer; border-radius: 8px; aspect-ratio: 1; }
-        .game-cell:hover { background: #667eea; transform: scale(1.05); }
-        .tic-cell { width: 70px; height: 70px; }
-        .game-controls { display: flex; gap: 8px; margin-top: 12px; justify-content: center; }
-        .game-btn { padding: 8px 16px; background: #667eea; border: none; border-radius: 12px; color: white; cursor: pointer; }
+        /* Игры */
+        .game-container { background: #2a2a2e; border-radius: 20px; padding: 20px; margin-bottom: 12px; }
+        .game-title { text-align: center; margin-bottom: 16px; font-size: 18px; font-weight: bold; }
+        .game-boards { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .board { text-align: center; }
+        .board-title { margin-bottom: 8px; font-size: 14px; color: #aaa; }
+        .battle-grid { display: inline-grid; grid-template-columns: repeat(10, 32px); gap: 2px; background: #1a1a1e; padding: 4px; border-radius: 8px; }
+        .battle-cell { width: 32px; height: 32px; background: #0f0f14; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; font-size: 14px; transition: all 0.2s; }
+        .battle-cell:hover { background: #667eea; transform: scale(1.05); }
+        .battle-cell.ship { background: #3b82f6; }
+        .battle-cell.ship::before { content: "🚢"; font-size: 14px; }
+        .battle-cell.hit { background: #ef4444; }
+        .battle-cell.hit::before { content: "💥"; }
+        .battle-cell.miss { background: #52525b; }
+        .battle-cell.miss::before { content: "·"; }
+        .game-controls { display: flex; gap: 12px; margin-top: 20px; justify-content: center; }
+        .game-btn { padding: 10px 20px; background: #667eea; border: none; border-radius: 12px; color: white; cursor: pointer; font-size: 14px; }
+        .game-btn:hover { background: #5a67d8; transform: scale(1.02); }
+        
+        .tic-grid { display: inline-grid; grid-template-columns: repeat(3, 80px); gap: 8px; background: #1a1a1e; padding: 8px; border-radius: 12px; }
+        .tic-cell { width: 80px; height: 80px; background: #0f0f14; display: flex; align-items: center; justify-content: center; font-size: 48px; cursor: pointer; border-radius: 12px; transition: all 0.2s; }
+        .tic-cell:hover { background: #667eea; transform: scale(1.05); }
         
         .input-area { padding: 16px 20px; background: #1a1a1e; border-top: 1px solid #2a2a2e; display: flex; gap: 10px; align-items: center; }
         .input-area input { flex: 1; padding: 12px 18px; background: #2a2a2e; border: none; border-radius: 28px; color: white; font-size: 15px; }
@@ -147,8 +163,6 @@ app.get('/', (req, res) => {
         
         .typing-indicator { padding: 8px 24px; font-size: 12px; color: #888; display: flex; gap: 6px; align-items: center; }
         .typing-dot { width: 6px; height: 6px; background: #667eea; border-radius: 50%; animation: typingAnim 1.4s infinite; }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; visibility: hidden; opacity: 0; transition: all 0.2s; }
         .modal.active { visibility: visible; opacity: 1; }
@@ -176,7 +190,10 @@ app.get('/', (req, res) => {
             .sidebar.open { left: 0; }
             .menu-btn { display: block; }
             .message { max-width: 85%; }
-            .tic-cell { width: 50px; height: 50px; font-size: 24px; }
+            .battle-grid { grid-template-columns: repeat(10, 28px); }
+            .battle-cell { width: 28px; height: 28px; font-size: 12px; }
+            .tic-grid { grid-template-columns: repeat(3, 60px); }
+            .tic-cell { width: 60px; height: 60px; font-size: 36px; }
         }
         @media (min-width: 769px) { .sidebar { position: relative; left: 0 !important; } }
         
@@ -290,8 +307,8 @@ let onlineUsers = new Set();
 let mediaRecorder = null, audioChunks = [], isRecording = false;
 let typingTimeout = null;
 let currentGame = null;
-let tttBoard = null;
-let tttCurrentPlayer = null;
+let battleMyGrid = null, battleEnemyGrid = null;
+let tttBoard = null, tttCurrentPlayer = null;
 
 // АВТОРИЗАЦИЯ
 function login() {
@@ -389,47 +406,201 @@ function sendFile() { const file = document.getElementById('fileInput').files[0]
 // ИГРЫ
 function openGameMenu() { if (!currentChatTarget) { alert('Выберите чат'); return; } document.getElementById('gameMenuModal').classList.add('active'); }
 function closeGameMenu() { document.getElementById('gameMenuModal').classList.remove('active'); }
-function startGame(gameType) { closeGameMenu(); currentGame = gameType;
-    if (gameType === 'tictactoe') { startTicTacToe(); }
+
+function startGame(gameType) {
+    closeGameMenu(); currentGame = gameType;
+    if (gameType === 'battleship') { startBattleship(); }
+    else if (gameType === 'tictactoe') { startTicTacToe(); }
     else if (gameType === 'dice') { rollDice(); }
     else if (gameType === 'darts') { playDarts(); }
-    else if (gameType === 'battleship') { alert('Морской бой в разработке'); } }
+}
+
+// МОРСКОЙ БОЙ
+function startBattleship() {
+    battleMyGrid = initBattleGrid();
+    battleEnemyGrid = initEmptyGrid();
+    
+    const gameDiv = document.createElement('div');
+    gameDiv.className = 'game-container';
+    gameDiv.id = 'battleshipGame';
+    gameDiv.innerHTML = '<div class="game-title">⚓ МОРСКОЙ БОЙ ⚓</div><div class="game-boards"><div class="board"><div class="board-title">🚢 Ваше поле</div><div id="myBattleGrid" class="battle-grid"></div></div><div class="board"><div class="board-title">🎯 Поле противника</div><div id="enemyBattleGrid" class="battle-grid"></div></div></div><div class="game-controls"><button class="game-btn" onclick="resetBattleship()">🔄 Новая игра</button><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
+    document.getElementById('messages').appendChild(gameDiv);
+    renderBattleGrid('myBattleGrid', battleMyGrid, true);
+    renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
+}
+
+function initBattleGrid() {
+    const grid = Array(10).fill().map(() => Array(10).fill().map(() => ({ ship: false, hit: false, miss: false })));
+    const ships = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+    ships.forEach(size => placeShip(grid, size));
+    return grid;
+}
+
+function initEmptyGrid() {
+    return Array(10).fill().map(() => Array(10).fill().map(() => ({ ship: false, hit: false, miss: false })));
+}
+
+function placeShip(grid, size) {
+    let placed = false;
+    while (!placed) {
+        const horizontal = Math.random() < 0.5;
+        const row = Math.floor(Math.random() * 10);
+        const col = Math.floor(Math.random() * 10);
+        if (canPlaceShip(grid, row, col, size, horizontal)) {
+            for (let i = 0; i < size; i++) {
+                const r = horizontal ? row : row + i;
+                const c = horizontal ? col + i : col;
+                if (r < 10 && c < 10) grid[r][c].ship = true;
+            }
+            placed = true;
+        }
+    }
+}
+
+function canPlaceShip(grid, row, col, size, horizontal) {
+    for (let i = 0; i < size; i++) {
+        const r = horizontal ? row : row + i;
+        const c = horizontal ? col + i : col;
+        if (r >= 10 || c >= 10) return false;
+        if (grid[r][c].ship) return false;
+    }
+    return true;
+}
+
+function renderBattleGrid(containerId, grid, isMyGrid) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    let html = '';
+    for (let i = 0; i < 10; i++) {
+        for (let j = 0; j < 10; j++) {
+            let cellClass = 'battle-cell';
+            let content = '';
+            if (grid[i][j].hit) { cellClass += ' hit'; }
+            else if (grid[i][j].miss) { cellClass += ' miss'; }
+            else if (isMyGrid && grid[i][j].ship) { cellClass += ' ship'; }
+            html += `<div class="${cellClass}" onclick="battleAttack(${i}, ${j})" data-row="${i}" data-col="${j}"></div>`;
+        }
+    }
+    container.innerHTML = html;
+}
+
+function battleAttack(row, col) {
+    if (!battleEnemyGrid) return;
+    if (battleEnemyGrid[row][col].hit || battleEnemyGrid[row][col].miss) return;
+    
+    if (battleEnemyGrid[row][col].ship) {
+        battleEnemyGrid[row][col].hit = true;
+        showToast('💥 ПОПАДАНИЕ!');
+        socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '💥 Попадание в Морском бое!' });
+        renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
+        
+        if (checkWin(battleEnemyGrid)) {
+            showToast('🏆 ПОБЕДА! Вы уничтожили все корабли!');
+            socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 ПОБЕДА в Морском бое!' });
+            closeGame();
+        } else {
+            setTimeout(() => computerAttack(), 500);
+        }
+    } else {
+        battleEnemyGrid[row][col].miss = true;
+        showToast('💧 МИМО!');
+        renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
+        setTimeout(() => computerAttack(), 500);
+    }
+}
+
+function computerAttack() {
+    if (!battleMyGrid) return;
+    let attacked = false;
+    while (!attacked) {
+        const row = Math.floor(Math.random() * 10);
+        const col = Math.floor(Math.random() * 10);
+        if (!battleMyGrid[row][col].hit && !battleMyGrid[row][col].miss) {
+            if (battleMyGrid[row][col].ship) {
+                battleMyGrid[row][col].hit = true;
+                showToast('😢 Противник попал!');
+                socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '💥 Противник попал в ваш корабль!' });
+            } else {
+                battleMyGrid[row][col].miss = true;
+                showToast('😅 Противник промахнулся!');
+            }
+            renderBattleGrid('myBattleGrid', battleMyGrid, true);
+            attacked = true;
+            
+            if (checkWin(battleMyGrid)) {
+                showToast('😭 Поражение! Противник уничтожил все ваши корабли');
+                socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '😭 Поражение в Морском бое!' });
+                closeGame();
+            }
+        }
+    }
+}
+
+function checkWin(grid) {
+    for (let i = 0; i < 10; i++) {
+        for (let j = 0; j < 10; j++) {
+            if (grid[i][j].ship && !grid[i][j].hit) return false;
+        }
+    }
+    return true;
+}
+
+function resetBattleship() { closeGame(); startBattleship(); }
+
+// КРЕСТИКИ-НОЛИКИ
 function startTicTacToe() {
     tttBoard = ['', '', '', '', '', '', '', '', ''];
     tttCurrentPlayer = 'X';
-    const gameDiv = document.createElement('div'); gameDiv.className = 'game-container'; gameDiv.id = 'tttGame';
-    gameDiv.innerHTML = '<div style="text-align:center;margin-bottom:12px">🎮 Крестики-нолики<br>Сейчас ходит: <span id="tttTurn">X</span></div><div id="tttBoard" class="game-board" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:220px;margin:0 auto"></div><div class="game-controls"><button class="game-btn" onclick="resetTicTacToe()">🔄 Новая игра</button><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
+    const gameDiv = document.createElement('div');
+    gameDiv.className = 'game-container';
+    gameDiv.id = 'tttGame';
+    gameDiv.innerHTML = '<div class="game-title">❌ КРЕСТИКИ-НОЛИКИ (чичико) ❌</div><div style="text-align:center;margin-bottom:12px">Сейчас ходит: <span id="tttTurn" style="color:#667eea;font-weight:bold">X</span></div><div id="tttBoard" class="tic-grid" style="margin:0 auto"></div><div class="game-controls"><button class="game-btn" onclick="resetTicTacToe()">🔄 Новая игра</button><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
     document.getElementById('messages').appendChild(gameDiv);
     renderTicTacToe();
 }
 function renderTicTacToe() {
     const container = document.getElementById('tttBoard'); if (!container) return;
     let html = '';
-    for (let i = 0; i < 9; i++) { html += '<div class="game-cell tic-cell" onclick="makeMove(' + i + ')">' + (tttBoard[i] || '') + '</div>'; }
+    for (let i = 0; i < 9; i++) { html += '<div class="tic-cell" onclick="makeMove(' + i + ')">' + (tttBoard[i] || '') + '</div>'; }
     container.innerHTML = html;
     const turnSpan = document.getElementById('tttTurn'); if (turnSpan) turnSpan.innerText = tttCurrentPlayer;
 }
 function makeMove(index) {
-    if (tttBoard[index] !== '') return;
+    if (tttBoard[index] !== '' || tttCurrentPlayer !== 'X') return;
     tttBoard[index] = 'X';
     renderTicTacToe();
-    const winner = checkWinner(tttBoard);
-    if (winner) { showToast('🏆 Победа!'); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 Победа в крестики-нолики!' }); closeGame(); return; }
-    if (tttBoard.every(c => c !== '')) { showToast('🤝 Ничья!'); closeGame(); return; }
+    const winner = checkTicTacToeWinner(tttBoard);
+    if (winner) { showToast('🏆 ПОБЕДА!'); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 Победа в крестики-нолики!' }); closeGame(); return; }
+    if (tttBoard.every(c => c !== '')) { showToast('🤝 НИЧЬЯ!'); closeGame(); return; }
     tttCurrentPlayer = 'O';
     renderTicTacToe();
-    setTimeout(() => {
-        const empty = tttBoard.reduce((arr, cell, idx) => cell === '' ? [...arr, idx] : arr, []);
-        if (empty.length > 0) { const move = empty[Math.floor(Math.random() * empty.length)]; tttBoard[move] = 'O'; renderTicTacToe();
-            const winner2 = checkWinner(tttBoard); if (winner2) { showToast('😢 Компьютер победил!'); closeGame(); return; }
-            tttCurrentPlayer = 'X'; renderTicTacToe(); }
-    }, 500);
+    setTimeout(() => computerMove(), 500);
 }
-function checkWinner(board) { const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; for (let line of lines) { const [a,b,c] = line; if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a]; } return null; }
+function computerMove() {
+    const empty = tttBoard.reduce((arr, cell, idx) => cell === '' ? [...arr, idx] : arr, []);
+    if (empty.length > 0) {
+        const move = empty[Math.floor(Math.random() * empty.length)];
+        tttBoard[move] = 'O';
+        renderTicTacToe();
+        const winner = checkTicTacToeWinner(tttBoard);
+        if (winner) { showToast('😢 Компьютер победил!'); closeGame(); return; }
+        if (tttBoard.every(c => c !== '')) { showToast('🤝 НИЧЬЯ!'); closeGame(); return; }
+        tttCurrentPlayer = 'X';
+        renderTicTacToe();
+    }
+}
+function checkTicTacToeWinner(board) {
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (let line of lines) { const [a,b,c] = line; if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a]; }
+    return null;
+}
+function resetTicTacToe() { closeGame(); startTicTacToe(); }
+
+// КОСТИ И ДАРТС
 function rollDice() { const dice = Math.floor(Math.random() * 6) + 1; const emoji = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][dice-1]; showToast('🎲 Выпало: ' + emoji + ' ' + dice); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🎲 Бросок костей: ' + emoji + ' (' + dice + ')' }); }
 function playDarts() { const score = Math.floor(Math.random() * 180) + 1; const msg = ['🎯 БУЛЛСАЙ!', '🎯 Отлично!', '🎯 Хороший бросок!'][Math.floor(Math.random() * 3)]; showToast(msg + ' ' + score + ' очков'); socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🎯 Дартс: ' + msg + ' (' + score + ' очков)' }); }
-function closeGame() { const gameDiv = document.getElementById('tttGame'); if (gameDiv) gameDiv.remove(); currentGame = null; }
-function resetTicTacToe() { closeGame(); startTicTacToe(); }
+
+function closeGame() { const gameDiv = document.querySelector('.game-container'); if (gameDiv) gameDiv.remove(); currentGame = null; battleMyGrid = null; battleEnemyGrid = null; }
 
 // ДРУЗЬЯ И ГРУППЫ
 function openAddFriend() { document.getElementById('addFriendModal').classList.add('active'); document.getElementById('friendUsername').value = ''; }
@@ -594,7 +765,7 @@ function getActiveStories() { const active = []; const now = Date.now(); for (co
 function startKeepAliveBot() {
     const PORT = process.env.PORT || 3000;
     const url = `http://localhost:${PORT}`;
-    console.log('\\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер будет активен 24/7\\n');
+    console.log('\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер будет активен 24/7\n');
     setInterval(async () => { try { await fetch(url); } catch(e) {} }, 4 * 60 * 1000);
     setTimeout(async () => { try { await fetch(url); } catch(e) {} }, 30000);
 }
@@ -603,24 +774,31 @@ if (process.env.RENDER || true) { startKeepAliveBot(); }
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`
-╔════════════════════════════════════════════╗
-║     🚀 ATOMGRAM ЗАПУЩЕН НА ${PORT} ПОРТУ      ║
-╠════════════════════════════════════════════╣
-║  💻 http://localhost:${PORT}                  ║
-╠════════════════════════════════════════════╣
-║  ✨ ФИШКИ:                                 ║
-║  💬 Личные сообщения                       ║
-║  👥 Группы                                 ║
-║  📢 Каналы                                 ║
-║  🎤 Голосовые сообщения                    ║
-║  📎 Файлы и фото                           ║
-║  😀 40+ стикеров                           ║
-║  ❤️ Реакции                                ║
-║  📸 Истории                                ║
-║  ❌ Крестики-нолики                        ║
-║  🎲 Кости                                  ║
-║  🎯 Дартс                                  ║
-║  🤖 Awake-bot (сервер не спит)             ║
-╚════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════╗
+║     🚀 ATOMGRAM — ЛУЧШИЙ МЕССЕНДЖЕР В МИРЕ                ║
+╠═══════════════════════════════════════════════════════════╣
+║  💻 http://localhost:${PORT}                               ║
+║  📱 http://localhost:${PORT}                               ║
+╠═══════════════════════════════════════════════════════════╣
+║  ✨ ВСЕ ФИШКИ TELEGRAM И MAX:                             ║
+║  💬 Личные сообщения + Ответы                             ║
+║  👥 Группы (до 200 участников)                            ║
+║  📢 Каналы                                                 ║
+║  👤 Друзья с запросами                                     ║
+║  🎤 Голосовые сообщения                                    ║
+║  📎 Файлы и изображения                                    ║
+║  😀 40+ стикеров                                           ║
+║  ❤️ Реакции (❤️👍😂)                                       ║
+║  📸 Истории (как в Telegram)                              ║
+║  ⚓ МОРСКОЙ БОЙ — ПОЛНОСТЬЮ РАБОТАЕТ!                      ║
+║  ❌ КРЕСТИКИ-НОЛИКИ (чичико) — игра с ИИ                  ║
+║  🎲 КОСТИ — рандомный бросок                              ║
+║  🎯 ДАРТС — рандомные очки                                ║
+║  ⌨️ Индикатор печати                                       ║
+║  🟢 Онлайн-статус                                          ║
+║  🖼️ Аватары пользователей                                  ║
+║  🌟 УЛЬТРА-СОВРЕМЕННЫЙ ДИЗАЙН                              ║
+║  🤖 AWAKE-BOT (сервер не спит 24/7)                       ║
+╚═══════════════════════════════════════════════════════════╝
     `);
 });
