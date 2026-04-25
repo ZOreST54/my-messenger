@@ -11,7 +11,6 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling']
 });
 
-// Данные
 let users = {};
 let privateChats = {};
 let groups = {};
@@ -37,7 +36,7 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ATOMGRAM 100GB | Мессенджер Будущего</title>
+    <title>ATOMGRAM — Мессенджер Будущего</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <style>
         * {
@@ -48,19 +47,21 @@ app.get('/', (req, res) => {
         }
 
         :root {
-            --bg: #0a0a0f;
-            --surface: #121218;
-            --surface-elevated: #1a1a24;
-            --input: #1a1a24;
+            --bg: radial-gradient(circle at 20% 30%, #0f0c29, #1a1a2e, #24243e);
+            --surface: rgba(28, 28, 30, 0.7);
+            --surface-elevated: rgba(40, 40, 45, 0.8);
+            --input: rgba(28, 28, 30, 0.9);
             --text: #ffffff;
             --text-secondary: #a1a1aa;
             --text-muted: #52525b;
             --accent: #6366f1;
             --accent-light: #818cf8;
+            --accent-gradient: linear-gradient(135deg, #6366f1, #a855f7);
             --success: #10b981;
             --error: #ef4444;
-            --border: rgba(255,255,255,0.06);
-            --shadow: 0 8px 32px rgba(0,0,0,0.4);
+            --border: rgba(255,255,255,0.08);
+            --shadow: 0 8px 32px rgba(0,0,0,0.3);
+            --glass: rgba(255,255,255,0.03);
         }
 
         body {
@@ -77,16 +78,20 @@ app.get('/', (req, res) => {
             to { opacity: 1; transform: translateY(0); }
         }
         @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes pulse {
-            0%,100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
         @keyframes glow {
-            0%,100% { box-shadow: 0 0 5px var(--accent); }
-            50% { box-shadow: 0 0 20px var(--accent); }
+            0%,100% { box-shadow: 0 0 5px rgba(99,102,241,0.5); }
+            50% { box-shadow: 0 0 20px rgba(99,102,241,0.8); }
+        }
+        @keyframes float {
+            0%,100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* Экран входа */
@@ -96,14 +101,14 @@ app.get('/', (req, res) => {
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            background: var(--bg);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
         .auth-card {
-            background: rgba(18,18,24,0.95);
+            background: var(--surface);
             backdrop-filter: blur(20px);
             padding: 48px 40px;
             border-radius: 48px;
@@ -115,11 +120,12 @@ app.get('/', (req, res) => {
             animation: slideUp 0.5s;
         }
         .auth-card h1 {
-            font-size: 42px;
+            font-size: 48px;
             margin-bottom: 12px;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
         }
         .auth-card .subtitle {
             color: var(--text-secondary);
@@ -135,33 +141,37 @@ app.get('/', (req, res) => {
             border-radius: 24px;
             font-size: 16px;
             color: var(--text);
+            transition: all 0.3s;
         }
         .auth-card input:focus {
             outline: none;
             border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
         }
         .auth-card button {
             width: 100%;
             padding: 16px;
             margin-top: 16px;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            background: var(--accent-gradient);
             color: white;
             border: none;
             border-radius: 24px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
         }
         .auth-card button:hover {
             transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99,102,241,0.4);
         }
         .switch-btn {
-            background: var(--surface-elevated) !important;
+            background: rgba(255,255,255,0.1) !important;
         }
         .error-msg {
             color: var(--error);
             margin-top: 16px;
+            font-size: 14px;
         }
 
         /* Приложение */
@@ -174,6 +184,7 @@ app.get('/', (req, res) => {
         /* Шапка */
         .header {
             background: var(--surface);
+            backdrop-filter: blur(20px);
             padding: 12px 24px;
             display: flex;
             align-items: center;
@@ -189,16 +200,18 @@ app.get('/', (req, res) => {
             display: none;
             padding: 8px;
             border-radius: 12px;
+            transition: all 0.2s;
         }
         .menu-btn:hover {
-            background: var(--surface-elevated);
+            background: var(--glass);
         }
         .logo {
             font-size: 20px;
             font-weight: 700;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
         }
         .online-badge {
             margin-left: auto;
@@ -207,6 +220,9 @@ app.get('/', (req, res) => {
             display: flex;
             align-items: center;
             gap: 8px;
+            background: rgba(16,185,129,0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
         }
         .online-badge::before {
             content: '';
@@ -228,6 +244,7 @@ app.get('/', (req, res) => {
         .sidebar {
             width: 320px;
             background: var(--surface);
+            backdrop-filter: blur(20px);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
@@ -251,6 +268,7 @@ app.get('/', (req, res) => {
                 right: 0;
                 bottom: 0;
                 background: rgba(0,0,0,0.6);
+                backdrop-filter: blur(4px);
                 z-index: 199;
                 display: none;
             }
@@ -266,23 +284,29 @@ app.get('/', (req, res) => {
             text-align: center;
             border-bottom: 1px solid var(--border);
             cursor: pointer;
+            transition: all 0.2s;
         }
         .profile:hover {
-            background: var(--surface-elevated);
+            background: var(--glass);
         }
         .avatar {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            background: var(--accent-gradient);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 36px;
             margin: 0 auto 12px;
+            transition: all 0.3s;
+            animation: float 3s ease infinite;
+        }
+        .avatar:hover {
+            transform: scale(1.05);
         }
         .profile-name {
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 600;
         }
         .profile-username {
@@ -300,14 +324,17 @@ app.get('/', (req, res) => {
             cursor: pointer;
             border-radius: 12px;
             margin: 4px 12px;
+            transition: all 0.2s;
         }
         .nav-item:hover {
-            background: var(--surface-elevated);
+            background: var(--glass);
+            transform: translateX(4px);
         }
         .section-title {
             padding: 16px 20px 8px;
             font-size: 12px;
             color: var(--text-secondary);
+            letter-spacing: 0.5px;
         }
 
         /* Списки чатов */
@@ -326,7 +353,7 @@ app.get('/', (req, res) => {
             transition: all 0.2s;
         }
         .chat-item:hover {
-            background: var(--surface-elevated);
+            background: var(--glass);
             transform: translateX(4px);
         }
         .chat-avatar {
@@ -339,6 +366,17 @@ app.get('/', (req, res) => {
             justify-content: center;
             font-size: 24px;
             flex-shrink: 0;
+            position: relative;
+        }
+        .online-dot {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: var(--success);
+            border-radius: 50%;
+            border: 2px solid var(--surface);
         }
         .chat-info {
             flex: 1;
@@ -349,11 +387,11 @@ app.get('/', (req, res) => {
         }
         .chat-status {
             font-size: 12px;
-            color: var(--success);
+            color: var(--text-secondary);
             margin-top: 2px;
         }
-        .chat-status.offline {
-            color: var(--text-muted);
+        .chat-status.online {
+            color: var(--success);
         }
 
         /* Область чата */
@@ -361,11 +399,12 @@ app.get('/', (req, res) => {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: var(--bg);
+            background: rgba(0,0,0,0.3);
         }
         .chat-header {
             padding: 16px 24px;
             background: var(--surface);
+            backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
@@ -389,7 +428,7 @@ app.get('/', (req, res) => {
             font-size: 18px;
         }
         .chat-header-status {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-secondary);
             margin-top: 2px;
         }
@@ -434,12 +473,13 @@ app.get('/', (req, res) => {
             padding: 10px 16px;
             border-radius: 20px;
             background: var(--surface-elevated);
+            backdrop-filter: blur(10px);
         }
         .message.mine .message-content {
-            background: linear-gradient(135deg, #6366f1, #a855f7);
+            background: var(--accent-gradient);
         }
         .message-name {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             margin-bottom: 4px;
             color: var(--text-secondary);
@@ -460,6 +500,7 @@ app.get('/', (req, res) => {
         .input-area {
             padding: 16px 20px;
             background: var(--surface);
+            backdrop-filter: blur(20px);
             border-top: 1px solid var(--border);
             display: flex;
             gap: 12px;
@@ -472,6 +513,7 @@ app.get('/', (req, res) => {
             border-radius: 28px;
             font-size: 15px;
             color: var(--text);
+            transition: all 0.3s;
         }
         .input-area input:focus {
             outline: none;
@@ -481,7 +523,7 @@ app.get('/', (req, res) => {
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: var(--accent);
+            background: var(--accent-gradient);
             border: none;
             color: white;
             cursor: pointer;
@@ -514,10 +556,12 @@ app.get('/', (req, res) => {
         }
         .modal-content {
             background: var(--surface);
+            backdrop-filter: blur(20px);
             border-radius: 28px;
             width: 90%;
             max-width: 400px;
             overflow: hidden;
+            border: 1px solid var(--border);
         }
         .modal-header {
             padding: 20px;
@@ -554,7 +598,7 @@ app.get('/', (req, res) => {
         .modal-btn {
             flex: 1;
             padding: 14px;
-            background: var(--accent);
+            background: var(--accent-gradient);
             border: none;
             border-radius: 14px;
             color: white;
@@ -565,17 +609,32 @@ app.get('/', (req, res) => {
             background: var(--surface-elevated);
         }
 
+        /* Уведомления */
         .toast {
             position: fixed;
             bottom: 100px;
             left: 50%;
             transform: translateX(-50%);
             background: var(--surface);
+            backdrop-filter: blur(20px);
             padding: 12px 24px;
             border-radius: 30px;
             font-size: 14px;
             z-index: 1000;
             animation: fadeIn 0.3s;
+            border: 1px solid var(--border);
+        }
+
+        /* Скроллбар */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--surface);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 4px;
         }
     </style>
 </head>
@@ -583,7 +642,7 @@ app.get('/', (req, res) => {
 
 <div class="auth-screen" id="authScreen">
     <div class="auth-card">
-        <h1>⚡ ATOMGRAM 100GB</h1>
+        <h1>⚡ ATOMGRAM</h1>
         <div class="subtitle">Мессенджер нового поколения</div>
         <div id="loginPanel">
             <input type="text" id="loginUsername" placeholder="Логин">
@@ -605,7 +664,7 @@ app.get('/', (req, res) => {
 <div class="app" id="mainApp">
     <div class="header">
         <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-        <div class="logo">⚡ ATOMGRAM 100GB</div>
+        <div class="logo">ATOMGRAM</div>
         <div class="online-badge">Онлайн</div>
     </div>
     <div class="container">
@@ -626,7 +685,7 @@ app.get('/', (req, res) => {
             <div class="chat-header">
                 <div class="chat-header-avatar" id="chatAvatar">👤</div>
                 <div class="chat-header-info">
-                    <div class="chat-header-name" id="chatTitle">ATOMGRAM 100GB</div>
+                    <div class="chat-header-name" id="chatTitle">ATOMGRAM</div>
                     <div class="chat-header-status" id="chatStatus"></div>
                 </div>
             </div>
@@ -659,7 +718,7 @@ app.get('/', (req, res) => {
     <div class="modal-content">
         <div class="modal-header"><h3>Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div>
         <div class="modal-body">
-            <div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:var(--surface-elevated);border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">Загрузить фото</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div>
+            <div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:rgba(255,255,255,0.1);border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">Загрузить фото</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div>
             <input type="text" id="editName" class="modal-input" placeholder="Ваше имя">
             <textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea>
             <input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль">
@@ -738,6 +797,7 @@ function updateUI() {
     document.getElementById('userLogin').innerText = '@' + currentUser;
     if (currentUserData?.avatar) {
         document.getElementById('userAvatar').innerHTML = '<img src="' + currentUserData.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+        document.getElementById('profileAvatar').innerHTML = '<img src="' + currentUserData.avatar + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover">';
     }
 }
 
@@ -768,8 +828,8 @@ function renderChats() {
         const f = allFriends[i];
         const online = onlineUsers.has(f);
         html += '<div class="chat-item" onclick="openChat(\\'' + f + '\\', \\'private\\')">' +
-            '<div class="chat-avatar">👤' + (online ? '<div style="position:absolute;bottom:4px;right:4px;width:12px;height:12px;background:#10b981;border-radius:50%;border:2px solid var(--surface)"></div>' : '') + '</div>' +
-            '<div class="chat-info"><div class="chat-name">' + f + '</div><div class="chat-status ' + (online ? '' : 'offline') + '">' + (online ? 'Онлайн' : 'Офлайн') + '</div></div>' +
+            '<div class="chat-avatar">👤' + (online ? '<div class="online-dot"></div>' : '') + '</div>' +
+            '<div class="chat-info"><div class="chat-name">' + f + '</div><div class="chat-status ' + (online ? 'online' : '') + '">' + (online ? 'Онлайн' : 'Офлайн') + '</div></div>' +
         '</div>';
     }
     if (html === '') html = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Нет чатов</div>';
@@ -799,8 +859,9 @@ function openChat(target, type) {
     }
     document.getElementById('chatTitle').innerHTML = title;
     document.getElementById('chatAvatar').innerHTML = type === 'group' ? '👥' : '👤';
-    document.getElementById('chatStatus').innerHTML = (type === 'private' && onlineUsers.has(target)) ? 'Онлайн' : '';
-    if (type === 'private' && onlineUsers.has(target)) {
+    const isOnline = type === 'private' && onlineUsers.has(target);
+    document.getElementById('chatStatus').innerHTML = isOnline ? 'Онлайн' : '';
+    if (isOnline) {
         document.getElementById('chatStatus').classList.add('online');
     } else {
         document.getElementById('chatStatus').classList.remove('online');
@@ -1013,7 +1074,7 @@ window.addEventListener('resize', () => {
     `);
 });
 
-// ========== СОКЕТЫ (СЕРВЕР) ==========
+// ========== СОКЕТЫ ==========
 const userSockets = new Map();
 const onlineSet = new Set();
 
@@ -1221,21 +1282,20 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║     🚀 ATOMGRAM 100GB — МЕССЕНДЖЕР БУДУЩЕГО                ║
+║     ✨ ATOMGRAM — НОВЫЙ ИНТЕРФЕЙС ✨                       ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  💻 http://localhost:${PORT}                               ║
 ║  📱 http://localhost:${PORT}                               ║
 ╠═══════════════════════════════════════════════════════════╣
-║  ✨ 100GB ФУНКЦИЙ:                                        ║
-║  💬 ЛИЧНЫЕ СООБЩЕНИЯ                                      ║
-║  👥 ГРУППЫ                                                ║
-║  👤 ДРУЗЬЯ С ЗАПРОСАМИ                                    ║
-║  🖼️ АВАТАРЫ ПОЛЬЗОВАТЕЛЕЙ                                ║
-║  🟢 ОНЛАЙН-СТАТУС                                         ║
-║  📱 АДАПТИВНЫЙ ДИЗАЙН                                     ║
-║  🎨 КРАСИВЫЙ ИНТЕРФЕЙС                                    ║
-║  ⚡ СУПЕРСКОРОСТЬ                                         ║
-║  🤖 AWAKE-BOT (сервер не спит 24/7)                     ║
+║  🎨 Glassmorphism дизайн                                  ║
+║  🌈 Градиенты и анимации                                   ║
+║  💬 Личные сообщения                                       ║
+║  👥 Группы                                                 ║
+║  👤 Друзья                                                ║
+║  🖼️ Аватары                                               ║
+║  🟢 Онлайн-статус                                         ║
+║  📱 Адаптив                                                ║
+║  🤖 Awake-bot                                              ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
 });
