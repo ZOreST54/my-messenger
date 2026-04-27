@@ -11,6 +11,7 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling']
 });
 
+// Данные
 let users = {};
 let privateChats = {};
 let groups = {};
@@ -39,24 +40,36 @@ function aiResponse(message, username) {
     const msg = message.toLowerCase();
     
     if (msg.includes('привет') || msg.includes('здравствуй')) {
-        return `✨ Привет, ${username}! Я — ИИ-помощник ATOMGRAM. Чем могу помочь? 🚀`;
+        return `✨ Привет, ${username}! Я — ИИ-помощник ATOMGRAM. Чем могу помочь? Напиши "помощь" чтобы узнать мои возможности! 🚀`;
     }
     if (msg.includes('помощь') || msg.includes('help')) {
-        return `🔧 **Возможности ATOMGRAM:**\n\n💬 Личные сообщения\n👥 Группы\n📢 Каналы\n🎤 Голосовые сообщения\n📎 Файлы и фото\n😀 Стикеры\n📊 Опросы\n📸 Истории\n🎮 Игры\n🌍 Поиск пользователей\n\nНапиши "игра" чтобы начать! 🎯`;
+        return `🔧 **Возможности ATOMGRAM:**\n\n💬 Личные сообщения\n👥 Группы (до 200 человек)\n📢 Каналы\n🎤 Голосовые сообщения\n📎 Отправка файлов и фото\n😀 Стикеры (20+)\n📸 Истории (24 часа)\n🎮 Игры (Крестики-нолики, Кости, Дартс)\n🔍 Поиск пользователей\n⭐ Сохранение сообщений\n\nНапиши "игра" чтобы начать! 🎯`;
     }
     if (msg.includes('игра')) {
-        return `🎮 **Игры:**\n❌ Крестики-нолики\n🎲 Кости\n🎯 Дартс\n\nВыбери друга и нажми кнопку 🎮!`;
+        return `🎮 **Доступные игры:**\n❌ Крестики-нолики\n🎲 Кости\n🎯 Дартс\n\nВыбери друга в чате и нажми кнопку 🎮!`;
     }
-    if (msg.includes('шутка')) {
-        return `😂 Почему программисты путают Хэллоуин и Рождество? Потому что 31 Oct == 25 Dec!`;
+    if (msg.includes('шутка') || msg.includes('смешное')) {
+        const jokes = [
+            `😂 Почему программисты путают Хэллоуин и Рождество? Потому что 31 Oct == 25 Dec!`,
+            `🤣 Что говорит один бит другому? — "Ты меня дополняешь!"`,
+            `😄 Какой язык программирования самый вежливый? Java — у него всегда есть "public static void main"!`,
+            `🤪 Почему разработчики ненавидят понедельники? Потому что git pull напоминает им о работе!`
+        ];
+        return jokes[Math.floor(Math.random() * jokes.length)];
     }
     if (msg.includes('спасибо')) {
-        return `😊 Всегда пожалуйста, ${username}! Рад помочь!`;
+        return `😊 Всегда пожалуйста, ${username}! Рад помочь! Обращайся в любое время! 💫`;
     }
     if (msg.includes('кто ты')) {
-        return `🤖 Я — ИИ-помощник ATOMGRAM! Помогаю общаться, играть и отвечаю на вопросы.`;
+        return `🤖 **Я — ИИ-помощник ATOMGRAM!**\n\nМои возможности:\n• 🧠 Умный диалог\n• 📚 Объясняю сложное простым языком\n• 💡 Даю советы\n• 🎮 Играю с тобой\n• 📝 Помогаю с настройками\n\nЧем могу помочь сегодня, ${username}? 🚀`;
     }
-    return `Понял тебя, ${username}! 🤔 Расскажи подробнее, мне интересно!`;
+    if (msg.includes('погода')) {
+        return `🌤️ **Погода сегодня:**\n\n• Температура: +22°C\n• Влажность: 65%\n• Ветер: 3 м/с\n• Солнечно, без осадков\n\nОтличный день для общения в ATOMGRAM! ☀️`;
+    }
+    if (msg.includes('стих')) {
+        return `📜 **Вот стих для тебя:**\n\nВ мире цифр и проводов,\nСреди миллионов голосов,\nATOMGRAM сияет ярко,\nКак в ночи маяк подарком.\n\nОбщайся, спорь, люби, дружи,\nМечтай, твори, вперёд беги!\nА я всегда, в любой момент,\nТебе помощник и клиент. 🤖✨`;
+    }
+    return `Понял тебя, ${username}! 🤔 Расскажи подробнее, мне очень интересно продолжать с тобой диалог! 💬`;
 }
 
 app.get('/', (req, res) => {
@@ -65,7 +78,7 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ATOMGRAM — Конкурент Telegram</title>
+    <title>ATOMGRAM — Мессенджер будущего</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: white; height: 100vh; overflow: hidden; }
@@ -131,23 +144,11 @@ app.get('/', (req, res) => {
         .error-msg { color: #ff3b30; margin-top: 16px; }
         
         .app { display: none; height: 100vh; flex-direction: column; }
-        .header {
-            background: #1c1c1e;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            border-bottom: 1px solid #2c2c2e;
-        }
-        .menu-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #007aff;
-            display: none;
-        }
+        .header { background: #1c1c1e; padding: 12px 16px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #2c2c2e; }
+        .menu-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #007aff; display: none; }
         .logo { font-size: 20px; font-weight: bold; background: linear-gradient(135deg, #007aff, #5856d6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .online-badge { margin-left: auto; font-size: 12px; color: #34c759; display: flex; align-items: center; gap: 6px; background: rgba(52,199,89,0.1); padding: 6px 12px; border-radius: 20px; }
+        .online-badge::before { content: ''; width: 8px; height: 8px; background: #34c759; border-radius: 50%; animation: pulse 1s infinite; }
         
         .container { display: flex; flex: 1; overflow: hidden; }
         .sidebar {
@@ -183,429 +184,89 @@ app.get('/', (req, res) => {
         }
         @media (min-width: 769px) { .sidebar { position: relative; left: 0 !important; } }
         
-        .profile {
-            padding: 30px 20px;
-            text-align: center;
-            border-bottom: 1px solid #2c2c2e;
-            cursor: pointer;
-        }
-        .avatar {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, #007aff, #5856d6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            margin: 0 auto 12px;
-        }
+        .profile { padding: 30px 20px; text-align: center; border-bottom: 1px solid #2c2c2e; cursor: pointer; }
+        .avatar { width: 70px; height: 70px; background: linear-gradient(135deg, #007aff, #5856d6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 12px; }
         .profile-name { font-size: 17px; font-weight: 600; }
         .profile-username { font-size: 13px; color: #8e8e93; margin-top: 4px; }
         
-        .nav-item {
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            border-radius: 10px;
-            margin: 4px 12px;
-        }
+        .nav-item { padding: 12px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; border-radius: 10px; margin: 4px 12px; }
         .nav-item:hover { background: #2c2c2e; }
-        .section-title {
-            padding: 16px 20px 8px;
-            font-size: 12px;
-            color: #8e8e93;
-            text-transform: uppercase;
-        }
+        .section-title { padding: 16px 20px 8px; font-size: 12px; color: #8e8e93; text-transform: uppercase; }
         
-        .search-box {
-            padding: 12px 16px;
-            margin: 8px 12px;
-            background: #2c2c2e;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .search-box input {
-            flex: 1;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 14px;
-        }
-        .search-results {
-            max-height: 200px;
-            overflow-y: auto;
-            margin: 4px 12px;
-        }
-        .search-result {
-            padding: 10px 12px;
-            border-radius: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .search-box { padding: 12px 16px; margin: 8px 12px; background: #2c2c2e; border-radius: 16px; display: flex; align-items: center; gap: 10px; }
+        .search-box input { flex: 1; background: none; border: none; color: white; font-size: 14px; }
+        .search-results { max-height: 200px; overflow-y: auto; margin: 4px 12px; }
+        .search-result { padding: 10px 12px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         .search-result:hover { background: #2c2c2e; }
         
-        .chats-list, .channels-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px 12px;
-        }
-        .chat-item {
-            padding: 12px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            cursor: pointer;
-            border-radius: 14px;
-            transition: all 0.2s;
-        }
+        .chats-list, .channels-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+        .chat-item { padding: 12px; display: flex; align-items: center; gap: 14px; cursor: pointer; border-radius: 14px; transition: all 0.2s; }
         .chat-item:hover { background: #2c2c2e; transform: translateX(4px); }
-        .chat-avatar {
-            width: 48px;
-            height: 48px;
-            background: #2c2c2e;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .online-dot {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 12px;
-            height: 12px;
-            background: #34c759;
-            border-radius: 50%;
-            border: 2px solid #1c1c1e;
-        }
+        .chat-avatar { width: 48px; height: 48px; background: #2c2c2e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; position: relative; }
+        .online-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: #34c759; border-radius: 50%; border: 2px solid #1c1c1e; }
         .chat-info { flex: 1; }
         .chat-name { font-weight: 600; font-size: 16px; }
         .chat-preview { font-size: 13px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
         
-        .chat-main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #000000;
-        }
-        .chat-header {
-            padding: 12px 16px;
-            background: #1c1c1e;
-            border-bottom: 1px solid #2c2c2e;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .back-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #007aff;
-            display: none;
-        }
-        .chat-header-avatar {
-            width: 44px;
-            height: 44px;
-            background: #2c2c2e;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-        }
+        .chat-main { flex: 1; display: flex; flex-direction: column; background: #0a0a0f; }
+        .chat-header { padding: 12px 16px; background: #1c1c1e; border-bottom: 1px solid #2c2c2e; display: flex; align-items: center; gap: 12px; }
+        .back-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #007aff; display: none; }
+        .chat-header-avatar { width: 44px; height: 44px; background: #2c2c2e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .chat-header-info { flex: 1; }
         .chat-header-name { font-weight: 600; font-size: 17px; }
         .chat-header-status { font-size: 12px; color: #8e8e93; margin-top: 2px; }
         .chat-actions { display: flex; gap: 8px; }
-        .action-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-        }
+        .action-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 8px; border-radius: 50%; width: 40px; height: 40px; }
         .action-btn:hover { background: #2c2c2e; }
         
-        .messages-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .message {
-            display: flex;
-            gap: 8px;
-            max-width: 80%;
-            animation: fadeIn 0.2s;
-        }
-        .message.mine {
-            align-self: flex-end;
-            flex-direction: row-reverse;
-        }
-        .message-avatar {
-            width: 32px;
-            height: 32px;
-            background: #2c2c2e;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
+        .messages-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .message { display: flex; gap: 8px; max-width: 80%; animation: fadeIn 0.2s; }
+        .message.mine { align-self: flex-end; flex-direction: row-reverse; }
+        .message-avatar { width: 32px; height: 32px; background: #2c2c2e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
         .message-bubble { max-width: calc(100% - 40px); }
-        .message-content {
-            padding: 8px 12px;
-            border-radius: 18px;
-            background: #2c2c2e;
-        }
+        .message-content { padding: 8px 12px; border-radius: 18px; background: #2c2c2e; }
         .message.mine .message-content { background: #007aff; }
         .message-name { font-size: 11px; font-weight: 600; margin-bottom: 2px; color: #8e8e93; }
         .message-text { font-size: 15px; line-height: 1.4; word-break: break-word; }
         .message-time { font-size: 10px; color: #8e8e93; margin-top: 4px; text-align: right; }
         
-        .voice-message { display: flex; align-items: center; gap: 12px; }
-        .voice-play {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: #007aff;
-            border: none;
-            color: white;
-            cursor: pointer;
-        }
-        
-        .sticker-picker {
-            position: fixed;
-            bottom: 80px;
-            left: 0;
-            right: 0;
-            background: #1c1c1e;
-            border-radius: 24px 24px 0 0;
-            padding: 16px;
-            display: none;
-            flex-wrap: wrap;
-            gap: 12px;
-            justify-content: center;
-            z-index: 150;
-            max-height: 250px;
-            overflow-y: auto;
-            border-top: 1px solid #2c2c2e;
-        }
+        .sticker-picker { position: fixed; bottom: 80px; left: 0; right: 0; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 16px; display: none; flex-wrap: wrap; gap: 12px; justify-content: center; z-index: 150; max-height: 250px; overflow-y: auto; border-top: 1px solid #2c2c2e; }
         .sticker-picker.open { display: flex; }
         .sticker { font-size: 42px; cursor: pointer; padding: 5px; background: #2c2c2e; border-radius: 12px; }
         
-        .game-container {
-            background: #1c1c1e;
-            border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 12px;
-        }
+        .game-container { background: #1c1c1e; border-radius: 20px; padding: 16px; margin-bottom: 12px; }
         .game-title { text-align: center; margin-bottom: 12px; font-size: 16px; font-weight: bold; }
-        .tic-grid {
-            display: inline-grid;
-            grid-template-columns: repeat(3, 70px);
-            gap: 8px;
-            background: #2c2c2e;
-            padding: 8px;
-            border-radius: 12px;
-            margin: 0 auto;
-        }
-        .tic-cell {
-            width: 70px;
-            height: 70px;
-            background: #000000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            cursor: pointer;
-            border-radius: 10px;
-        }
+        .tic-grid { display: inline-grid; grid-template-columns: repeat(3, 70px); gap: 8px; background: #2c2c2e; padding: 8px; border-radius: 12px; margin: 0 auto; }
+        .tic-cell { width: 70px; height: 70px; background: #0a0a0f; display: flex; align-items: center; justify-content: center; font-size: 40px; cursor: pointer; border-radius: 10px; }
         .tic-cell:hover { background: #007aff; }
-        .game-controls {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-            justify-content: center;
-        }
-        .game-btn {
-            padding: 8px 16px;
-            background: #007aff;
-            border: none;
-            border-radius: 10px;
-            color: white;
-            cursor: pointer;
-        }
+        .game-controls { display: flex; gap: 12px; margin-top: 16px; justify-content: center; }
+        .game-btn { padding: 8px 16px; background: #007aff; border: none; border-radius: 10px; color: white; cursor: pointer; }
         
-        .input-area {
-            padding: 10px 16px;
-            background: #1c1c1e;
-            border-top: 1px solid #2c2c2e;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .input-area input {
-            flex: 1;
-            padding: 10px 14px;
-            background: #2c2c2e;
-            border: none;
-            border-radius: 20px;
-            color: white;
-            font-size: 15px;
-        }
-        .input-area button {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #007aff;
-            border: none;
-            color: white;
-            cursor: pointer;
-            font-size: 18px;
-        }
+        .input-area { padding: 10px 16px; background: #1c1c1e; border-top: 1px solid #2c2c2e; display: flex; gap: 10px; align-items: center; }
+        .input-area input { flex: 1; padding: 10px 14px; background: #2c2c2e; border: none; border-radius: 20px; color: white; font-size: 15px; }
+        .input-area button { width: 40px; height: 40px; border-radius: 50%; background: #007aff; border: none; color: white; cursor: pointer; font-size: 18px; }
+        .input-area button:hover { transform: scale(1.05); }
         
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            visibility: hidden;
-            opacity: 0;
-            transition: all 0.2s;
-        }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; visibility: hidden; opacity: 0; transition: all 0.2s; }
         .modal.active { visibility: visible; opacity: 1; }
-        .modal-content {
-            background: #1c1c1e;
-            border-radius: 24px;
-            width: 90%;
-            max-width: 380px;
-            overflow: hidden;
-        }
-        .modal-header {
-            padding: 20px;
-            border-bottom: 1px solid #2c2c2e;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .modal-close {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-        }
+        .modal-content { background: #1c1c1e; border-radius: 24px; width: 90%; max-width: 380px; overflow: hidden; }
+        .modal-header { padding: 20px; border-bottom: 1px solid #2c2c2e; display: flex; justify-content: space-between; align-items: center; }
+        .modal-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
         .modal-body { padding: 20px; }
-        .modal-footer {
-            padding: 16px 20px;
-            border-top: 1px solid #2c2c2e;
-            display: flex;
-            gap: 12px;
-        }
-        .modal-input {
-            width: 100%;
-            padding: 14px;
-            background: #2c2c2e;
-            border: none;
-            border-radius: 12px;
-            color: white;
-            margin-bottom: 16px;
-        }
-        .modal-btn {
-            flex: 1;
-            padding: 14px;
-            background: #007aff;
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-        }
+        .modal-footer { padding: 16px 20px; border-top: 1px solid #2c2c2e; display: flex; gap: 12px; }
+        .modal-input { width: 100%; padding: 14px; background: #2c2c2e; border: none; border-radius: 12px; color: white; margin-bottom: 16px; }
+        .modal-btn { flex: 1; padding: 14px; background: #007aff; border: none; border-radius: 12px; color: white; font-weight: 600; cursor: pointer; }
         .modal-btn.cancel { background: #2c2c2e; }
         
-        .story-viewer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: black;
-            z-index: 3000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            visibility: hidden;
-            opacity: 0;
-        }
+        .story-viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 3000; display: flex; align-items: center; justify-content: center; visibility: hidden; opacity: 0; }
         .story-viewer.active { visibility: visible; opacity: 1; }
         .story-container { width: 100%; max-width: 400px; position: relative; }
         .story-media { width: 100%; border-radius: 20px; max-height: 80vh; object-fit: cover; }
-        .story-progress {
-            position: absolute;
-            top: 10px;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: rgba(255,255,255,0.3);
-        }
-        .story-progress-bar {
-            height: 100%;
-            background: white;
-            width: 0%;
-            transition: width 0.1s linear;
-        }
-        .story-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.5);
-            border: none;
-            color: white;
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-        }
+        .story-progress { position: absolute; top: 10px; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.3); }
+        .story-progress-bar { height: 100%; background: white; width: 0%; transition: width 0.1s linear; }
+        .story-close { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.5); border: none; color: white; font-size: 24px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
         
-        .toast {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1c1c1e;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-size: 13px;
-            z-index: 1000;
-            animation: fadeIn 0.3s;
-        }
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #1c1c1e; padding: 10px 20px; border-radius: 25px; font-size: 13px; z-index: 1000; animation: fadeIn 0.3s; }
     </style>
 </head>
 <body>
@@ -613,7 +274,7 @@ app.get('/', (req, res) => {
 <div class="auth-screen" id="authScreen">
     <div class="auth-card">
         <h1>⚡ ATOMGRAM</h1>
-        <div class="subtitle">Конкурент Telegram</div>
+        <div class="subtitle">Мессенджер будущего</div>
         <div id="loginPanel">
             <input type="text" id="loginUsername" placeholder="Логин">
             <input type="password" id="loginPassword" placeholder="Пароль">
@@ -635,6 +296,7 @@ app.get('/', (req, res) => {
     <div class="header">
         <button class="menu-btn" onclick="toggleSidebar()">☰</button>
         <div class="logo">⚡ ATOMGRAM</div>
+        <div class="online-badge">Онлайн</div>
     </div>
     <div class="container">
         <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -644,6 +306,7 @@ app.get('/', (req, res) => {
                 <div class="profile-name" id="userName">Загрузка...</div>
                 <div class="profile-username" id="userLogin">@</div>
             </div>
+            <div class="stories-row" id="storiesRow"></div>
             <div class="search-box">
                 <span>🔍</span>
                 <input type="text" id="searchInput" placeholder="Поиск..." onkeyup="globalSearch()">
@@ -670,18 +333,13 @@ app.get('/', (req, res) => {
             </div>
             <div class="messages-area" id="messages"></div>
             <div class="sticker-picker" id="stickerPicker">
-                <div class="sticker" onclick="sendSticker('😀')">😀</div>
-                <div class="sticker" onclick="sendSticker('😂')">😂</div>
-                <div class="sticker" onclick="sendSticker('😍')">😍</div>
-                <div class="sticker" onclick="sendSticker('😎')">😎</div>
-                <div class="sticker" onclick="sendSticker('🥳')">🥳</div>
-                <div class="sticker" onclick="sendSticker('🔥')">🔥</div>
-                <div class="sticker" onclick="sendSticker('❤️')">❤️</div>
-                <div class="sticker" onclick="sendSticker('🎉')">🎉</div>
-                <div class="sticker" onclick="sendSticker('👍')">👍</div>
-                <div class="sticker" onclick="sendSticker('🐱')">🐱</div>
-                <div class="sticker" onclick="sendSticker('🐶')">🐶</div>
-                <div class="sticker" onclick="sendSticker('🚀')">🚀</div>
+                <div class="sticker" onclick="sendSticker('😀')">😀</div><div class="sticker" onclick="sendSticker('😂')">😂</div>
+                <div class="sticker" onclick="sendSticker('😍')">😍</div><div class="sticker" onclick="sendSticker('😎')">😎</div>
+                <div class="sticker" onclick="sendSticker('🥳')">🥳</div><div class="sticker" onclick="sendSticker('🔥')">🔥</div>
+                <div class="sticker" onclick="sendSticker('❤️')">❤️</div><div class="sticker" onclick="sendSticker('🎉')">🎉</div>
+                <div class="sticker" onclick="sendSticker('👍')">👍</div><div class="sticker" onclick="sendSticker('👎')">👎</div>
+                <div class="sticker" onclick="sendSticker('🐱')">🐱</div><div class="sticker" onclick="sendSticker('🐶')">🐶</div>
+                <div class="sticker" onclick="sendSticker('🚀')">🚀</div><div class="sticker" onclick="sendSticker('✨')">✨</div>
             </div>
             <div class="input-area" id="inputArea" style="display: none;">
                 <input type="text" id="messageInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
@@ -851,7 +509,7 @@ function openAIChat() {
     document.getElementById('inputArea').style.display = 'flex';
     document.getElementById('chatActions').innerHTML = '';
     document.getElementById('messages').innerHTML = '';
-    addMessage({ from: '🤖 ИИ', text: 'Привет! Я ИИ-помощник ATOMGRAM. Можешь спросить меня о чём угодно, я помогу! 🚀', time: new Date().toLocaleTimeString() });
+    addMessage({ from: '🤖 ИИ', text: '✨ Привет! Я — ИИ-помощник ATOMGRAM. Можешь спросить меня о чём угодно, я помогу! Напиши "помощь" чтобы узнать мои возможности. 🚀', time: new Date().toLocaleTimeString() });
     if (isMobile) {
         document.getElementById('sidebar').classList.remove('open');
         document.getElementById('overlay').classList.remove('open');
@@ -865,6 +523,7 @@ function openChat(target, type, name) {
     if (type === 'channel') title = '#' + title;
     document.getElementById('chatTitle').innerHTML = title;
     document.getElementById('chatAvatar').innerHTML = type === 'channel' ? '📢' : '👤';
+    document.getElementById('chatStatus').innerHTML = type === 'channel' ? 'Публичный канал' : '';
     document.getElementById('inputArea').style.display = 'flex';
     document.getElementById('messages').innerHTML = '';
     
@@ -902,24 +561,24 @@ function sendMessage() {
 function getAIResponse(message) {
     const msg = message.toLowerCase();
     if (msg.includes('привет') || msg.includes('здравствуй')) {
-        return 'Привет! 👋 Рад тебя видеть! Чем могу помочь?';
+        return 'Привет! 👋 Рад тебя видеть! Чем могу помочь? Напиши "помощь" чтобы узнать мои возможности!';
     }
     if (msg.includes('помощь') || msg.includes('help')) {
-        return '🔧 Я могу: отвечать на вопросы, играть с тобой, помогать с настройками. Просто напиши! 🤖';
+        return '🔧 **Я могу:**\n• Отвечать на вопросы\n• Играть с тобой в игры\n• Давать советы\n• Рассказывать шутки\n• Помогать с настройками\n\nПросто напиши, что тебе нужно! 🤖';
     }
     if (msg.includes('игра')) {
-        return '🎮 Хочешь сыграть? Выбери друга, нажми на кнопку 🎮 и пригласи его в игру!';
+        return '🎮 Хочешь сыграть? Выбери друга в чате, нажми на кнопку 🎮 и пригласи его в игру! Доступны: Крестики-нолики, Кости, Дартс!';
     }
     if (msg.includes('шутка')) {
         return '😂 Почему программисты путают Хэллоуин и Рождество? Потому что 31 Oct == 25 Dec!';
     }
     if (msg.includes('спасибо')) {
-        return 'Всегда пожалуйста! 😊';
+        return 'Всегда пожалуйста! 😊 Обращайся в любое время!';
     }
     if (msg.includes('кто ты')) {
-        return 'Я — ИИ-помощник ATOMGRAM! Помогаю общаться, играть и отвечаю на вопросы. 🤖';
+        return '🤖 Я — ИИ-помощник ATOMGRAM! Помогаю общаться, играть и отвечаю на вопросы. Чем могу помочь сегодня?';
     }
-    return 'Понял тебя! 🤔 Расскажи подробнее, мне интересно! 💬';
+    return 'Понял тебя! 🤔 Расскажи подробнее, мне очень интересно продолжать с тобой диалог! 💬';
 }
 
 function addMessage(msg) {
@@ -929,12 +588,16 @@ function addMessage(msg) {
         '<div class="message-bubble">' +
             '<div class="message-content">' +
                 (msg.from !== currentUser && msg.from !== '🤖 ИИ' ? '<div class="message-name">' + escapeHtml(msg.from) + '</div>' : '') +
-                '<div class="message-text">' + escapeHtml(msg.text) + '</div>' +
+                '<div class="message-text">' + formatMessage(escapeHtml(msg.text)) + '</div>' +
                 '<div class="message-time">' + (msg.time || new Date().toLocaleTimeString()) + '</div>' +
             '</div>' +
         '</div>';
     document.getElementById('messages').appendChild(div);
     div.scrollIntoView({ behavior: 'smooth' });
+}
+
+function formatMessage(text) {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
 }
 
 function sendSticker(s) {
@@ -1312,7 +975,7 @@ function closeSidebar() {
 function showToast(msg) {
     const t = document.createElement('div');
     t.className = 'toast';
-    t.innerText = msg;
+    t.innerHTML = '⚡ ' + msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2000);
 }
@@ -1339,9 +1002,7 @@ socket.on('chatHistory', (data) => {
     }
 });
 socket.on('newMessage', (msg) => {
-    let show = false;
-    if (currentChatTarget === msg.target || currentChatTarget === msg.from) show = true;
-    if (show) {
+    if (currentChatTarget === msg.target || currentChatTarget === msg.from) {
         addMessage(msg);
     }
     if (msg.from !== currentUser && currentChatType !== 'ai') {
@@ -1374,13 +1035,11 @@ socket.on('userOffline', (u) => {
 });
 socket.on('storiesUpdate', (s) => {
     const container = document.getElementById('storiesRow');
-    if (container) {
-        let html = '<div class="story-item" onclick="addStory()"><div class="story-circle add"><div class="story-avatar">+</div></div><div class="story-name">Моя</div></div>';
-        for (let i = 0; i < s.length; i++) {
-            html += '<div class="story-item" onclick="viewStory(\\'' + s[i].username + '\\')"><div class="story-circle"><div class="story-avatar">' + (s[i].avatar || '👤') + '</div></div><div class="story-name">' + (s[i].name || s[i].username) + '</div></div>';
-        }
-        container.innerHTML = html;
+    let html = '<div class="story-item" onclick="addStory()"><div class="story-circle add"><div class="story-avatar">+</div></div><div class="story-name">Моя</div></div>';
+    for (let i = 0; i < s.length; i++) {
+        html += '<div class="story-item" onclick="viewStory(\\'' + s[i].username + '\\')"><div class="story-circle"><div class="story-avatar">' + (s[i].avatar || '👤') + '</div></div><div class="story-name">' + (s[i].name || s[i].username) + '</div></div>';
     }
+    container.innerHTML = html;
 });
 socket.on('storyData', (d) => {
     const viewer = document.getElementById('storyViewer');
@@ -1730,7 +1389,8 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║     🚀 ATOMGRAM — КОНКУРЕНТ TELEGRAM И MAX                ║
+║     🚀 ATOMGRAM — МЕССЕНДЖЕР БУДУЩЕГО                     ║
+║                   КОНКУРЕНТ TELEGRAM                      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  💻 http://localhost:${PORT}                               ║
 ║  📱 http://localhost:${PORT}                               ║
@@ -1749,7 +1409,7 @@ server.listen(PORT, '0.0.0.0', () => {
 ║  🟢 ОНЛАЙН-СТАТУС                                         ║
 ║  📱 АДАПТИВНЫЙ ДИЗАЙН                                     ║
 ╠═══════════════════════════════════════════════════════════╣
-║  🏆 ATOMGRAM — МЕССЕНДЖЕР БУДУЩЕГО! 🚀                    ║
+║  🏆 ATOMGRAM — МЕССЕНДЖЕР №1 В МИРЕ! 🚀                    ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
 });
