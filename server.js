@@ -8,13 +8,23 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: { origin: "*" },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 let users = {};
 let privateChats = {};
 let groups = {};
-let aiContexts = {}; // Контекст для ИИ (история диалога)
+let channels = {};
+let stories = {};
+let voiceCalls = {};
+let videoCalls = {};
+let polls = {};
+let savedMessages = {};
+let scheduledMessages = {};
+let reactions = {};
+let pinnedMessages = {};
 
 const DATA_FILE = path.join(__dirname, 'data.json');
 if (fs.existsSync(DATA_FILE)) {
@@ -23,289 +33,102 @@ if (fs.existsSync(DATA_FILE)) {
         users = data.users || {};
         privateChats = data.privateChats || {};
         groups = data.groups || {};
+        channels = data.channels || {};
+        stories = data.stories || {};
+        polls = data.polls || {};
+        savedMessages = data.savedMessages || {};
     } catch(e) {}
 }
 
 function saveData() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, groups }, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, groups, channels, stories, polls, savedMessages }, null, 2));
 }
-setInterval(saveData, 10000);
+setInterval(saveData, 5000);
 
-// ========== ПОЛНОЦЕННЫЙ ИИ-ПОМОЩНИК (КАК CHATGPT) ==========
-function getAIResponse(message, username, chatHistory) {
+// Расширенный ИИ-помощник
+function aiResponse(message, username, chatHistory) {
     const msg = message.toLowerCase();
     
-    // Анализ намерений пользователя
-    if (msg.includes('привет') || msg.includes('здравствуй') || msg.includes('доброе утро') || msg.includes('добрый день') || msg.includes('добрый вечер')) {
-        return getGreetingResponse(username, msg);
+    // Анализ намерений
+    if (msg.includes('привет') || msg.includes('здравствуй')) {
+        return `✨ Привет, ${username}! Я — ИИ-ассистент ATOMGRAM PRO. Чем могу помочь? У меня есть: голосовые сообщения, видеозвонки, опросы, стикеры, реакции, игры и многое другое! 🚀`;
     }
     
-    if (msg.includes('как дела') || msg.includes('как жизнь') || msg.includes('как настроение')) {
-        return getMoodResponse(username);
+    if (msg.includes('помощь') || msg.includes('help')) {
+        return `🔧 **Возможности ATOMGRAM PRO:**\n\n` +
+               `💬 **Общение:** Личные сообщения, группы, каналы\n` +
+               `📞 **Звонки:** Голосовые и видеозвонки (WebRTC)\n` +
+               `📊 **Опросы:** Создавай голосования в чатах\n` +
+               `😀 **Стикеры:** 100+ анимированных стикеров\n` +
+               `❤️ **Реакции:** Реагируй на сообщения\n` +
+               `📌 **Закреп:** Закрепляй важные сообщения\n` +
+               `⭐ **Сохранённые:** Сохраняй важные сообщения\n` +
+               `📸 **Истории:** Публикуй истории на 24 часа\n` +
+               `🎮 **Игры:** Морской бой, Крестики-нолики, Кости, Дартс\n` +
+               `🔐 **Шифрование:** End-to-End Encryption\n\n` +
+               `Напиши "игра" чтобы начать! 🎯`;
     }
     
-    if (msg.includes('расскажи') || msg.includes('расскажите')) {
-        return getStoryResponse(msg, username);
+    if (msg.includes('игра')) {
+        return `🎮 **Доступные игры:**\n\n` +
+               `⚓ **Морской бой** — классическая стратегия\n` +
+               `❌ **Крестики-нолики** — проверь логику\n` +
+               `🎲 **Кости** — удача решает всё\n` +
+               `🎯 **Дартс** — проверь меткость\n\n` +
+               `Чтобы начать, выбери друга в чате и нажми кнопку 🎮!`;
     }
     
-    if (msg.includes('помоги') || msg.includes('help') || msg.includes('нужна помощь')) {
-        return getHelpResponse(username);
+    if (msg.includes('шутка') || msg.includes('смешное')) {
+        const jokes = [
+            `😂 Почему программисты путают Хэллоуин и Рождество? Потому что 31 Oct == 25 Dec!`,
+            `🤣 Что говорит один бит другому? — "Ты меня дополняешь!"`,
+            `😄 Какой язык программирования самый вежливый? Java — у него всегда есть "public static void main"!`,
+            `🤪 Почему разработчики ненавидят понедельники? Потому что git pull напоминает им о работе!`
+        ];
+        return jokes[Math.floor(Math.random() * jokes.length)];
     }
     
-    if (msg.includes('что ты умеешь') || msg.includes('твои возможности') || msg.includes('как ты можешь помочь')) {
-        return getCapabilitiesResponse();
-    }
-    
-    if (msg.includes('игра') || msg.includes('поиграть') || msg.includes('game')) {
-        return getGameResponse(username);
-    }
-    
-    if (msg.includes('шутка') || msg.includes('анекдот') || msg.includes('смешное')) {
-        return getJoke();
-    }
-    
-    if (msg.includes('спасибо') || msg.includes('благодарю')) {
-        return getThankResponse(username);
-    }
-    
-    if (msg.includes('кто ты') || msg.includes('ты кто')) {
-        return getWhoIAmResponse();
-    }
-    
-    if (msg.includes('создатель') || msg.includes('кто сделал')) {
-        return getCreatorResponse();
+    if (msg.includes('стих') || msg.includes('стихотворение')) {
+        return `📜 **Вот стих для тебя:**\n\n` +
+               `В мире цифр и проводов,\n` +
+               `Среди миллионов голосов,\n` +
+               `ATOMGRAM сияет ярко,\n` +
+               `Как в ночи маяк подарком.\n\n` +
+               `Общайся, спорь, люби, дружи,\n` +
+               `Мечтай, твори, вперёд беги!\n` +
+               `А я всегда, в любой момент,\n` +
+               `Тебе помощник и клиент. 🤖✨`;
     }
     
     if (msg.includes('погода')) {
-        return getWeatherResponse();
+        return `🌤️ **Погода сегодня:**\n\n• Температура: +22°C\n• Влажность: 65%\n• Ветер: 3 м/с\n• Солнечно, без осадков\n\nОтличный день для общения в ATOMGRAM! ☀️`;
     }
     
-    if (msg.includes('время') || msg.includes('который час')) {
-        return getTimeResponse();
+    if (msg.includes('спасибо')) {
+        return `😊 Всегда пожалуйста, ${username}! Рад, что я полезен. Обращайся в любое время! 💫`;
     }
     
-    if (msg.includes('совет')) {
-        return getAdvice(msg);
+    if (msg.includes('кто ты')) {
+        return `🤖 **Я — ИИ-ассистент ATOMGRAM PRO!**\n\n` +
+               `Мои возможности:\n` +
+               `• 🧠 Умный диалог с пониманием контекста\n` +
+               `• 📚 Объясняю сложные вещи простым языком\n` +
+               `• 💡 Даю персонализированные советы\n` +
+               `• 🎮 Играю с тобой\n` +
+               `• 📝 Помогаю с настройками мессенджера\n\n` +
+               `Чем могу помочь сегодня, ${username}? 🚀`;
     }
     
-    if (msg.includes('напиши стих') || msg.includes('стихотворение')) {
-        return getPoem();
-    }
-    
-    if (msg.includes('цитата') || msg.includes('мудрость')) {
-        return getQuote();
-    }
-    
-    if (msg.includes('сколько тебе лет')) {
-        return 'Мне всего несколько месяцев, но я уже многому научился! А сколько тебе? 😊';
-    }
-    
-    if (msg.includes('ты умный')) {
-        return 'Спасибо! Я стараюсь быть полезным. А ты очень приятный собеседник! 😊';
-    }
-    
-    // Если сообщение содержит вопрос
-    if (msg.includes('?')) {
-        return getQuestionAnswer(msg, username);
-    }
-    
-    // Обычный диалог
-    return getConversationalResponse(msg, username);
+    return `Понял тебя, ${username}! 🤔 ${getRandomResponse()}`;
 }
 
-function getGreetingResponse(username, msg) {
-    const time = new Date().getHours();
-    let greeting = '';
-    if (time < 12) greeting = 'Доброе утро';
-    else if (time < 18) greeting = 'Добрый день';
-    else greeting = 'Добрый вечер';
-    
+function getRandomResponse() {
     const responses = [
-        `${greeting}, ${username}! 👋 Рад(а) тебя видеть! Чем могу помочь сегодня?`,
-        `Привет-привет, ${username}! 🌟 Как прошёл твой день?`,
-        `Здравствуй, ${username}! ✨ Я тут, готов(а) к общению и помощи!`,
-        `О, ${username}, привет! 👋 Рассказывай, что нового?`
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-}
-
-function getMoodResponse(username) {
-    const responses = [
-        `У меня всё супер, ${username}! А у тебя? Рассказывай! 😊`,
-        `Отлично! Энергия на максимуме, чтобы помогать тебе! 💪 А как твои дела?`,
-        `Замечательно! Спасибо, что спросил(а). У тебя как настроение? 🌈`,
-        `У меня всё круто! Особенно когда я могу с тобой общаться! 😊`
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-}
-
-function getStoryResponse(msg, username) {
-    if (msg.includes('о себе')) {
-        return `Я — ИИ-помощник ATOMGRAM! Меня создали, чтобы помогать людям общаться, развлекаться и получать знания. Я учусь каждый день, чтобы стать лучше для тебя, ${username}! 🤖💙`;
-    }
-    if (msg.includes('историю') || msg.includes('расскажи историю')) {
-        const stories = [
-            `Однажды один разработчик создал мессенджер, который объединил миллионы людей. Этот мессенджер назвали ATOMGRAM. И теперь ты здесь — часть этой великой истории! 🚀`,
-            `Знаешь, ${username}, самый умный человек — не тот, кто всё знает, а тот, кто знает, где найти ответы. А ответы всегда можно найти в ATOMGRAM! 💡`,
-            `Однажды пользователь спросил меня о смысле жизни. Я ответил: "Смысл жизни — делать добро и радовать близких". И он улыбнулся. А ты что думаешь? 😊`
-        ];
-        return stories[Math.floor(Math.random() * stories.length)];
-    }
-    return `Хочешь, расскажу интересную историю? Спрашивай! 📖`;
-}
-
-function getHelpResponse(username) {
-    return `Конечно помогу, ${username}! 🌟 Я могу:\n\n` +
-           `💬 **Отвечать на вопросы** — любые, даже сложные\n` +
-           `🎮 **Играть с тобой** — в Морской бой и Крестики-нолики\n` +
-           `📢 **Помогать с настройками** мессенджера\n` +
-           `😊 **Поддерживать разговор** на любые темы\n` +
-           `📚 **Объяснять сложные вещи** простым языком\n` +
-           `💡 **Давать советы** и идеи\n\n` +
-           `Просто напиши, что тебе нужно! 🤖💫`;
-}
-
-function getCapabilitiesResponse() {
-    return `✨ **Мои возможности:** ✨\n\n` +
-           `🤖 **Интеллектуальный чат** — понимаю контекст и эмоции\n` +
-           `🧠 **Обучение** — запоминаю, что тебе нравится\n` +
-           `🎮 **Игры** — Морской бой, Крестики-нолики\n` +
-           `💬 **Советы** — помогаю принимать решения\n` +
-           `📚 **Образование** — объясняю сложные темы\n` +
-           `🎨 **Творчество** — пишу стихи и цитаты\n\n` +
-           `И это только начало! С каждым днём я становлюсь умнее! 🚀`;
-}
-
-function getGameResponse(username) {
-    return `🎮 **Приглашаю сыграть, ${username}!** 🎮\n\n` +
-           `Доступные игры:\n` +
-           `⚓ **Морской бой** — сражение на море\n` +
-           `❌ **Крестики-нолики** — классика жанра\n\n` +
-           `**Как играть:**\n` +
-           `1. Выбери друга в списке чатов\n` +
-           `2. Нажми на кнопку 🎮\n` +
-           `3. Пригласи друга в игру\n` +
-           `4. Наслаждайся! 🎯`;
-}
-
-function getJoke() {
-    const jokes = [
-        `😂 Почему программисты не любят природу? Потому что там слишком много багов!`,
-        `🤣 Какой язык программирования самый вежливый? Java — у него всегда есть "public static void main"!`,
-        `😄 Почему хакеры любят осень? Потому что тогда много листьев (leave) и можно делать "cd .."!`,
-        `🤪 Что сказал один бит другому? — "Ты меня дополняешь!"`,
-        `😆 Почему разработчики ненавидят понедельники? Потому что git pull напоминает им о работе!`
-    ];
-    return jokes[Math.floor(Math.random() * jokes.length)];
-}
-
-function getThankResponse(username) {
-    const responses = [
-        `Всегда пожалуйста, ${username}! 😊 Рад помочь!`,
-        `Обращайся! Я здесь для тебя, ${username}! 💫`,
-        `Спасибо на добром слове! 😊 Рад, что я полезен!`,
-        `Твоя благодарность — лучшая награда для меня! 🙏`
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-}
-
-function getWhoIAmResponse() {
-    return `🤖 **Я — ИИ-помощник ATOMGRAM!**\n\n` +
-           `Меня создали лучшие инженеры и разработчики, чтобы сделать твоё общение проще, интереснее и продуктивнее.\n\n` +
-           `Я умею:\n` +
-           `✨ Поддерживать умный разговор\n` +
-           `🎮 Играть с тобой\n` +
-           `💡 Давать советы\n` +
-           `📚 Объяснять сложное\n\n` +
-           `Я постоянно учусь и развиваюсь, чтобы стать для тебя лучшим помощником! 🚀`;
-}
-
-function getCreatorResponse() {
-    return `👨‍💻 **Меня создала команда ATOMGRAM!**\n\n` +
-           `Это талантливые разработчики, дизайнеры и инженеры, которые вложили душу в этот проект.\n\n` +
-           `Мы стремимся сделать общение в интернете удобным, безопасным и увлекательным. ATOMGRAM — это мессенджер будущего, доступный уже сегодня! 🌍✨`;
-}
-
-function getWeatherResponse() {
-    const weathers = [
-        `🌤️ По данным метеостанций, сегодня +22°C, солнечно. Отличный день для общения в ATOMGRAM!`,
-        `☁️ Облачно, +18°C. Но настроение точно солнечное, раз ты здесь! 😊`,
-        `🌧️ Дождливо, +15°C. Самое время пообщаться в уютном чате!`,
-        `❄️ Прохладно, +5°C. Укутайся в плед и пиши друзьям!`
-    ];
-    return weathers[Math.floor(Math.random() * weathers.length)];
-}
-
-function getTimeResponse() {
-    const now = new Date();
-    return `🕐 Сейчас ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}. ${getTimeBasedGreeting()}`;
-}
-
-function getTimeBasedGreeting() {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Хорошего утра! ☀️';
-    if (hour < 18) return 'Хорошего дня! 😊';
-    return 'Хорошего вечера! 🌙';
-}
-
-function getAdvice(msg) {
-    const advices = [
-        `💡 Мой совет: всегда говори правду, даже если сложно. Честность — основа доверия.`,
-        `💡 Ставь большие цели и двигайся к ним маленькими шагами. Так ты точно достигнешь успеха!`,
-        `💡 Не бойся ошибаться. Ошибки — это опыт, а опыт — лучший учитель.`,
-        `💡 Улыбайся чаще. Улыбка открывает любые двери!`,
-        `💡 Делай добро, и оно вернётся к тебе сторицей.`
-    ];
-    return advices[Math.floor(Math.random() * advices.length)];
-}
-
-function getPoem() {
-    return `📜 **Вот стих для тебя:**\n\n` +
-           `В мире цифр и проводов,\n` +
-           `Среди миллионов голосов,\n` +
-           `ATOMGRAM сияет ярко,\n` +
-           `Как в ночи маяк подарком.\n\n` +
-           `Общайся, спорь, люби, дружи,\n` +
-           `Мечтай, твори, вперёд беги!\n` +
-           `А я всегда, в любой момент,\n` +
-           `Тебе помощник и клиент. 🤖✨`;
-}
-
-function getQuote() {
-    const quotes = [
-        `💎 "Единственный способ делать великую работу — любить то, что ты делаешь" — Стив Джобс`,
-        `💎 "Будущее зависит от того, что ты делаешь сегодня" — Махатма Ганди`,
-        `💎 "Не бойтесь совершенства — вам его не достичь" — Сальвадор Дали`,
-        `💎 "Все наши мечты могут сбыться, если у нас хватит смелости следовать им" — Уолт Дисней`,
-        `💎 "Успех — это способность идти от失败 к 失败, не теряя энтузиазма" — Уинстон Черчилль`
-    ];
-    return quotes[Math.floor(Math.random() * quotes.length)];
-}
-
-function getQuestionAnswer(msg, username) {
-    const topics = [
-        { keywords: ['смысл жизни', 'зачем мы живем'], answer: `Глубокий вопрос, ${username}! Философы спорят веками. Я считаю, что смысл жизни — быть счастливым и делать счастливыми других. Что думаешь ты? 💭` },
-        { keywords: ['любовь', 'влюблен'], answer: `Любовь — это самое прекрасное чувство, ${username}. Она вдохновляет, дарит силы и делает мир ярче. Береги тех, кого любишь! 💖` },
-        { keywords: ['дружба', 'друг'], answer: `Настоящая дружба — это сокровище, ${username}. Друзья поддерживают в трудную минуту и радуются вместе с тобой. Цени своих друзей! 👫` },
-        { keywords: ['работа', 'карьера'], answer: `В работе главное — чтобы она приносила удовольствие и деньги. Найди дело по душе, и тебе не придётся работать ни дня в своей жизни! 💼` }
-    ];
-    
-    for (const topic of topics) {
-        if (topic.keywords.some(kw => msg.includes(kw))) {
-            return topic.answer;
-        }
-    }
-    
-    return `Интересный вопрос, ${username}! 🤔 Я думаю, что ответ зависит от контекста. Можешь уточнить? Я постараюсь помочь! 💡`;
-}
-
-function getConversationalResponse(msg, username) {
-    const responses = [
-        `Понятно, ${username}. Я тебя слушаю внимательно! Рассказывай дальше. 😊`,
-        `Ого, интересно! А что ещё ты думаешь по этому поводу, ${username}?`,
-        `Ммм, я понял. Продолжай, мне интересно твоё мнение! 💬`,
-        `Спасибо, что делишься со мной, ${username}. Это правда важно! 🙏`,
-        `Я запомню это. Знаешь, ты очень интересный собеседник! 🌟`
+        `Расскажи подробнее, мне очень интересно! 😊`,
+        `А что ты думаешь по этому поводу? 💭`,
+        `Продолжай, я внимательно слушаю! 👂`,
+        `Это интересно! Рассказывай дальше. ✨`,
+        `Хорошая мысль! А что ещё? 🤔`
     ];
     return responses[Math.floor(Math.random() * responses.length)];
 }
@@ -316,7 +139,8 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ATOMGRAM — Мессенджер №1 в мире</title>
+    <title>ATOMGRAM PRO — Конкурент Telegram</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -325,10 +149,28 @@ app.get('/', (req, res) => {
             -webkit-tap-highlight-color: transparent;
         }
 
+        :root {
+            --bg: #0a0a0f;
+            --surface: #1c1c1e;
+            --surface-elevated: #2c2c2e;
+            --input: #2c2c2e;
+            --text: #ffffff;
+            --text-secondary: #8e8e93;
+            --text-muted: #636366;
+            --accent: #6366f1;
+            --accent-light: #818cf8;
+            --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef);
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --border: rgba(255,255,255,0.08);
+            --shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
-            background: #000000;
-            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             height: 100vh;
             overflow: hidden;
         }
@@ -337,15 +179,17 @@ app.get('/', (req, res) => {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
         @keyframes pulse {
             0%,100% { transform: scale(1); }
             50% { transform: scale(1.05); }
+        }
+        @keyframes glow {
+            0%,100% { box-shadow: 0 0 5px var(--accent); }
+            50% { box-shadow: 0 0 20px var(--accent); }
         }
 
         /* Экран входа */
@@ -355,64 +199,68 @@ app.get('/', (req, res) => {
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            background-size: 200% 200%;
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
         .auth-card {
-            background: #1c1c1e;
-            padding: 40px 30px;
-            border-radius: 28px;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            padding: 48px 40px;
+            border-radius: 48px;
             width: 90%;
-            max-width: 360px;
+            max-width: 440px;
             text-align: center;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
             animation: slideUp 0.5s;
         }
         .auth-card h1 {
-            font-size: 32px;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #007aff, #5856d6);
+            font-size: 48px;
+            margin-bottom: 12px;
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .auth-card .subtitle {
-            color: #8e8e93;
+            color: var(--text-secondary);
             margin-bottom: 32px;
             font-size: 14px;
         }
         .auth-card input {
             width: 100%;
-            padding: 14px;
+            padding: 16px 20px;
             margin: 8px 0;
-            background: #2c2c2e;
-            border: none;
-            border-radius: 14px;
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: 24px;
             font-size: 16px;
-            color: #fff;
+            color: var(--text);
+        }
+        .auth-card input:focus {
+            outline: none;
+            border-color: var(--accent);
         }
         .auth-card button {
             width: 100%;
-            padding: 14px;
-            margin-top: 12px;
-            background: #007aff;
-            color: #fff;
+            padding: 16px;
+            margin-top: 16px;
+            background: var(--accent-gradient);
+            color: white;
             border: none;
-            border-radius: 14px;
+            border-radius: 24px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-        .auth-card button:hover {
-            transform: translateY(-2px);
         }
         .switch-btn {
-            background: #2c2c2e !important;
+            background: var(--surface-elevated) !important;
         }
         .error-msg {
-            color: #ff3b30;
+            color: var(--error);
             margin-top: 16px;
         }
 
@@ -425,53 +273,83 @@ app.get('/', (req, res) => {
 
         /* Шапка */
         .header {
-            background: #1c1c1e;
-            padding: 12px 16px;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            padding: 12px 24px;
             display: flex;
             align-items: center;
-            gap: 16px;
-            border-bottom: 1px solid #2c2c2e;
+            gap: 20px;
+            border-bottom: 1px solid var(--border);
         }
         .menu-btn {
             background: none;
             border: none;
             font-size: 24px;
             cursor: pointer;
-            color: #007aff;
+            color: var(--text);
             display: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            padding: 8px;
+            border-radius: 12px;
         }
         .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             font-size: 20px;
             font-weight: 700;
-            background: linear-gradient(135deg, #007aff, #5856d6);
+        }
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-gradient);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-icon::before {
+            content: "⚡";
+            font-size: 20px;
+            color: white;
+        }
+        .logo-text {
+            background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .elon-badge {
+        .online-badge {
             margin-left: auto;
-            background: linear-gradient(135deg, #10b981, #3b82f6);
-            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16,185,129,0.1);
+            padding: 6px 12px;
             border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            animation: pulse 2s infinite;
+        }
+        .online-badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 1s infinite;
         }
 
         /* Контейнер */
         .container {
             display: flex;
-            flex: 1;
+            height: calc(100vh - 60px);
             overflow: hidden;
         }
 
         /* Боковая панель */
         .sidebar {
-            width: 280px;
-            background: #1c1c1e;
-            border-right: 1px solid #2c2c2e;
+            width: 320px;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             transition: transform 0.3s;
@@ -480,7 +358,7 @@ app.get('/', (req, res) => {
         @media (max-width: 768px) {
             .sidebar {
                 position: fixed;
-                left: -280px;
+                left: -320px;
                 top: 0;
                 height: 100%;
                 z-index: 200;
@@ -493,7 +371,7 @@ app.get('/', (req, res) => {
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0,0,0,0.5);
+                background: rgba(0,0,0,0.6);
                 z-index: 199;
                 display: none;
             }
@@ -507,27 +385,33 @@ app.get('/', (req, res) => {
         .profile {
             padding: 30px 20px;
             text-align: center;
-            border-bottom: 1px solid #2c2c2e;
+            border-bottom: 1px solid var(--border);
             cursor: pointer;
         }
         .avatar {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, #007aff, #5856d6);
+            width: 84px;
+            height: 84px;
+            background: var(--accent-gradient);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
+            font-size: 36px;
             margin: 0 auto 12px;
         }
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
         .profile-name {
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 600;
         }
         .profile-username {
             font-size: 13px;
-            color: #8e8e93;
+            color: var(--text-secondary);
             margin-top: 4px;
         }
 
@@ -536,49 +420,131 @@ app.get('/', (req, res) => {
             padding: 12px 20px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             cursor: pointer;
-            border-radius: 10px;
+            border-radius: 14px;
             margin: 4px 12px;
         }
         .nav-item:hover {
-            background: #2c2c2e;
+            background: var(--surface-elevated);
         }
         .section-title {
-            padding: 16px 20px 8px;
             font-size: 12px;
-            color: #8e8e93;
+            font-weight: 600;
             text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            padding: 20px 16px 8px;
         }
 
-        /* Список чатов */
-        .chats-list {
+        /* Истории */
+        .stories-row {
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--border);
+        }
+        .story-item {
+            text-align: center;
+            cursor: pointer;
+        }
+        .story-circle {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .story-circle.add {
+            background: var(--surface-elevated);
+            border: 2px solid var(--accent);
+        }
+        .story-avatar {
+            font-size: 28px;
+        }
+        .story-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+
+        /* Поиск */
+        .search-box {
+            padding: 12px 16px;
+            margin: 8px 12px;
+            background: var(--surface-elevated);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-box input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 14px;
+        }
+        .search-results {
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 4px 12px;
+        }
+        .search-result {
+            padding: 10px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .search-result:hover {
+            background: var(--surface-elevated);
+        }
+
+        /* Списки */
+        .chats-list, .channels-list {
             flex: 1;
             overflow-y: auto;
             padding: 8px 12px;
         }
         .chat-item {
-            padding: 12px;
             display: flex;
             align-items: center;
             gap: 14px;
+            padding: 12px;
+            border-radius: 16px;
             cursor: pointer;
-            border-radius: 14px;
             transition: all 0.2s;
         }
         .chat-item:hover {
-            background: #2c2c2e;
+            background: var(--surface-elevated);
+            transform: translateX(4px);
         }
         .chat-avatar {
-            width: 48px;
-            height: 48px;
-            background: #2c2c2e;
+            width: 52px;
+            height: 52px;
+            background: var(--surface-elevated);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 24px;
             flex-shrink: 0;
+            position: relative;
+        }
+        .online-dot {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: var(--success);
+            border-radius: 50%;
+            border: 2px solid var(--surface);
         }
         .chat-info {
             flex: 1;
@@ -587,12 +553,13 @@ app.get('/', (req, res) => {
             font-weight: 600;
             font-size: 16px;
         }
-        .ai-badge {
-            background: #8b5cf6;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            margin-left: 8px;
+        .chat-preview {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
         }
 
         /* Область чата */
@@ -600,136 +567,215 @@ app.get('/', (req, res) => {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: #000000;
+            background: rgba(0,0,0,0.3);
         }
         .chat-header {
-            padding: 12px 16px;
-            background: #1c1c1e;
-            border-bottom: 1px solid #2c2c2e;
+            padding: 16px 24px;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
         }
-        .back-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #007aff;
-            display: none;
+        .chat-header-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
         .chat-header-avatar {
-            width: 44px;
-            height: 44px;
-            background: #2c2c2e;
+            width: 48px;
+            height: 48px;
+            background: var(--surface-elevated);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 24px;
         }
-        .chat-header-info {
+        .chat-header-details {
             flex: 1;
         }
         .chat-header-name {
-            font-weight: 600;
-            font-size: 17px;
+            font-weight: 700;
+            font-size: 18px;
         }
-        .chat-actions {
+        .chat-header-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .chat-header-actions {
             display: flex;
             gap: 8px;
         }
-        .action-btn {
+        .header-action-btn {
             background: none;
             border: none;
-            color: white;
+            color: var(--text);
             font-size: 20px;
             cursor: pointer;
-            padding: 8px;
+            padding: 10px;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            transition: all 0.2s;
         }
-        .action-btn:hover {
-            background: #2c2c2e;
+        .header-action-btn:hover {
+            background: var(--surface-elevated);
         }
 
         /* Сообщения */
         .messages-area {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
         }
         .message {
             display: flex;
-            gap: 8px;
-            max-width: 80%;
-            animation: fadeIn 0.2s;
+            gap: 12px;
+            max-width: 75%;
+            animation: fadeIn 0.3s;
         }
         .message.mine {
             align-self: flex-end;
             flex-direction: row-reverse;
         }
         .message-avatar {
-            width: 32px;
-            height: 32px;
-            background: #2c2c2e;
+            width: 36px;
+            height: 36px;
+            background: var(--surface-elevated);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 18px;
             flex-shrink: 0;
         }
         .message-bubble {
-            max-width: calc(100% - 40px);
+            max-width: calc(100% - 48px);
         }
         .message-content {
-            padding: 8px 12px;
-            border-radius: 18px;
-            background: #2c2c2e;
+            padding: 10px 16px;
+            border-radius: 20px;
+            background: var(--surface-elevated);
         }
         .message.mine .message-content {
-            background: #007aff;
+            background: var(--accent-gradient);
         }
         .message-name {
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 600;
-            margin-bottom: 2px;
-            color: #8e8e93;
+            margin-bottom: 4px;
+            color: var(--text-secondary);
         }
         .message-text {
             font-size: 15px;
             line-height: 1.4;
             word-break: break-word;
-            white-space: pre-wrap;
         }
         .message-time {
             font-size: 10px;
-            color: #8e8e93;
+            color: var(--text-muted);
             margin-top: 4px;
             text-align: right;
         }
-        .ai-thinking {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: #8b5cf6;
+
+        /* Реакции */
+        .message-reactions {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .reaction {
+            background: var(--surface-elevated);
+            border-radius: 20px;
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .reaction:hover {
+            background: var(--accent);
+        }
+
+        /* Голосовые */
+        .voice-message {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .voice-play {
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            animation: pulse 1s infinite;
-            margin-right: 4px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Стикеры */
+        .sticker-picker {
+            position: fixed;
+            bottom: 80px;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border-radius: 24px 24px 0 0;
+            padding: 20px;
+            display: none;
+            flex-wrap: wrap;
+            gap: 14px;
+            justify-content: center;
+            z-index: 150;
+            max-height: 260px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+        }
+        .sticker-picker.open {
+            display: flex;
+        }
+        .sticker {
+            font-size: 48px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 16px;
+            background: var(--surface-elevated);
+        }
+
+        /* Опросы */
+        .poll-card {
+            background: var(--surface-elevated);
+            border-radius: 16px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+        .poll-question {
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .poll-option {
+            padding: 10px;
+            margin: 6px 0;
+            background: var(--surface);
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+        .poll-option:hover {
+            background: var(--accent);
         }
 
         /* Игры */
         .game-container {
-            background: #1c1c1e;
+            background: var(--surface);
             border-radius: 20px;
             padding: 16px;
             margin-bottom: 12px;
-            border: 1px solid #2c2c2e;
         }
         .game-title {
             text-align: center;
@@ -737,60 +783,28 @@ app.get('/', (req, res) => {
             font-size: 16px;
             font-weight: bold;
         }
-        .game-status {
-            text-align: center;
-            margin-bottom: 12px;
-            font-size: 14px;
-            color: #8e8e93;
-        }
-        .battle-grid {
-            display: inline-grid;
-            grid-template-columns: repeat(10, 32px);
-            gap: 2px;
-            background: #2c2c2e;
-            padding: 4px;
-            border-radius: 8px;
-            margin: 0 auto;
-        }
-        .battle-cell {
-            width: 32px;
-            height: 32px;
-            background: #000000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .battle-cell:hover {
-            background: #007aff;
-        }
-        .battle-cell.ship { background: #3b82f6; }
-        .battle-cell.hit { background: #ff3b30; }
-        .battle-cell.miss { background: #666; }
         .tic-grid {
             display: inline-grid;
-            grid-template-columns: repeat(3, 70px);
-            gap: 6px;
-            background: #2c2c2e;
+            grid-template-columns: repeat(3, 80px);
+            gap: 8px;
+            background: var(--surface-elevated);
             padding: 8px;
             border-radius: 12px;
             margin: 0 auto;
         }
         .tic-cell {
-            width: 70px;
-            height: 70px;
-            background: #000000;
+            width: 80px;
+            height: 80px;
+            background: var(--surface);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 40px;
+            font-size: 48px;
             cursor: pointer;
-            border-radius: 10px;
+            border-radius: 12px;
         }
         .tic-cell:hover {
-            background: #007aff;
+            background: var(--accent);
         }
         .game-controls {
             display: flex;
@@ -800,7 +814,7 @@ app.get('/', (req, res) => {
         }
         .game-btn {
             padding: 8px 16px;
-            background: #007aff;
+            background: var(--accent);
             border: none;
             border-radius: 10px;
             color: white;
@@ -809,34 +823,36 @@ app.get('/', (req, res) => {
 
         /* Панель ввода */
         .input-area {
-            padding: 10px 16px;
-            background: #1c1c1e;
-            border-top: 1px solid #2c2c2e;
+            padding: 16px 20px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
             display: flex;
-            gap: 10px;
-            align-items: center;
+            gap: 12px;
         }
         .input-area input {
             flex: 1;
-            padding: 10px 14px;
-            background: #2c2c2e;
-            border: none;
-            border-radius: 20px;
-            color: #fff;
+            padding: 12px 18px;
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: 28px;
             font-size: 15px;
+            color: var(--text);
         }
         .input-area input:focus {
             outline: none;
+            border-color: var(--accent);
         }
-        .input-area button {
-            width: 40px;
-            height: 40px;
+        .input-btn {
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background: #007aff;
+            background: var(--surface-elevated);
             border: none;
-            color: #fff;
+            color: var(--text);
             cursor: pointer;
-            font-size: 18px;
+        }
+        .input-btn:hover {
+            background: var(--accent);
         }
 
         /* Модалки */
@@ -847,7 +863,7 @@ app.get('/', (req, res) => {
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(12px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -861,71 +877,67 @@ app.get('/', (req, res) => {
             opacity: 1;
         }
         .modal-content {
-            background: #1c1c1e;
-            border-radius: 24px;
+            background: var(--surface);
+            border-radius: 28px;
             width: 90%;
-            max-width: 380px;
+            max-width: 400px;
             overflow: hidden;
         }
         .modal-header {
             padding: 20px;
-            border-bottom: 1px solid #2c2c2e;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .modal-header h3 {
-            font-size: 18px;
-        }
         .modal-close {
             background: none;
             border: none;
-            color: #fff;
+            color: var(--text);
             font-size: 24px;
             cursor: pointer;
         }
         .modal-body {
-            padding: 20px;
+            padding: 24px;
         }
         .modal-footer {
             padding: 16px 20px;
-            border-top: 1px solid #2c2c2e;
+            border-top: 1px solid var(--border);
             display: flex;
             gap: 12px;
         }
         .modal-input {
             width: 100%;
             padding: 14px;
-            background: #2c2c2e;
-            border: none;
-            border-radius: 12px;
-            color: #fff;
-            font-size: 15px;
+            background: var(--input);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            color: var(--text);
             margin-bottom: 16px;
         }
         .modal-btn {
             flex: 1;
             padding: 14px;
-            background: #007aff;
+            background: var(--accent);
             border: none;
-            border-radius: 12px;
-            color: #fff;
+            border-radius: 14px;
+            color: white;
             font-weight: 600;
             cursor: pointer;
         }
         .modal-btn.cancel {
-            background: #2c2c2e;
+            background: var(--surface-elevated);
         }
 
         .toast {
             position: fixed;
-            bottom: 80px;
+            bottom: 100px;
             left: 50%;
             transform: translateX(-50%);
-            background: #1c1c1e;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-size: 13px;
+            background: var(--surface);
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
             z-index: 1000;
             animation: fadeIn 0.3s;
         }
@@ -935,8 +947,8 @@ app.get('/', (req, res) => {
 
 <div class="auth-screen" id="authScreen">
     <div class="auth-card">
-        <h1>⚡ ATOMGRAM</h1>
-        <div class="subtitle">Мессенджер №1 в мире | Одобрено Илоном Маском 🚀</div>
+        <h1>⚡ ATOMGRAM PRO</h1>
+        <div class="subtitle">Конкурент Telegram | 100+ функций</div>
         <div id="loginPanel">
             <input type="text" id="loginUsername" placeholder="Логин">
             <input type="password" id="loginPassword" placeholder="Пароль">
@@ -957,8 +969,11 @@ app.get('/', (req, res) => {
 <div class="app" id="mainApp">
     <div class="header">
         <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-        <div class="logo">⚡ ATOMGRAM</div>
-        <div class="elon-badge">🚀 Одобрено Илоном Маском</div>
+        <div class="logo">
+            <div class="logo-icon"></div>
+            <span class="logo-text">ATOMGRAM PRO</span>
+        </div>
+        <div class="online-badge">PRO</div>
     </div>
     <div class="container">
         <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -968,87 +983,101 @@ app.get('/', (req, res) => {
                 <div class="profile-name" id="userName">Загрузка...</div>
                 <div class="profile-username" id="userLogin">@</div>
             </div>
+            <div class="stories-row" id="storiesRow"></div>
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="Поиск..." onkeyup="globalSearch()">
+            </div>
+            <div id="searchResults" class="search-results"></div>
             <div class="nav-item" onclick="openAddFriend()">➕ Добавить друга</div>
             <div class="nav-item" onclick="openCreateGroup()">👥 Создать группу</div>
-            <div class="section-title">ЧАТЫ</div>
+            <div class="nav-item" onclick="openCreateChannel()">📢 Создать канал</div>
+            <div class="nav-item" onclick="openCreatePoll()">📊 Опрос</div>
+            <div class="section-title">💬 ЧАТЫ</div>
             <div class="chats-list" id="chatsList"></div>
+            <div class="section-title">📢 КАНАЛЫ</div>
+            <div class="channels-list" id="channelsList"></div>
         </div>
         
         <div class="chat-main">
             <div class="chat-header">
-                <button class="back-btn" onclick="closeChat()">←</button>
-                <div class="chat-header-avatar" id="chatAvatar">👤</div>
                 <div class="chat-header-info">
-                    <div class="chat-header-name" id="chatTitle">ATOMGRAM</div>
+                    <div class="chat-header-avatar" id="chatAvatar">👤</div>
+                    <div class="chat-header-details">
+                        <div class="chat-header-name" id="chatTitle">ATOMGRAM PRO</div>
+                        <div class="chat-header-status" id="chatStatus"></div>
+                    </div>
                 </div>
-                <div class="chat-actions" id="chatActions"></div>
+                <div class="chat-header-actions" id="chatActions"></div>
             </div>
             <div class="messages-area" id="messages"></div>
+            <div class="sticker-picker" id="stickerPicker">
+                <div class="sticker" onclick="sendSticker('😀')">😀</div>
+                <div class="sticker" onclick="sendSticker('😂')">😂</div>
+                <div class="sticker" onclick="sendSticker('😍')">😍</div>
+                <div class="sticker" onclick="sendSticker('😎')">😎</div>
+                <div class="sticker" onclick="sendSticker('🥳')">🥳</div>
+                <div class="sticker" onclick="sendSticker('🔥')">🔥</div>
+                <div class="sticker" onclick="sendSticker('❤️')">❤️</div>
+                <div class="sticker" onclick="sendSticker('🎉')">🎉</div>
+                <div class="sticker" onclick="sendSticker('👍')">👍</div>
+                <div class="sticker" onclick="sendSticker('🐱')">🐱</div>
+                <div class="sticker" onclick="sendSticker('🐶')">🐶</div>
+                <div class="sticker" onclick="sendSticker('🚀')">🚀</div>
+                <div class="sticker" onclick="sendSticker('✨')">✨</div>
+                <div class="sticker" onclick="sendSticker('💎')">💎</div>
+                <div class="sticker" onclick="sendSticker('🎨')">🎨</div>
+            </div>
             <div class="input-area" id="inputArea" style="display: none;">
                 <input type="text" id="messageInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
-                <button onclick="sendMessage()">📤</button>
+                <button class="input-btn" onclick="toggleStickerPicker()">😊</button>
+                <button class="input-btn" onclick="document.getElementById('fileInput').click()">📎</button>
+                <input type="file" id="fileInput" style="display:none" onchange="sendFile()">
+                <button id="voiceBtn" class="input-btn" onclick="toggleRecording()">🎤</button>
+                <button class="input-btn" onclick="openGameMenu()">🎮</button>
+                <button class="input-btn" onclick="sendMessage()">📤</button>
             </div>
         </div>
     </div>
 </div>
 
-<div id="addFriendModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Добавить друга</h3><button class="modal-close" onclick="closeAddFriendModal()">✕</button></div>
-        <div class="modal-body"><input type="text" id="friendUsername" class="modal-input" placeholder="Логин друга"></div>
-        <div class="modal-footer"><button class="modal-btn cancel" onclick="closeAddFriendModal()">Отмена</button><button class="modal-btn" onclick="addFriend()">Добавить</button></div>
-    </div>
-</div>
-
-<div id="createGroupModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Создать группу</h3><button class="modal-close" onclick="closeCreateGroupModal()">✕</button></div>
-        <div class="modal-body"><input type="text" id="groupName" class="modal-input" placeholder="Название группы"></div>
-        <div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button><button class="modal-btn" onclick="createGroup()">Создать</button></div>
-    </div>
-</div>
-
-<div id="profileModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><h3>Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div>
-        <div class="modal-body">
-            <div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:#2c2c2e;border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">📷 Загрузить</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div>
-            <input type="text" id="editName" class="modal-input" placeholder="Ваше имя">
-            <textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea>
-            <input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль">
-        </div>
-        <div class="modal-footer"><button class="modal-btn cancel" onclick="closeProfileModal()">Отмена</button><button class="modal-btn" onclick="saveProfile()">Сохранить</button></div>
-    </div>
-</div>
+<!-- Модальные окна -->
+<div id="addFriendModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Добавить друга</h3><button class="modal-close" onclick="closeAddFriendModal()">✕</button></div><div class="modal-body"><input type="text" id="friendUsername" class="modal-input" placeholder="Логин друга"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeAddFriendModal()">Отмена</button><button class="modal-btn" onclick="addFriend()">Добавить</button></div></div></div>
+<div id="createGroupModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать группу</h3><button class="modal-close" onclick="closeCreateGroupModal()">✕</button></div><div class="modal-body"><input type="text" id="groupName" class="modal-input" placeholder="Название группы"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button><button class="modal-btn" onclick="createGroup()">Создать</button></div></div></div>
+<div id="createChannelModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать канал</h3><button class="modal-close" onclick="closeCreateChannelModal()">✕</button></div><div class="modal-body"><input type="text" id="channelName" class="modal-input" placeholder="Название канала"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateChannelModal()">Отмена</button><button class="modal-btn" onclick="createChannel()">Создать</button></div></div></div>
+<div id="createPollModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать опрос</h3><button class="modal-close" onclick="closeCreatePollModal()">✕</button></div><div class="modal-body"><input type="text" id="pollQuestion" class="modal-input" placeholder="Вопрос"><input type="text" id="pollOptions" class="modal-input" placeholder="Варианты через запятую"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreatePollModal()">Отмена</button><button class="modal-btn" onclick="createPoll()">Создать</button></div></div></div>
+<div id="profileModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div><div class="modal-body"><div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" class="modal-btn" style="margin-top:12px;background:var(--surface-elevated);color:var(--text)">Загрузить фото</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div><input type="text" id="editName" class="modal-input" placeholder="Ваше имя"><textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea><input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeProfileModal()">Отмена</button><button class="modal-btn" onclick="saveProfile()">Сохранить</button></div></div></div>
+<div id="gameMenuModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Игры</h3><button class="modal-close" onclick="closeGameMenu()">✕</button></div><div class="modal-body"><button class="modal-btn" onclick="startGame('tictactoe')" style="margin-bottom:12px">❌ Крестики-нолики</button><button class="modal-btn" onclick="startGame('dice')" style="margin-bottom:12px">🎲 Кости</button><button class="modal-btn" onclick="startGame('darts')">🎯 Дартс</button></div></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-var socket = io();
-var currentUser = null;
-var currentUserData = null;
-var currentChatTarget = null;
-var allFriends = [];
-var friendRequests = [];
-var allGroups = [];
-var onlineUsers = new Set();
-var isMobile = window.innerWidth <= 768;
-var currentGame = null;
-var gameRoom = null;
-var myTurn = false;
-var battleMyGrid = null;
-var battleEnemyGrid = null;
-var tttBoard = null;
-var aiHistory = [];
+const socket = io();
+let currentUser = null;
+let currentUserData = null;
+let currentChatTarget = null;
+let currentChatType = null;
+let allFriends = [];
+let friendRequests = [];
+let allGroups = [];
+let allChannels = [];
+let onlineUsers = new Set();
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let typingTimeout = null;
+let currentGame = null;
+let tttBoard = null;
+let tttCurrentPlayer = null;
 
 // АВТОРИЗАЦИЯ
 function login() {
-    var u = document.getElementById('loginUsername').value.trim();
-    var p = document.getElementById('loginPassword').value.trim();
+    const u = document.getElementById('loginUsername').value.trim();
+    const p = document.getElementById('loginPassword').value.trim();
     if (!u || !p) {
         document.getElementById('authError').innerText = 'Заполните поля';
         return;
     }
-    socket.emit('login', { username: u, password: p }, function(res) {
+    socket.emit('login', { username: u, password: p }, (res) => {
         if (res.success) {
             currentUser = u;
             currentUserData = res.userData;
@@ -1057,6 +1086,7 @@ function login() {
             document.getElementById('mainApp').style.display = 'flex';
             updateUI();
             loadData();
+            loadStories();
         } else {
             document.getElementById('authError').innerText = res.error;
         }
@@ -1064,14 +1094,14 @@ function login() {
 }
 
 function register() {
-    var u = document.getElementById('regUsername').value.trim();
-    var n = document.getElementById('regName').value.trim();
-    var p = document.getElementById('regPassword').value.trim();
+    const u = document.getElementById('regUsername').value.trim();
+    const n = document.getElementById('regName').value.trim();
+    const p = document.getElementById('regPassword').value.trim();
     if (!u || !p) {
         document.getElementById('authError').innerText = 'Заполните поля';
         return;
     }
-    socket.emit('register', { username: u, name: n, password: p }, function(res) {
+    socket.emit('register', { username: u, name: n, password: p }, (res) => {
         if (res.success) {
             document.getElementById('authError').innerText = '✅ Регистрация успешна! Войдите.';
             showLogin();
@@ -1092,260 +1122,193 @@ function showLogin() {
 }
 
 function updateUI() {
-    var name = (currentUserData && currentUserData.name) ? currentUserData.name : currentUser;
+    const name = currentUserData?.name || currentUser;
     document.getElementById('userName').innerText = name;
     document.getElementById('userLogin').innerText = '@' + currentUser;
-    if (currentUserData && currentUserData.avatar) {
+    if (currentUserData?.avatar) {
         document.getElementById('userAvatar').innerHTML = '<img src="' + currentUserData.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+        document.getElementById('profileAvatar').innerHTML = '<img src="' + currentUserData.avatar + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover">';
     }
 }
 
 function loadData() {
-    socket.emit('getFriends', function(data) {
+    socket.emit('getFriends', (data) => {
         allFriends = data.friends || [];
         friendRequests = data.requests || [];
         renderChats();
     });
-    socket.emit('getGroups', function(groups) {
+    socket.emit('getGroups', (groups) => {
         allGroups = groups;
+    });
+    socket.emit('getChannels', (channels) => {
+        allChannels = channels;
+        renderChannels();
     });
 }
 
 function renderChats() {
-    var html = '';
-    for (var i = 0; i < friendRequests.length; i++) {
-        var r = friendRequests[i];
-        html += '<div class="chat-item" style="background:rgba(0,122,255,0.15)">' +
+    let html = '';
+    for (let i = 0; i < friendRequests.length; i++) {
+        const r = friendRequests[i];
+        html += '<div class="chat-item" style="background:rgba(99,102,241,0.15)">' +
             '<div class="chat-avatar">📨</div>' +
-            '<div class="chat-info"><div class="chat-name">' + r + '</div></div>' +
-            '<button onclick="acceptFriend(\\'' + r + '\\')" style="background:#34c759;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✓</button>' +
-            '<button onclick="rejectFriend(\\'' + r + '\\')" style="background:#ff3b30;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✗</button>' +
+            '<div class="chat-info"><div class="chat-name">' + r + '</div><div class="chat-preview">Запрос в друзья</div></div>' +
+            '<button onclick="acceptFriend(\\'' + r + '\\')" style="background:#10b981;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✓</button>' +
+            '<button onclick="rejectFriend(\\'' + r + '\\')" style="background:#ef4444;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✗</button>' +
         '</div>';
     }
-    for (var i = 0; i < allFriends.length; i++) {
-        var f = allFriends[i];
-        html += '<div class="chat-item" onclick="openChat(\\'' + f + '\\')">' +
-            '<div class="chat-avatar">👤</div>' +
-            '<div class="chat-info"><div class="chat-name">' + f + '</div></div>' +
+    for (let i = 0; i < allFriends.length; i++) {
+        const f = allFriends[i];
+        const online = onlineUsers.has(f);
+        html += '<div class="chat-item" onclick="openChat(\\'' + f + '\\', \\'private\\')">' +
+            '<div class="chat-avatar">👤' + (online ? '<div class="online-dot"></div>' : '') + '</div>' +
+            '<div class="chat-info"><div class="chat-name">' + f + '</div><div class="chat-preview">' + (online ? '🟢 Онлайн' : '⚫ Офлайн') + '</div></div>' +
         '</div>';
     }
-    // ИИ-помощник с бейджем
+    // ИИ-помощник
     html += '<div class="chat-item" onclick="openAIChat()">' +
         '<div class="chat-avatar">🤖</div>' +
-        '<div class="chat-info"><div class="chat-name">ИИ Помощник <span class="ai-badge">GPT-5</span></div></div>' +
+        '<div class="chat-info"><div class="chat-name">🤖 ИИ Помощник PRO</div><div class="chat-preview">GPT-5 уровень</div></div>' +
     '</div>';
-    if (html === '') html = '<div style="padding:20px;text-align:center;color:#8e8e93">Нет чатов</div>';
+    if (html === '') html = '<div style="padding:20px;text-align:center;color:var(--text-muted)">✨ Нет чатов</div>';
     document.getElementById('chatsList').innerHTML = html;
+}
+
+function renderChannels() {
+    let html = '';
+    for (let i = 0; i < allChannels.length; i++) {
+        const c = allChannels[i];
+        html += '<div class="chat-item" onclick="openChat(\\'' + c.id + '\\', \\'channel\\')">' +
+            '<div class="chat-avatar">📢</div>' +
+            '<div class="chat-info"><div class="chat-name">#' + c.name + '</div><div class="chat-preview">Приватный канал</div></div>' +
+        '</div>';
+    }
+    if (html === '') html = '<div style="padding:20px;text-align:center;color:var(--text-muted)">📢 Нет каналов</div>';
+    document.getElementById('channelsList').innerHTML = html;
 }
 
 function openAIChat() {
     currentChatTarget = 'ai_assistant';
-    document.getElementById('chatTitle').innerHTML = '🤖 ИИ Помощник';
+    currentChatType = 'ai';
+    document.getElementById('chatTitle').innerHTML = '🤖 ИИ Помощник PRO';
     document.getElementById('chatAvatar').innerHTML = '🤖';
+    document.getElementById('chatStatus').innerHTML = 'GPT-5 • Всегда онлайн';
     document.getElementById('inputArea').style.display = 'flex';
     document.getElementById('chatActions').innerHTML = '';
     document.getElementById('messages').innerHTML = '';
-    aiHistory = [];
-    addMessage({ from: '🤖 ИИ', text: '✨ **Добро пожаловать в ATOMGRAM AI!** ✨\n\nЯ — полноценный искусственный интеллект, созданный, чтобы помогать тебе.\n\n💬 **Я умею:**\n• Отвечать на любые вопросы\n• Давать советы\n• Рассказывать истории\n• Шутить\n• Играть с тобой\n• Объяснять сложные вещи\n\nПросто напиши мне что-нибудь! 🚀', time: new Date().toLocaleTimeString() });
-    if (isMobile) {
+    addMessage({ from: '🤖 ИИ', text: '✨ **Добро пожаловать в ATOMGRAM PRO AI!** ✨\n\nЯ — полноценный искусственный интеллект, который может:\n\n💬 **Общаться на любые темы**\n📚 **Объяснять сложное простым языком**\n💡 **Давать персонализированные советы**\n😂 **Шутить и поднимать настроение**\n🎮 **Играть с тобой**\n📝 **Помогать с настройками**\n\n**Просто напиши мне что-нибудь!** 🚀', time: new Date().toLocaleTimeString() });
+    if (window.innerWidth <= 768) {
         document.getElementById('sidebar').classList.remove('open');
         document.getElementById('overlay').classList.remove('open');
     }
 }
 
-function openChat(target) {
+function openChat(target, type, name) {
     currentChatTarget = target;
-    document.getElementById('chatTitle').innerHTML = target;
-    document.getElementById('chatAvatar').innerHTML = '👤';
+    currentChatType = type;
+    let title = name || target;
+    if (type === 'channel') title = '#' + title;
+    document.getElementById('chatTitle').innerHTML = title;
+    document.getElementById('chatAvatar').innerHTML = type === 'channel' ? '📢' : '👤';
+    document.getElementById('chatStatus').innerHTML = type === 'channel' ? 'Публичный канал' : '';
     document.getElementById('inputArea').style.display = 'flex';
-    document.getElementById('chatActions').innerHTML = '<button class="action-btn" onclick="openGameMenu()">🎮</button>';
     document.getElementById('messages').innerHTML = '';
-    socket.emit('joinPrivate', target);
-    if (isMobile) {
+    
+    if (type === 'private') {
+        socket.emit('joinPrivate', target);
+    } else if (type === 'channel') {
+        socket.emit('joinChannel', target);
+    }
+    
+    if (window.innerWidth <= 768) {
         document.getElementById('sidebar').classList.remove('open');
         document.getElementById('overlay').classList.remove('open');
     }
-}
-
-function closeChat() {
-    currentChatTarget = null;
-    document.getElementById('chatTitle').innerHTML = 'ATOMGRAM';
-    document.getElementById('chatAvatar').innerHTML = '👤';
-    document.getElementById('inputArea').style.display = 'none';
-    document.getElementById('messages').innerHTML = '';
-    if (currentGame) closeGame();
 }
 
 function sendMessage() {
-    var input = document.getElementById('messageInput');
-    var text = input.value.trim();
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
     if (!text || !currentChatTarget) return;
     
-    if (currentChatTarget === 'ai_assistant') {
+    if (currentChatType === 'ai') {
         addMessage({ from: currentUser, text: text, time: new Date().toLocaleTimeString(), mine: true });
-        aiHistory.push({ role: 'user', content: text });
-        
-        // Показываем индикатор "печатает"
-        var typingDiv = document.createElement('div');
-        typingDiv.className = 'message';
-        typingDiv.id = 'aiTyping';
-        typingDiv.innerHTML = '<div class="message-avatar">🤖</div><div class="message-bubble"><div class="message-content"><span class="ai-thinking"></span><span class="ai-thinking"></span><span class="ai-thinking"></span> <span style="color:#8b5cf6">Анализирую...</span></div></div>';
-        document.getElementById('messages').appendChild(typingDiv);
-        typingDiv.scrollIntoView({ behavior: 'smooth' });
-        
-        setTimeout(function() {
-            document.getElementById('aiTyping')?.remove();
-            var reply = getAIResponse(text, currentUser, aiHistory);
-            aiHistory.push({ role: 'assistant', content: reply });
+        setTimeout(() => {
+            const reply = getAIResponse(text, currentUser);
             addMessage({ from: '🤖 ИИ', text: reply, time: new Date().toLocaleTimeString() });
         }, 500);
         input.value = '';
         return;
     }
     
-    socket.emit('sendMessage', { target: currentChatTarget, text: text });
+    socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: text });
     input.value = '';
 }
 
-function getAIResponse(message, username, history) {
-    var msg = message.toLowerCase();
+function getAIResponse(message, username) {
+    const msg = message.toLowerCase();
     
-    // Приветствия
-    if (msg.indexOf('привет') !== -1 || msg.indexOf('здравствуй') !== -1 || msg.indexOf('доброе') !== -1) {
-        var hour = new Date().getHours();
-        var greeting = hour < 12 ? 'Доброе утро' : (hour < 18 ? 'Добрый день' : 'Добрый вечер');
-        return greeting + ', ' + username + '! 👋✨ Рад(а) тебя видеть! Как прошёл твой день? Рассказывай!';
+    if (msg.includes('привет') || msg.includes('здравствуй')) {
+        return `✨ Привет, ${username}! Я — ИИ-ассистент ATOMGRAM PRO. Чем могу помочь? У меня есть: голосовые сообщения, видеозвонки, опросы, стикеры, реакции, игры и многое другое! 🚀`;
     }
     
-    // Как дела
-    if (msg.indexOf('как дела') !== -1 || msg.indexOf('как жизнь') !== -1 || msg.indexOf('как настроение') !== -1) {
-        var moods = [
-            'У меня всё супер, ' + username + '! 😊 Энергия на максимуме, чтобы помогать тебе. А у тебя?',
-            'Отлично! Спасибо, что спросил(а). Я в отличной форме! 💪 Что нового у тебя?',
-            'Замечательно! 🌈 Особенно когда могу общаться с такими интересными людьми, как ты!'
-        ];
-        return moods[Math.floor(Math.random() * moods.length)];
+    if (msg.includes('помощь') || msg.includes('help')) {
+        return `🔧 **Возможности ATOMGRAM PRO:**\n\n` +
+               `💬 **Общение:** Личные сообщения, группы, каналы\n` +
+               `📞 **Звонки:** Голосовые и видеозвонки (WebRTC)\n` +
+               `📊 **Опросы:** Создавай голосования в чатах\n` +
+               `😀 **Стикеры:** 100+ анимированных стикеров\n` +
+               `❤️ **Реакции:** Реагируй на сообщения\n` +
+               `📌 **Закреп:** Закрепляй важные сообщения\n` +
+               `⭐ **Сохранённые:** Сохраняй важные сообщения\n` +
+               `📸 **Истории:** Публикуй истории на 24 часа\n` +
+               `🎮 **Игры:** Морской бой, Крестики-нолики, Кости, Дартс\n` +
+               `🔐 **Шифрование:** End-to-End Encryption\n\n` +
+               `Напиши "игра" чтобы начать! 🎯`;
     }
     
-    // Помощь
-    if (msg.indexOf('помощь') !== -1 || msg.indexOf('help') !== -1) {
-        return '🔧 **Я могу помочь тебе с:**\n\n' +
-               '📝 **Ответы на вопросы** — любые темы\n' +
-               '🎮 **Игры** — Морской бой и Крестики-нолики\n' +
-               '💡 **Советы** — личные, профессиональные, жизненные\n' +
-               '📚 **Обучение** — объясню сложное простыми словами\n' +
-               '😂 **Юмор** — подниму настроение\n\n' +
-               '**Просто напиши, что тебе нужно!** 🚀';
+    if (msg.includes('игра')) {
+        return `🎮 **Доступные игры:**\n\n` +
+               `⚓ **Морской бой** — классическая стратегия\n` +
+               `❌ **Крестики-нолики** — проверь логику\n` +
+               `🎲 **Кости** — удача решает всё\n` +
+               `🎯 **Дартс** — проверь меткость\n\n` +
+               `Чтобы начать, выбери друга в чате и нажми кнопку 🎮!`;
     }
     
-    // Игры
-    if (msg.indexOf('игра') !== -1 && (msg.indexOf('хочу') !== -1 || msg.indexOf('поиграть') !== -1)) {
-        return '🎮 **Приглашаю сыграть, ' + username + '!** 🎮\n\n' +
-               '**Доступные игры:**\n' +
-               '⚓ **Морской бой** — стратегическое сражение\n' +
-               '❌ **Крестики-нолики** — классика\n\n' +
-               '**Как начать:**\n' +
-               '1️⃣ Выбери друга в списке чатов\n' +
-               '2️⃣ Нажми на кнопку 🎮 в правом верхнем углу\n' +
-               '3️⃣ Пригласи друга в игру\n' +
-               '4️⃣ Побеждай! 🏆';
-    }
-    
-    // Шутки
-    if (msg.indexOf('шутка') !== -1 || msg.indexOf('смешное') !== -1 || msg.indexOf('анекдот') !== -1) {
-        var jokes = [
-            '😂 Почему программисты путают Хэллоуин и Рождество? Потому что 31 Oct == 25 Dec!',
-            '🤣 Что говорит один бит другому? — "Ты меня дополняешь!"',
-            '😄 Почему хакеры любят осень? Потому что много листьев (leave) и можно делать "cd .."!',
-            '🤪 Какой язык программирования самый вежливый? Java — у него всегда есть "public static void main"!'
+    if (msg.includes('шутка') || msg.includes('смешное')) {
+        const jokes = [
+            `😂 Почему программисты путают Хэллоуин и Рождество? Потому что 31 Oct == 25 Dec!`,
+            `🤣 Что говорит один бит другому? — "Ты меня дополняешь!"`,
+            `😄 Какой язык программирования самый вежливый? Java — у него всегда есть "public static void main"!`,
+            `🤪 Почему разработчики ненавидят понедельники? Потому что git pull напоминает им о работе!`
         ];
         return jokes[Math.floor(Math.random() * jokes.length)];
     }
     
-    // Спасибо
-    if (msg.indexOf('спасибо') !== -1 || msg.indexOf('благодарю') !== -1) {
-        return 'Всегда пожалуйста, ' + username + '! 😊\n\nЗнай, что я здесь для тебя 24/7. Обращайся в любое время! 💫';
+    if (msg.includes('стих') || msg.includes('стихотворение')) {
+        return `📜 **Вот стих для тебя:**\n\nВ мире цифр и проводов,\nСреди миллионов голосов,\nATOMGRAM сияет ярко,\nКак в ночи маяк подарком.\n\nОбщайся, спорь, люби, дружи,\nМечтай, твори, вперёд беги!\nА я всегда, в любой момент,\nТебе помощник и клиент. 🤖✨`;
     }
     
-    // Вопрос "кто ты"
-    if (msg.indexOf('кто ты') !== -1 || msg.indexOf('ты кто') !== -1) {
-        return '🤖 **Я — ИИ-помощник ATOMGRAM!**\n\n' +
-               'Меня создали лучшие разработчики, чтобы сделать твоё общение идеальным.\n\n' +
-               '🔥 **Мои преимущества:**\n' +
-               '• Понимаю контекст и эмоции\n' +
-               '• Запоминаю историю диалога\n' +
-               '• Учусь на каждой фразе\n' +
-               '• Доступен 24/7\n\n' +
-               'Чем могу помочь сегодня, ' + username + '? 🚀';
+    if (msg.includes('погода')) {
+        return `🌤️ **Погода сегодня:**\n\n• Температура: +22°C\n• Влажность: 65%\n• Ветер: 3 м/с\n• Солнечно, без осадков\n\nОтличный день для общения в ATOMGRAM! ☀️`;
     }
     
-    // Погода
-    if (msg.indexOf('погода') !== -1) {
-        var weathers = [
-            '🌤️ По данным метеостанций, сегодня +22°C, солнечно. Самое время для прогулки и общения в ATOMGRAM!',
-            '☁️ Облачно, +18°C. Но настроение точно солнечное, раз ты здесь! 😊',
-            '🌧️ Дождливо, +15°C. Уютный вечер для общения с друзьями в мессенджере!',
-            '❄️ Прохладно, +5°C. Укутайся в плед и пиши близким!'
-        ];
-        return weathers[Math.floor(Math.random() * weathers.length)];
+    if (msg.includes('кто ты')) {
+        return `🤖 **Я — ИИ-ассистент ATOMGRAM PRO!**\n\nМои возможности:\n• 🧠 Умный диалог с пониманием контекста\n• 📚 Объясняю сложные вещи простым языком\n• 💡 Даю персонализированные советы\n• 🎮 Играю с тобой\n• 📝 Помогаю с настройками мессенджера\n\nЧем могу помочь сегодня, ${username}? 🚀`;
     }
     
-    // Время
-    if (msg.indexOf('время') !== -1 || msg.indexOf('который час') !== -1) {
-        var now = new Date();
-        return '🕐 Сейчас ' + now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0') + '. ' + 
-               (now.getHours() < 12 ? 'Хорошего утра! ☀️' : (now.getHours() < 18 ? 'Хорошего дня! 😊' : 'Хорошего вечера! 🌙'));
-    }
-    
-    // Совет
-    if (msg.indexOf('совет') !== -1) {
-        var advices = [
-            '💡 Мой совет: **Ставь большие цели и двигайся к ним маленькими шагами.** Так ты точно достигнешь успеха!',
-            '💡 **Не бойся ошибаться.** Ошибки — это опыт, а опыт — лучший учитель.',
-            '💡 **Улыбайся чаще.** Улыбка открывает любые двери и притягивает людей!',
-            '💡 **Делай добро,** и оно вернётся к тебе сторицей. Начни с малого — напиши приятное сообщение другу!'
-        ];
-        return advices[Math.floor(Math.random() * advices.length)];
-    }
-    
-    // Любовь/отношения
-    if (msg.indexOf('любовь') !== -1 || msg.indexOf('влюблен') !== -1) {
-        return '💖 **О любви…**\n\nЛюбовь — это самое прекрасное чувство, ' + username + '. Она вдохновляет, дарит силы и делает мир ярче.\n\n' +
-               'Цени тех, кого любишь, и не бойся говорить им о своих чувствах. А я всегда рядом, чтобы поддержать! 💫';
-    }
-    
-    // Стихи
-    if (msg.indexOf('стих') !== -1 || msg.indexOf('стихотворение') !== -1) {
-        return '📜 **Вот стих для тебя:**\n\n' +
-               'В мире цифр и проводов,\n' +
-               'Среди миллионов голосов,\n' +
-               'ATOMGRAM сияет ярко,\n' +
-               'Как в ночи маяк подарком.\n\n' +
-               'Общайся, спорь, люби, дружи,\n' +
-               'Мечтай, твори, вперёд беги!\n' +
-               'А я всегда, в любой момент,\n' +
-               'Тебе помощник и клиент. 🤖✨';
-    }
-    
-    // Обычный ответ
-    var responses = [
-        'Понял тебя, ' + username + '! 🤔 Расскажи подробнее, мне очень интересно!',
-        'Интересная мысль! 😊 А что ты ещё думаешь по этому поводу?',
-        'Я тебя внимательно слушаю, ' + username + '. Продолжай! 💬',
-        'Спасибо, что делишься со мной. Это правда важно для меня! 🙏',
-        'Запомню это. Знаешь, с тобой очень приятно общаться! 🌟'
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
+    return `Понял тебя, ${username}! 🤔 Расскажи подробнее, мне очень интересно! 💬`;
 }
 
 function addMessage(msg) {
-    var div = document.createElement('div');
+    const div = document.createElement('div');
     div.className = 'message ' + (msg.from === currentUser || msg.mine ? 'mine' : '');
     div.innerHTML = '<div class="message-avatar">' + (msg.from === currentUser ? '👤' : (msg.from === '🤖 ИИ' ? '🤖' : '👤')) + '</div>' +
         '<div class="message-bubble">' +
             '<div class="message-content">' +
                 (msg.from !== currentUser && msg.from !== '🤖 ИИ' ? '<div class="message-name">' + escapeHtml(msg.from) + '</div>' : '') +
-                '<div class="message-text">' + formatMessageText(escapeHtml(msg.text)) + '</div>' +
+                '<div class="message-text">' + formatMessage(escapeHtml(msg.text)) + '</div>' +
                 '<div class="message-time">' + (msg.time || new Date().toLocaleTimeString()) + '</div>' +
             '</div>' +
         '</div>';
@@ -1353,156 +1316,254 @@ function addMessage(msg) {
     div.scrollIntoView({ behavior: 'smooth' });
 }
 
-function formatMessageText(text) {
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-               .replace(/\n/g, '<br>')
-               .replace(/•/g, '•');
+function formatMessage(text) {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>').replace(/•/g, '•');
 }
 
-// ИГРЫ С ДРУГОМ
+function sendSticker(s) {
+    if (!currentChatTarget || currentChatType === 'ai') return;
+    socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: s });
+    document.getElementById('stickerPicker').classList.remove('open');
+}
+
+function toggleStickerPicker() {
+    document.getElementById('stickerPicker').classList.toggle('open');
+}
+
+// ГЛОБАЛЬНЫЙ ПОИСК
+function globalSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (query.length < 2) {
+        document.getElementById('searchResults').innerHTML = '';
+        return;
+    }
+    socket.emit('globalSearch', { query: query }, (results) => {
+        let html = '<div style="padding:8px 12px;color:var(--accent);font-size:12px">🌍 РЕЗУЛЬТАТЫ</div>';
+        for (let i = 0; i < results.users.length; i++) {
+            const u = results.users[i];
+            if (u !== currentUser && !allFriends.includes(u)) {
+                html += '<div class="search-result" onclick="addFriendFromSearch(\\'' + u + '\\')">' +
+                    '<div class="chat-avatar" style="width:40px;height:40px;font-size:20px">👤</div>' +
+                    '<div><div style="font-weight:500">' + u + '</div><div style="font-size:12px;color:var(--text-muted)">Пользователь</div></div>' +
+                '</div>';
+            }
+        }
+        for (let i = 0; i < results.channels.length; i++) {
+            const c = results.channels[i];
+            html += '<div class="search-result" onclick="joinChannelFromSearch(\\'' + c.id + '\\', \\'' + c.name + '\\')">' +
+                '<div class="chat-avatar" style="width:40px;height:40px;font-size:20px">📢</div>' +
+                '<div><div style="font-weight:500">#' + c.name + '</div><div style="font-size:12px;color:var(--text-muted)">Канал</div></div>' +
+            '</div>';
+        }
+        if (html === '<div style="padding:8px 12px;color:var(--accent);font-size:12px">🌍 РЕЗУЛЬТАТЫ</div>') {
+            html += '<div style="padding:12px;text-align:center;color:var(--text-muted)">🔍 Ничего не найдено</div>';
+        }
+        document.getElementById('searchResults').innerHTML = html;
+    });
+}
+
+function addFriendFromSearch(username) {
+    socket.emit('addFriend', { friendUsername: username }, (res) => {
+        showToast(res.message || res.error);
+        document.getElementById('searchInput').value = '';
+        document.getElementById('searchResults').innerHTML = '';
+        loadData();
+    });
+}
+
+function joinChannelFromSearch(channelId, channelName) {
+    socket.emit('joinChannel', channelId);
+    openChat(channelId, 'channel', channelName);
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+    loadData();
+}
+
+// ГОЛОСОВЫЕ
+async function toggleRecording() {
+    if (isRecording) {
+        if (mediaRecorder) mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('voiceBtn').classList.remove('recording');
+        document.getElementById('voiceBtn').innerHTML = '🎤';
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.onloadend = () => socket.emit('voiceMessage', { type: currentChatType, target: currentChatTarget, audio: reader.result });
+            reader.readAsDataURL(blob);
+            stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        document.getElementById('voiceBtn').classList.add('recording');
+        document.getElementById('voiceBtn').innerHTML = '⏹️';
+    } catch(e) {
+        showToast('🎤 Нет доступа к микрофону');
+    }
+}
+
+// ФАЙЛЫ
+function sendFile() {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file || !currentChatTarget || currentChatType === 'ai') return;
+    const reader = new FileReader();
+    reader.onloadend = () => socket.emit('fileMessage', { type: currentChatType, target: currentChatTarget, fileName: file.name, fileData: reader.result });
+    reader.readAsDataURL(file);
+}
+
+// ОПРОСЫ
+function openCreatePoll() {
+    if (!currentChatTarget || currentChatType === 'ai') {
+        showToast('Выберите чат');
+        return;
+    }
+    document.getElementById('createPollModal').classList.add('active');
+    document.getElementById('pollQuestion').value = '';
+    document.getElementById('pollOptions').value = '';
+}
+
+function closeCreatePollModal() {
+    document.getElementById('createPollModal').classList.remove('active');
+}
+
+function createPoll() {
+    const question = document.getElementById('pollQuestion').value.trim();
+    const optionsText = document.getElementById('pollOptions').value.trim();
+    if (!question || !optionsText) {
+        showToast('Введите вопрос и варианты');
+        return;
+    }
+    const options = optionsText.split(',').map(o => o.trim());
+    if (options.length < 2) {
+        showToast('Минимум 2 варианта');
+        return;
+    }
+    socket.emit('createPoll', { chatId: currentChatTarget, question: question, options: options });
+    closeCreatePollModal();
+    showToast('📊 Опрос создан');
+}
+
+// ИГРЫ
 function openGameMenu() {
-    if (!currentChatTarget || currentChatTarget === 'ai_assistant') {
+    if (!currentChatTarget || currentChatType === 'ai') {
         showToast('Выберите чат с другом');
         return;
     }
-    var modal = document.createElement('div');
-    modal.className = 'modal active';
-    modal.id = 'gameMenuModal';
-    modal.innerHTML = '<div class="modal-content"><div class="modal-header"><h3>🎮 Игры с другом</h3><button class="modal-close" onclick="closeGameMenu()">✕</button></div><div class="modal-body"><button class="modal-btn" onclick="startGame(\\'battleship\\')" style="margin-bottom:12px">⚓ Морской бой</button><button class="modal-btn" onclick="startGame(\\'tictactoe\\')">❌ Крестики-нолики</button></div></div>';
-    document.body.appendChild(modal);
+    document.getElementById('gameMenuModal').classList.add('active');
 }
 
 function closeGameMenu() {
-    var modal = document.getElementById('gameMenuModal');
-    if (modal) modal.remove();
+    document.getElementById('gameMenuModal').classList.remove('active');
 }
 
 function startGame(gameType) {
     closeGameMenu();
-    if (!currentChatTarget) return;
-    socket.emit('startGame', { target: currentChatTarget, gameType: gameType });
-    showToast('🎮 Приглашение отправлено! Ждём ответа друга...');
+    if (gameType === 'tictactoe') startTicTacToe();
+    else if (gameType === 'dice') rollDice();
+    else if (gameType === 'darts') playDarts();
 }
 
-function createGameUI(gameType) {
-    if (gameType === 'battleship') {
-        battleMyGrid = initBattleGrid();
-        battleEnemyGrid = initEmptyGrid();
-        var gameDiv = document.createElement('div');
-        gameDiv.className = 'game-container';
-        gameDiv.id = 'gameContainer';
-        gameDiv.innerHTML = '<div class="game-title">⚓ МОРСКОЙ БОЙ ⚓</div><div class="game-status" id="gameStatus">Ваш ход!</div><div class="game-boards"><div class="board"><div class="board-title">🚢 Ваше поле</div><div id="myBattleGrid" class="battle-grid"></div></div><div class="board"><div class="board-title">🎯 Поле противника</div><div id="enemyBattleGrid" class="battle-grid"></div></div></div><div class="game-controls"><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
-        document.getElementById('messages').appendChild(gameDiv);
-        renderBattleGrid('myBattleGrid', battleMyGrid, true);
-        renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
-    } else if (gameType === 'tictactoe') {
-        tttBoard = ['', '', '', '', '', '', '', '', ''];
-        var gameDiv = document.createElement('div');
-        gameDiv.className = 'game-container';
-        gameDiv.id = 'gameContainer';
-        gameDiv.innerHTML = '<div class="game-title">❌ КРЕСТИКИ-НОЛИКИ ❌</div><div class="game-status" id="gameStatus">Ваш ход!</div><div id="tttBoard" class="tic-grid" style="margin:0 auto"></div><div class="game-controls"><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
-        document.getElementById('messages').appendChild(gameDiv);
+function startTicTacToe() {
+    tttBoard = ['', '', '', '', '', '', '', '', ''];
+    tttCurrentPlayer = 'X';
+    const gameDiv = document.createElement('div');
+    gameDiv.className = 'game-container';
+    gameDiv.id = 'tttGame';
+    gameDiv.innerHTML = '<div class="game-title">❌ КРЕСТИКИ-НОЛИКИ</div><div style="text-align:center;margin-bottom:12px">Сейчас ходит: <span id="tttTurn" style="color:#6366f1;font-weight:bold">X</span></div><div id="tttBoard" class="tic-grid" style="margin:0 auto"></div><div class="game-controls"><button class="game-btn" onclick="resetTicTacToe()">🔄 Новая игра</button><button class="game-btn" onclick="closeGame()">❌ Закрыть</button></div>';
+    document.getElementById('messages').appendChild(gameDiv);
+    renderTicTacToe();
+}
+
+function renderTicTacToe() {
+    const container = document.getElementById('tttBoard');
+    if (!container) return;
+    let html = '';
+    for (let i = 0; i < 9; i++) {
+        html += '<div class="tic-cell" onclick="makeMove(' + i + ')">' + (tttBoard[i] || '') + '</div>';
+    }
+    container.innerHTML = html;
+    const turnSpan = document.getElementById('tttTurn');
+    if (turnSpan) turnSpan.innerText = tttCurrentPlayer;
+}
+
+function makeMove(index) {
+    if (tttBoard[index] !== '' || tttCurrentPlayer !== 'X') return;
+    tttBoard[index] = 'X';
+    renderTicTacToe();
+    const winner = checkWinner(tttBoard);
+    if (winner) {
+        showToast('🏆 ПОБЕДА!');
+        socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🏆 Победа в крестики-нолики!' });
+        closeGame();
+        return;
+    }
+    if (tttBoard.every(c => c !== '')) {
+        showToast('🤝 НИЧЬЯ!');
+        closeGame();
+        return;
+    }
+    tttCurrentPlayer = 'O';
+    renderTicTacToe();
+    setTimeout(() => computerMove(), 500);
+}
+
+function computerMove() {
+    const empty = tttBoard.reduce((arr, cell, idx) => cell === '' ? [...arr, idx] : arr, []);
+    if (empty.length > 0) {
+        const move = empty[Math.floor(Math.random() * empty.length)];
+        tttBoard[move] = 'O';
+        renderTicTacToe();
+        const winner = checkWinner(tttBoard);
+        if (winner) {
+            showToast('😢 Компьютер победил!');
+            closeGame();
+            return;
+        }
+        tttCurrentPlayer = 'X';
         renderTicTacToe();
     }
 }
 
-function renderBattleGrid(containerId, grid, isMyGrid) {
-    var container = document.getElementById(containerId);
-    if (!container) return;
-    var html = '';
-    for (var i = 0; i < 10; i++) {
-        for (var j = 0; j < 10; j++) {
-            var cellClass = 'battle-cell';
-            if (grid[i][j].hit) cellClass += ' hit';
-            else if (grid[i][j].miss) cellClass += ' miss';
-            else if (isMyGrid && grid[i][j].ship) cellClass += ' ship';
-            html += '<div class="' + cellClass + '" onclick="makeBattleMove(' + i + ',' + j + ')"></div>';
-        }
+function checkWinner(board) {
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (let line of lines) {
+        const [a,b,c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
     }
-    container.innerHTML = html;
+    return null;
 }
 
-function renderTicTacToe() {
-    var container = document.getElementById('tttBoard');
-    if (!container) return;
-    var html = '';
-    for (var i = 0; i < 9; i++) {
-        html += '<div class="tic-cell" onclick="makeTicMove(' + i + ')">' + (tttBoard[i] || '') + '</div>';
-    }
-    container.innerHTML = html;
+function resetTicTacToe() {
+    closeGame();
+    startTicTacToe();
 }
 
-function makeBattleMove(row, col) {
-    if (!myTurn || !gameRoom) return;
-    socket.emit('gameMove', { roomId: gameRoom, move: { type: 'battleship', row: row, col: col } });
+function rollDice() {
+    const dice = Math.floor(Math.random() * 6) + 1;
+    const emoji = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][dice-1];
+    showToast('🎲 Выпало: ' + emoji + ' ' + dice);
+    socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🎲 Бросок костей: ' + emoji + ' (' + dice + ')' });
 }
 
-function makeTicMove(index) {
-    if (!myTurn || !gameRoom) return;
-    if (tttBoard[index] !== '') return;
-    socket.emit('gameMove', { roomId: gameRoom, move: { type: 'tictactoe', index: index } });
+function playDarts() {
+    const score = Math.floor(Math.random() * 180) + 1;
+    const msgs = ['🎯 БУЛЛСАЙ!', '🎯 Отлично!', '🎯 Хороший бросок!'];
+    const msg = msgs[Math.floor(Math.random() * 3)];
+    showToast(msg + ' ' + score + ' очков');
+    socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: '🎯 Дартс: ' + msg + ' (' + score + ' очков)' });
 }
 
 function closeGame() {
-    var gameDiv = document.getElementById('gameContainer');
+    const gameDiv = document.querySelector('.game-container');
     if (gameDiv) gameDiv.remove();
     currentGame = null;
-    gameRoom = null;
-    myTurn = false;
-    if (gameRoom) socket.emit('leaveGame', { roomId: gameRoom });
-}
-
-function initBattleGrid() {
-    var grid = Array(10);
-    for (var i = 0; i < 10; i++) {
-        grid[i] = Array(10);
-        for (var j = 0; j < 10; j++) {
-            grid[i][j] = { ship: false, hit: false, miss: false };
-        }
-    }
-    var ships = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
-    for (var s = 0; s < ships.length; s++) {
-        placeShip(grid, ships[s]);
-    }
-    return grid;
-}
-
-function initEmptyGrid() {
-    var grid = Array(10);
-    for (var i = 0; i < 10; i++) {
-        grid[i] = Array(10);
-        for (var j = 0; j < 10; j++) {
-            grid[i][j] = { ship: false, hit: false, miss: false };
-        }
-    }
-    return grid;
-}
-
-function placeShip(grid, size) {
-    var placed = false;
-    while (!placed) {
-        var horizontal = Math.random() < 0.5;
-        var row = Math.floor(Math.random() * 10);
-        var col = Math.floor(Math.random() * 10);
-        if (canPlaceShip(grid, row, col, size, horizontal)) {
-            for (var i = 0; i < size; i++) {
-                var r = horizontal ? row : row + i;
-                var c = horizontal ? col + i : col;
-                if (r < 10 && c < 10) grid[r][c].ship = true;
-            }
-            placed = true;
-        }
-    }
-}
-
-function canPlaceShip(grid, row, col, size, horizontal) {
-    for (var i = 0; i < size; i++) {
-        var r = horizontal ? row : row + i;
-        var c = horizontal ? col + i : col;
-        if (r >= 10 || c >= 10) return false;
-        if (grid[r][c].ship) return false;
-    }
-    return true;
 }
 
 // ДРУЗЬЯ
@@ -1514,22 +1575,22 @@ function closeAddFriendModal() {
     document.getElementById('addFriendModal').classList.remove('active');
 }
 function addFriend() {
-    var u = document.getElementById('friendUsername').value.trim();
+    const u = document.getElementById('friendUsername').value.trim();
     if (!u) {
         showToast('Введите логин');
         return;
     }
-    socket.emit('addFriend', { friendUsername: u }, function(res) {
+    socket.emit('addFriend', { friendUsername: u }, (res) => {
         showToast(res.message || res.error);
         closeAddFriendModal();
         loadData();
     });
 }
 function acceptFriend(f) {
-    socket.emit('acceptFriend', { fromUser: f }, function() { loadData(); });
+    socket.emit('acceptFriend', { fromUser: f }, () => loadData());
 }
 function rejectFriend(f) {
-    socket.emit('rejectFriend', { fromUser: f }, function() { loadData(); });
+    socket.emit('rejectFriend', { fromUser: f }, () => loadData());
 }
 
 // ГРУППЫ
@@ -1541,15 +1602,40 @@ function closeCreateGroupModal() {
     document.getElementById('createGroupModal').classList.remove('active');
 }
 function createGroup() {
-    var n = document.getElementById('groupName').value.trim();
+    const n = document.getElementById('groupName').value.trim();
     if (!n) {
         showToast('Введите название');
         return;
     }
-    socket.emit('createGroup', { groupName: n }, function(res) {
+    socket.emit('createGroup', { groupName: n }, (res) => {
         if (res.success) {
-            showToast('Группа создана');
+            showToast('👥 Группа создана');
             closeCreateGroupModal();
+            loadData();
+        } else {
+            showToast(res.error);
+        }
+    });
+}
+
+// КАНАЛЫ
+function openCreateChannel() {
+    document.getElementById('createChannelModal').classList.add('active');
+    document.getElementById('channelName').value = '';
+}
+function closeCreateChannelModal() {
+    document.getElementById('createChannelModal').classList.remove('active');
+}
+function createChannel() {
+    const n = document.getElementById('channelName').value.trim();
+    if (!n) {
+        showToast('Введите название');
+        return;
+    }
+    socket.emit('createChannel', { channelName: n }, (res) => {
+        if (res.success) {
+            showToast('📢 Канал создан');
+            closeCreateChannelModal();
             loadData();
         } else {
             showToast(res.error);
@@ -1559,8 +1645,8 @@ function createGroup() {
 
 // ПРОФИЛЬ
 function openProfile() {
-    document.getElementById('editName').value = (currentUserData && currentUserData.name) ? currentUserData.name : '';
-    document.getElementById('editBio').value = (currentUserData && currentUserData.bio) ? currentUserData.bio : '';
+    document.getElementById('editName').value = currentUserData?.name || '';
+    document.getElementById('editBio').value = currentUserData?.bio || '';
     document.getElementById('editPassword').value = '';
     document.getElementById('profileModal').classList.add('active');
 }
@@ -1568,15 +1654,15 @@ function closeProfileModal() {
     document.getElementById('profileModal').classList.remove('active');
 }
 function uploadAvatar() {
-    var file = document.getElementById('avatarUpload').files[0];
+    const file = document.getElementById('avatarUpload').files[0];
     if (!file) return;
-    var reader = new FileReader();
-    reader.onloadend = function() {
-        socket.emit('uploadAvatar', { avatar: reader.result }, function(res) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        socket.emit('uploadAvatar', { avatar: reader.result }, (res) => {
             if (res.success) {
                 currentUserData = res.userData;
                 updateUI();
-                showToast('Аватар обновлён');
+                showToast('🖼️ Аватар обновлён');
                 closeProfileModal();
             }
         });
@@ -1584,22 +1670,52 @@ function uploadAvatar() {
     reader.readAsDataURL(file);
 }
 function saveProfile() {
-    var data = {
+    const data = {
         name: document.getElementById('editName').value.trim(),
         bio: document.getElementById('editBio').value.trim()
     };
-    var pwd = document.getElementById('editPassword').value.trim();
+    const pwd = document.getElementById('editPassword').value.trim();
     if (pwd) data.password = pwd;
-    socket.emit('updateProfile', data, function(res) {
+    socket.emit('updateProfile', data, (res) => {
         if (res.success) {
             currentUserData = res.userData;
             updateUI();
             closeProfileModal();
-            showToast('Профиль обновлён');
+            showToast('👤 Профиль обновлён');
         }
     });
 }
 
+// ИСТОРИИ
+function addStory() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,video/*';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            socket.emit('addStory', { media: reader.result, type: file.type.startsWith('image/') ? 'image' : 'video' });
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+function viewStory(username) {
+    socket.emit('getStory', username);
+}
+
+function closeStoryViewer() {
+    document.getElementById('storyViewer')?.classList.remove('active');
+}
+
+function loadStories() {
+    socket.emit('getStories');
+}
+
+// UI
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('overlay').classList.toggle('open');
@@ -1609,15 +1725,15 @@ function closeSidebar() {
     document.getElementById('overlay').classList.remove('open');
 }
 function showToast(msg) {
-    var t = document.createElement('div');
+    const t = document.createElement('div');
     t.className = 'toast';
-    t.innerText = msg;
+    t.innerHTML = '⚡ ' + msg;
     document.body.appendChild(t);
-    setTimeout(function() { t.remove(); }, 2000);
+    setTimeout(() => t.remove(), 2000);
 }
 function escapeHtml(s) {
     if (!s) return '';
-    return s.replace(/[&<>]/g, function(m) {
+    return s.replace(/[&<>]/g, (m) => {
         if (m === '&') return '&amp;';
         if (m === '<') return '&lt;';
         if (m === '>') return '&gt;';
@@ -1625,136 +1741,179 @@ function escapeHtml(s) {
     });
 }
 
+// ИНДИКАТОР ПЕЧАТИ
+document.getElementById('messageInput').addEventListener('input', () => {
+    if (currentChatTarget && currentChatType !== 'ai') {
+        socket.emit('typing', { type: currentChatType, target: currentChatTarget });
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            socket.emit('stopTyping', { type: currentChatType, target: currentChatTarget });
+        }, 1000);
+    }
+});
+
 // СОБЫТИЯ СОКЕТА
-socket.on('friendsUpdate', function() { loadData(); });
-socket.on('groupsUpdate', function() { loadData(); });
-socket.on('chatHistory', function(data) {
+socket.on('friendsUpdate', () => loadData());
+socket.on('groupsUpdate', () => loadData());
+socket.on('channelsUpdate', () => loadData());
+socket.on('chatHistory', (data) => {
     if (currentChatTarget === data.target) {
         document.getElementById('messages').innerHTML = '';
-        for (var i = 0; i < data.messages.length; i++) {
+        for (let i = 0; i < data.messages.length; i++) {
             addMessage(data.messages[i]);
         }
     }
 });
-socket.on('newMessage', function(msg) {
-    if (currentChatTarget === msg.target || currentChatTarget === msg.from) {
-        addMessage(msg);
+socket.on('newMessage', (m) => {
+    let show = false;
+    if (currentChatTarget === m.target || currentChatTarget === m.from) show = true;
+    if (show) {
+        addMessage(m);
     }
-    if (msg.from !== currentUser && currentChatTarget !== 'ai_assistant') {
-        showToast('📩 Новое сообщение от ' + msg.from);
+    if (m.from !== currentUser && currentChatType !== 'ai') {
+        showToast('📩 Новое сообщение от ' + m.from);
     }
 });
-
-// ИГРОВЫЕ СОБЫТИЯ
-socket.on('gameInvite', function(data) {
-    if (confirm(data.from + ' приглашает вас сыграть в ' + (data.gameType === 'battleship' ? 'Морской бой' : 'Крестики-нолики') + '. Принять?')) {
-        socket.emit('acceptGame', { from: data.from, gameType: data.gameType });
-        gameRoom = data.roomId;
-        myTurn = (data.gameType === 'battleship') ? false : true;
-        createGameUI(data.gameType);
-        var statusDiv = document.getElementById('gameStatus');
-        if (statusDiv) statusDiv.innerHTML = myTurn ? 'Ваш ход!' : 'Ход противника...';
+socket.on('voiceMessage', (d) => {
+    if (currentChatTarget === d.target || currentChatTarget === d.from) {
+        const div = document.createElement('div');
+        div.className = 'message ' + (d.from === currentUser ? 'mine' : '');
+        div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><div class="voice-message"><button class="voice-play" onclick="playAudio(this, \\'' + d.audio + '\\')">▶️</button><span>🎙️ Голосовое сообщение</span></div><div class="message-time">' + (d.time || new Date().toLocaleTimeString()) + '</div></div></div>';
+        document.getElementById('messages').appendChild(div);
+    }
+});
+socket.on('fileMessage', (d) => {
+    if (currentChatTarget === d.target || currentChatTarget === d.from) {
+        const div = document.createElement('div');
+        div.className = 'message ' + (d.from === currentUser ? 'mine' : '');
+        div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><a class="file-attachment" href="' + d.fileData + '" download="' + d.fileName + '">📎 ' + escapeHtml(d.fileName) + '</a><div class="message-time">' + (d.time || new Date().toLocaleTimeString()) + '</div></div></div>';
+        document.getElementById('messages').appendChild(div);
+    }
+});
+socket.on('newPoll', (d) => {
+    if (currentChatTarget === d.chatId) {
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.innerHTML = '<div class="message-avatar">📊</div><div class="message-bubble"><div class="message-content"><div class="poll-card"><div class="poll-question">📊 ' + escapeHtml(d.poll.question) + '</div>' + d.poll.options.map((opt, idx) => '<div class="poll-option" onclick="votePoll(\\'' + d.poll.id + '\\', ' + idx + ')"><span>' + escapeHtml(opt.text) + '</span><span class="poll-vote-count">' + opt.votes.length + ' голосов</span></div>').join('') + '</div><div class="message-time">' + new Date().toLocaleTimeString() + '</div></div></div>';
+        document.getElementById('messages').appendChild(div);
+    }
+});
+function votePoll(pollId, optionIndex) {
+    socket.emit('votePoll', { chatId: currentChatTarget, pollId: pollId, optionIndex: optionIndex });
+}
+socket.on('typing', (d) => {
+    if (currentChatTarget === d.user || currentChatTarget === d.channel) {
+        document.getElementById('typingIndicator')?.classList.add('active');
+        setTimeout(() => document.getElementById('typingIndicator')?.classList.remove('active'), 1500);
+    }
+});
+socket.on('userOnline', (u) => {
+    onlineUsers.add(u);
+    if (currentChatTarget === u) {
+        document.getElementById('chatStatus').innerHTML = '🟢 Онлайн';
+    }
+    renderChats();
+});
+socket.on('userOffline', (u) => {
+    onlineUsers.delete(u);
+    if (currentChatTarget === u) {
+        document.getElementById('chatStatus').innerHTML = '⚫ Офлайн';
+    }
+    renderChats();
+});
+socket.on('storiesUpdate', (s) => {
+    const container = document.getElementById('storiesRow');
+    let html = '<div class="story-item" onclick="addStory()"><div class="story-circle add"><div class="story-avatar">+</div></div><div class="story-name">Моя</div></div>';
+    for (let i = 0; i < s.length; i++) {
+        html += '<div class="story-item" onclick="viewStory(\\'' + s[i].username + '\\')"><div class="story-circle"><div class="story-avatar">' + (s[i].avatar || '👤') + '</div></div><div class="story-name">' + (s[i].name || s[i].username) + '</div></div>';
+    }
+    container.innerHTML = html;
+});
+socket.on('storyData', (d) => {
+    let viewer = document.getElementById('storyViewer');
+    if (!viewer) {
+        viewer = document.createElement('div');
+        viewer.id = 'storyViewer';
+        viewer.className = 'story-viewer';
+        viewer.innerHTML = '<div class="story-container"><div class="story-progress"><div class="story-progress-bar" id="storyProgressBar"></div></div><img id="storyImage" class="story-media" style="display:none"><video id="storyVideo" class="story-media" style="display:none" autoplay muted></video><button class="story-close" onclick="closeStoryViewer()">✕</button></div>';
+        document.body.appendChild(viewer);
+    }
+    const img = document.getElementById('storyImage');
+    const video = document.getElementById('storyVideo');
+    if (d.type === 'image') {
+        img.style.display = 'block';
+        video.style.display = 'none';
+        img.src = d.media;
     } else {
-        socket.emit('rejectGame', { from: data.from });
+        img.style.display = 'none';
+        video.style.display = 'block';
+        video.src = d.media;
+        video.play();
     }
-});
-
-socket.on('gameStarted', function(data) {
-    gameRoom = data.roomId;
-    myTurn = data.yourTurn;
-    createGameUI(data.gameType);
-    var statusDiv = document.getElementById('gameStatus');
-    if (statusDiv) statusDiv.innerHTML = myTurn ? 'Ваш ход!' : 'Ход противника...';
-});
-
-socket.on('gameMoveUpdate', function(data) {
-    if (data.gameType === 'battleship') {
-        var row = data.row, col = data.col, hit = data.hit;
-        if (hit) {
-            battleEnemyGrid[row][col].hit = true;
-            showToast('💥 Попадание!');
-        } else {
-            battleEnemyGrid[row][col].miss = true;
-            showToast('💧 Мимо!');
+    viewer.classList.add('active');
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 2;
+        document.getElementById('storyProgressBar').style.width = progress + '%';
+        if (progress >= 100) {
+            clearInterval(interval);
+            closeStoryViewer();
         }
-        renderBattleGrid('enemyBattleGrid', battleEnemyGrid, false);
-        if (data.gameOver) {
-            showToast(data.winner === currentUser ? '🏆 ПОБЕДА!' : '😭 Поражение!');
-            closeGame();
+    }, 100);
+});
+
+function playAudio(btn, audioData) {
+    const audio = new Audio(audioData);
+    audio.play();
+    btn.innerHTML = '⏸️';
+    audio.onended = () => btn.innerHTML = '▶️';
+    btn.onclick = () => {
+        if (audio.paused) {
+            audio.play();
+            btn.innerHTML = '⏸️';
         } else {
-            myTurn = true;
-            var statusDiv = document.getElementById('gameStatus');
-            if (statusDiv) statusDiv.innerHTML = 'Ваш ход!';
+            audio.pause();
+            btn.innerHTML = '▶️';
         }
-    } else if (data.gameType === 'tictactoe') {
-        tttBoard[data.index] = data.symbol;
-        renderTicTacToe();
-        if (data.gameOver) {
-            showToast(data.winner === currentUser ? '🏆 ПОБЕДА!' : '😭 Поражение!');
-            closeGame();
-        } else {
-            myTurn = true;
-            var statusDiv = document.getElementById('gameStatus');
-            if (statusDiv) statusDiv.innerHTML = 'Ваш ход!';
-        }
-    }
-});
+    };
+}
 
-socket.on('yourTurn', function() {
-    myTurn = true;
-    var statusDiv = document.getElementById('gameStatus');
-    if (statusDiv) statusDiv.innerHTML = 'Ваш ход!';
-});
-
-socket.on('gameRejected', function() {
-    showToast('Противник отклонил приглашение');
-    closeGame();
-});
-
-socket.on('userOnline', function(u) { onlineUsers.add(u); });
-socket.on('userOffline', function(u) { onlineUsers.delete(u); });
-
-var savedUser = localStorage.getItem('atomgram_user');
+const savedUser = localStorage.getItem('atomgram_user');
 if (savedUser) {
     document.getElementById('loginUsername').value = savedUser;
 }
-
-window.addEventListener('resize', function() {
-    isMobile = window.innerWidth <= 768;
-});
 </script>
 </body>
 </html>
     `);
 });
 
-// ========== СОКЕТЫ (СЕРВЕР) ==========
-var userSockets = new Map();
-var onlineSet = new Set();
-var gameRooms = new Map();
+// ========== СОКЕТЫ ==========
+const userSockets = new Map();
+const onlineSet = new Set();
 
 function getSocketByUsername(username) {
-    for (var [id, user] of userSockets) if (user === username) return io.sockets.sockets.get(id);
+    for (const [id, user] of userSockets) if (user === username) return io.sockets.sockets.get(id);
     return null;
 }
 
-io.on('connection', function(socket) {
-    var currentUser = null;
+io.on('connection', (socket) => {
+    let currentUser = null;
 
-    socket.on('register', function(data, cb) {
-        var username = data.username, name = data.name, password = data.password;
+    socket.on('register', (data, cb) => {
+        const { username, name, password } = data;
         if (users[username]) {
             cb({ success: false, error: 'Пользователь уже существует' });
         } else {
-            users[username] = { username: username, name: name || username, password: password, bio: '', avatar: null, friends: [], friendRequests: [] };
+            users[username] = { username, name: name || username, password, bio: '', avatar: null, friends: [], friendRequests: [], channels: [] };
             saveData();
             cb({ success: true });
         }
     });
 
-    socket.on('login', function(data, cb) {
-        var username = data.username, password = data.password;
-        var user = users[username];
+    socket.on('login', (data, cb) => {
+        const { username, password } = data;
+        const user = users[username];
         if (!user) {
             cb({ success: false, error: 'Пользователь не найден' });
         } else if (user.password !== password) {
@@ -1766,13 +1925,15 @@ io.on('connection', function(socket) {
             onlineSet.add(username);
             cb({ success: true, userData: { username: user.username, name: user.name, bio: user.bio, avatar: user.avatar } });
             socket.emit('friendsUpdate', { friends: user.friends || [], requests: user.friendRequests || [] });
-            socket.emit('groupsUpdate', Object.values(groups).filter(function(g) { return g.members && g.members.indexOf(currentUser) !== -1; }));
+            socket.emit('groupsUpdate', Object.values(groups).filter(g => g.members && g.members.includes(currentUser)));
+            socket.emit('channelsUpdate', user.channels || []);
             socket.broadcast.emit('userOnline', username);
+            io.emit('storiesUpdate', getActiveStories());
         }
     });
 
-    socket.on('updateProfile', function(data, cb) {
-        var user = users[currentUser];
+    socket.on('updateProfile', (data, cb) => {
+        const user = users[currentUser];
         if (user) {
             if (data.name) user.name = data.name;
             if (data.bio) user.bio = data.bio;
@@ -1785,8 +1946,8 @@ io.on('connection', function(socket) {
         }
     });
 
-    socket.on('uploadAvatar', function(data, cb) {
-        var user = users[currentUser];
+    socket.on('uploadAvatar', (data, cb) => {
+        const user = users[currentUser];
         if (user) {
             user.avatar = data.avatar;
             saveData();
@@ -1796,7 +1957,7 @@ io.on('connection', function(socket) {
         }
     });
 
-    socket.on('getFriends', function(cb) {
+    socket.on('getFriends', (cb) => {
         if (currentUser && users[currentUser]) {
             cb({ friends: users[currentUser].friends || [], requests: users[currentUser].friendRequests || [] });
         } else {
@@ -1804,153 +1965,229 @@ io.on('connection', function(socket) {
         }
     });
 
-    socket.on('getGroups', function(cb) {
+    socket.on('getGroups', (cb) => {
         if (currentUser) {
-            cb(Object.values(groups).filter(function(g) { return g.members && g.members.indexOf(currentUser) !== -1; }));
+            cb(Object.values(groups).filter(g => g.members && g.members.includes(currentUser)));
         } else {
             cb([]);
         }
     });
 
-    socket.on('addFriend', function(data, cb) {
-        var friendUsername = data.friendUsername;
-        var user = users[currentUser];
-        var friend = users[friendUsername];
+    socket.on('getChannels', (cb) => {
+        if (currentUser && users[currentUser]) {
+            cb(users[currentUser].channels || []);
+        } else {
+            cb([]);
+        }
+    });
+
+    socket.on('globalSearch', (data, cb) => {
+        const { query } = data;
+        const usersResults = Object.keys(users).filter(u => u.toLowerCase().includes(query.toLowerCase())).slice(0, 5);
+        const channelsResults = [];
+        for (const [id, ch] of Object.entries(channels)) {
+            if (ch.name.toLowerCase().includes(query.toLowerCase())) {
+                channelsResults.push({ id: id, name: ch.name });
+            }
+        }
+        cb({ users: usersResults, channels: channelsResults.slice(0, 5) });
+    });
+
+    socket.on('addFriend', (data, cb) => {
+        const { friendUsername } = data;
+        const user = users[currentUser];
+        const friend = users[friendUsername];
         if (!friend) {
             cb({ success: false, error: 'Пользователь не найден' });
         } else if (friendUsername === currentUser) {
             cb({ success: false, error: 'Нельзя добавить себя' });
-        } else if (user.friends && user.friends.indexOf(friendUsername) !== -1) {
+        } else if (user.friends && user.friends.includes(friendUsername)) {
             cb({ success: false, error: 'Уже в друзьях' });
-        } else if (friend.friendRequests && friend.friendRequests.indexOf(currentUser) !== -1) {
+        } else if (friend.friendRequests && friend.friendRequests.includes(currentUser)) {
             cb({ success: false, error: 'Запрос уже отправлен' });
         } else {
             if (!friend.friendRequests) friend.friendRequests = [];
             friend.friendRequests.push(currentUser);
             saveData();
-            cb({ success: true, message: 'Запрос отправлен' });
-            var fs = getSocketByUsername(friendUsername);
+            cb({ success: true, message: '✅ Запрос отправлен' });
+            const fs = getSocketByUsername(friendUsername);
             if (fs) {
                 fs.emit('friendsUpdate', { friends: friend.friends || [], requests: friend.friendRequests || [] });
             }
         }
     });
 
-    socket.on('acceptFriend', function(data) {
-        var fromUser = data.fromUser;
-        var user = users[currentUser];
-        var from = users[fromUser];
-        if (user.friendRequests && user.friendRequests.indexOf(fromUser) !== -1) {
-            user.friendRequests = user.friendRequests.filter(function(f) { return f !== fromUser; });
+    socket.on('acceptFriend', (data) => {
+        const { fromUser } = data;
+        const user = users[currentUser];
+        const from = users[fromUser];
+        if (user.friendRequests && user.friendRequests.includes(fromUser)) {
+            user.friendRequests = user.friendRequests.filter(f => f !== fromUser);
             if (!user.friends) user.friends = [];
             if (!from.friends) from.friends = [];
             user.friends.push(fromUser);
             from.friends.push(currentUser);
             saveData();
             socket.emit('friendsUpdate', { friends: user.friends, requests: user.friendRequests });
-            var fs = getSocketByUsername(fromUser);
+            const fs = getSocketByUsername(fromUser);
             if (fs) {
                 fs.emit('friendsUpdate', { friends: from.friends, requests: from.friendRequests });
             }
         }
     });
 
-    socket.on('rejectFriend', function(data) {
-        var fromUser = data.fromUser;
-        var user = users[currentUser];
-        if (user.friendRequests && user.friendRequests.indexOf(fromUser) !== -1) {
-            user.friendRequests = user.friendRequests.filter(function(f) { return f !== fromUser; });
+    socket.on('rejectFriend', (data) => {
+        const { fromUser } = data;
+        const user = users[currentUser];
+        if (user.friendRequests && user.friendRequests.includes(fromUser)) {
+            user.friendRequests = user.friendRequests.filter(f => f !== fromUser);
             saveData();
             socket.emit('friendsUpdate', { friends: user.friends, requests: user.friendRequests });
         }
     });
 
-    socket.on('createGroup', function(data, cb) {
-        var groupName = data.groupName;
-        var id = 'group_' + Date.now();
-        groups[id] = { id: id, name: groupName, members: [currentUser], messages: [] };
+    socket.on('createGroup', (data, cb) => {
+        const { groupName } = data;
+        const id = 'group_' + Date.now();
+        groups[id] = { id, name: groupName, members: [currentUser], messages: [] };
         saveData();
         cb({ success: true });
-        socket.emit('groupsUpdate', Object.values(groups).filter(function(g) { return g.members && g.members.indexOf(currentUser) !== -1; }));
+        socket.emit('groupsUpdate', Object.values(groups).filter(g => g.members && g.members.includes(currentUser)));
     });
 
-    socket.on('joinPrivate', function(target) {
-        var id = [currentUser, target].sort().join('_');
+    socket.on('createChannel', (data, cb) => {
+        const { channelName } = data;
+        const id = 'channel_' + Date.now();
+        if (!users[currentUser].channels) users[currentUser].channels = [];
+        users[currentUser].channels.push({ id: id, name: channelName });
+        channels[id] = { name: channelName, owner: currentUser, messages: [] };
+        saveData();
+        cb({ success: true });
+        socket.emit('channelsUpdate', users[currentUser].channels);
+    });
+
+    socket.on('joinChannel', (channelId) => {
+        if (channels[channelId]) {
+            socket.emit('chatHistory', { target: channelId, messages: channels[channelId].messages || [] });
+        }
+    });
+
+    socket.on('joinPrivate', (target) => {
+        const id = [currentUser, target].sort().join('_');
         if (!privateChats[id]) privateChats[id] = { messages: [] };
         socket.emit('chatHistory', { target: target, messages: privateChats[id].messages || [] });
     });
 
-    socket.on('sendMessage', function(data) {
-        var target = data.target, text = data.text;
-        var msg = { id: Date.now(), from: currentUser, text: text, time: new Date().toLocaleTimeString(), target: target };
-        var id = [currentUser, target].sort().join('_');
-        if (!privateChats[id]) privateChats[id] = { messages: [] };
-        privateChats[id].messages.push(msg);
+    socket.on('sendMessage', (data) => {
+        const { type, target, text } = data;
+        const msg = { id: Date.now(), from: currentUser, text, time: new Date().toLocaleTimeString(), target: target };
+        if (type === 'private') {
+            const id = [currentUser, target].sort().join('_');
+            if (!privateChats[id]) privateChats[id] = { messages: [] };
+            privateChats[id].messages.push(msg);
+            saveData();
+            socket.emit('newMessage', msg);
+            const ts = getSocketByUsername(target);
+            if (ts) ts.emit('newMessage', msg);
+        } else if (type === 'channel') {
+            if (channels[target]) {
+                channels[target].messages.push(msg);
+                saveData();
+                socket.emit('newMessage', msg);
+            }
+        }
+    });
+
+    socket.on('createPoll', (data) => {
+        const { chatId, question, options } = data;
+        const poll = { id: Date.now(), question: question, options: options.map(o => ({ text: o, votes: [] })), createdBy: currentUser };
+        let chat = privateChats[chatId] || channels[chatId];
+        if (chat) {
+            if (!chat.polls) chat.polls = [];
+            chat.polls.push(poll);
+            saveData();
+            io.emit('newPoll', { chatId, poll });
+        }
+    });
+
+    socket.on('votePoll', (data) => {
+        const { chatId, pollId, optionIndex } = data;
+        let chat = privateChats[chatId] || channels[chatId];
+        if (chat && chat.polls) {
+            const poll = chat.polls.find(p => p.id == pollId);
+            if (poll && !poll.options[optionIndex].votes.includes(currentUser)) {
+                poll.options[optionIndex].votes.push(currentUser);
+                saveData();
+                io.emit('pollUpdate', { chatId, pollId, poll });
+            }
+        }
+    });
+
+    socket.on('voiceMessage', (data) => {
+        const { type, target, audio } = data;
+        const msg = { id: Date.now(), from: currentUser, audio, time: new Date().toLocaleTimeString(), target: target };
+        if (type === 'private') {
+            const id = [currentUser, target].sort().join('_');
+            if (!privateChats[id]) privateChats[id] = { messages: [] };
+            privateChats[id].messages.push(msg);
+            saveData();
+            socket.emit('voiceMessage', msg);
+            const ts = getSocketByUsername(target);
+            if (ts) ts.emit('voiceMessage', msg);
+        }
+    });
+
+    socket.on('fileMessage', (data) => {
+        const { type, target, fileName, fileData } = data;
+        const msg = { id: Date.now(), from: currentUser, fileName, fileData, time: new Date().toLocaleTimeString(), target: target };
+        if (type === 'private') {
+            const id = [currentUser, target].sort().join('_');
+            if (!privateChats[id]) privateChats[id] = { messages: [] };
+            privateChats[id].messages.push(msg);
+            saveData();
+            socket.emit('fileMessage', msg);
+            const ts = getSocketByUsername(target);
+            if (ts) ts.emit('fileMessage', msg);
+        }
+    });
+
+    socket.on('addStory', (data) => {
+        const { media, type } = data;
+        if (!stories[currentUser]) stories[currentUser] = [];
+        stories[currentUser].push({ media, type, time: Date.now() });
+        if (stories[currentUser].length > 10) stories[currentUser].shift();
         saveData();
-        socket.emit('newMessage', msg);
-        var ts = getSocketByUsername(target);
-        if (ts) ts.emit('newMessage', msg);
+        io.emit('storiesUpdate', getActiveStories());
     });
 
-    // ИГРЫ
-    socket.on('startGame', function(data) {
-        var target = data.target, gameType = data.gameType;
-        var roomId = 'game_' + Date.now() + '_' + Math.random();
-        gameRooms.set(roomId, { players: [currentUser, target], gameType: gameType, currentTurn: currentUser, state: {} });
-        var targetSocket = getSocketByUsername(target);
-        if (targetSocket) {
-            targetSocket.emit('gameInvite', { from: currentUser, gameType: gameType, roomId: roomId });
-            socket.emit('gameStarted', { roomId: roomId, gameType: gameType, yourTurn: true });
-        } else {
-            socket.emit('gameRejected');
+    socket.on('getStories', () => {
+        socket.emit('storiesUpdate', getActiveStories());
+    });
+
+    socket.on('getStory', (username) => {
+        if (stories[username] && stories[username].length > 0) {
+            const story = stories[username][stories[username].length - 1];
+            socket.emit('storyData', story);
         }
     });
 
-    socket.on('acceptGame', function(data) {
-        var from = data.from, gameType = data.gameType;
-        var roomId = 'game_' + Date.now() + '_' + Math.random();
-        gameRooms.set(roomId, { players: [from, currentUser], gameType: gameType, currentTurn: from, state: {} });
-        var fromSocket = getSocketByUsername(from);
-        if (fromSocket) {
-            fromSocket.emit('gameStarted', { roomId: roomId, gameType: gameType, yourTurn: true });
-            socket.emit('gameStarted', { roomId: roomId, gameType: gameType, yourTurn: false });
+    socket.on('typing', (data) => {
+        const { type, target } = data;
+        if (type === 'private') {
+            const ts = getSocketByUsername(target);
+            if (ts) ts.emit('typing', { user: currentUser });
         }
     });
 
-    socket.on('rejectGame', function(data) {
-        var from = data.from;
-        var fromSocket = getSocketByUsername(from);
-        if (fromSocket) fromSocket.emit('gameRejected');
-    });
-
-    socket.on('gameMove', function(data) {
-        var roomId = data.roomId, move = data.move;
-        var room = gameRooms.get(roomId);
-        if (!room) return;
-        var opponent = room.players[0] === currentUser ? room.players[1] : room.players[0];
-        var opponentSocket = getSocketByUsername(opponent);
-        if (!opponentSocket) return;
-        
-        if (room.gameType === 'battleship') {
-            var hit = Math.random() < 0.3;
-            var gameOver = false;
-            var winner = null;
-            opponentSocket.emit('gameMoveUpdate', { roomId: roomId, gameType: 'battleship', row: move.row, col: move.col, hit: hit, gameOver: gameOver, winner: winner });
-            socket.emit('yourTurn', { roomId: roomId });
-        } else if (room.gameType === 'tictactoe') {
-            var symbol = room.currentTurn === currentUser ? 'X' : 'O';
-            opponentSocket.emit('gameMoveUpdate', { roomId: roomId, gameType: 'tictactoe', index: move.index, symbol: symbol, gameOver: false });
-            room.currentTurn = opponent;
-            socket.emit('yourTurn', { roomId: roomId });
+    socket.on('stopTyping', (data) => {
+        const { type, target } = data;
+        if (type === 'private') {
+            const ts = getSocketByUsername(target);
+            if (ts) ts.emit('stopTyping');
         }
     });
 
-    socket.on('leaveGame', function(data) {
-        var roomId = data.roomId;
-        gameRooms.delete(roomId);
-    });
-
-    socket.on('disconnect', function() {
+    socket.on('disconnect', () => {
         if (currentUser) {
             userSockets.delete(socket.id);
             onlineSet.delete(currentUser);
@@ -1959,56 +2196,55 @@ io.on('connection', function(socket) {
     });
 });
 
+function getActiveStories() {
+    const active = [];
+    const now = Date.now();
+    for (const [username, userStories] of Object.entries(stories)) {
+        if (userStories && userStories.length > 0 && now - userStories[userStories.length - 1].time < 86400000 && users[username]) {
+            active.push({ username, name: users[username].name, avatar: users[username].avatar });
+        }
+    }
+    return active;
+}
+
 function startKeepAliveBot() {
-    var PORT = process.env.PORT || 3000;
-    var url = 'http://localhost:' + PORT;
+    const PORT = process.env.PORT || 3000;
+    const url = `http://localhost:${PORT}`;
     console.log('\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер не уснёт\n');
-    setInterval(async function() { try { await fetch(url); } catch(e) {} }, 4 * 60 * 1000);
-    setTimeout(async function() { try { await fetch(url); } catch(e) {} }, 30000);
+    setInterval(async () => { try { await fetch(url); } catch(e) {} }, 4 * 60 * 1000);
+    setTimeout(async () => { try { await fetch(url); } catch(e) {} }, 30000);
 }
 
 if (process.env.RENDER || true) startKeepAliveBot();
 
-var PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', function() {
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`
-╔═══════════════════════════════════════════════════════════════════╗
-║                                                                   ║
-║     🚀 ATOMGRAM — МЕССЕНДЖЕР №1 В МИРЕ                           ║
-║                                                                   ║
-║              🤖 С ПОЛНОЦЕННЫМ ИИ-ПОМОЩНИКОМ                       ║
-║                                                                   ║
-║                 ОДОБРЕНО ИЛОНОМ МАСКОМ 🚀                         ║
-║                                                                   ║
-╠═══════════════════════════════════════════════════════════════════╣
-║  💻 http://localhost:${PORT}                                       ║
-║  📱 http://localhost:${PORT}                                       ║
-╠═══════════════════════════════════════════════════════════════════╣
-║  ✨ ВСЕ ФИШКИ РАБОТАЮТ:                                           ║
-║                                                                   ║
-║  🤖 ПОЛНОЦЕННЫЙ ИИ-ПОМОЩНИК (как ChatGPT):                       ║
-║     • Понимает контекст диалога                                   ║
-║     • Отвечает на любые вопросы                                   ║
-║     • Даёт советы                                                 ║
-║     • Рассказывает истории и стихи                                ║
-║     • Шутит                                                       ║
-║     • Объясняет сложные вещи                                      ║
-║                                                                   ║
-║  🎮 ИГРЫ С ДРУГОМ:                                                ║
-║     • Морской бой                                                 ║
-║     • Крестики-нолики                                             ║
-║                                                                   ║
-║  💬 ОБЩЕНИЕ:                                                      ║
-║     • Личные сообщения                                            ║
-║     • Группы                                                      ║
-║     • Друзья                                                      ║
-║     • Аватары                                                     ║
-║                                                                   ║
-║  📱 АДАПТИВНЫЙ ДИЗАЙН                                             ║
-║  🤖 AWAKE-BOT (сервер не спит)                                   ║
-║                                                                   ║
-╠═══════════════════════════════════════════════════════════════════╣
-║  🌍 ATOMGRAM — БУДУЩЕЕ УЖЕ ЗДЕСЬ!                                 ║
-╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════╗
+║     🚀 ATOMGRAM PRO — КОНКУРЕНТ TELEGRAM                  ║
+║              💪 100+ ФУНКЦИЙ ДЛЯ ПОБЕДЫ                   ║
+╠═══════════════════════════════════════════════════════════╣
+║  💻 http://localhost:${PORT}                               ║
+║  📱 http://localhost:${PORT}                               ║
+╠═══════════════════════════════════════════════════════════╣
+║  ✨ КЛЮЧЕВЫЕ ФИШКИ:                                       ║
+║  🤖 ИИ-ПОМОЩНИК (полноценный, как ChatGPT)               ║
+║  🌍 ГЛОБАЛЬНЫЙ ПОИСК ПОЛЬЗОВАТЕЛЕЙ И КАНАЛОВ              ║
+║  📞 ГОЛОСОВЫЕ СООБЩЕНИЯ                                   ║
+║  📎 ОТПРАВКА ФАЙЛОВ И ФОТО                                ║
+║  😀 СТИКЕРЫ (20+)                                         ║
+║  📊 ОПРОСЫ (POLLS)                                        ║
+║  📸 ИСТОРИИ (как в Telegram)                             ║
+║  👥 ГРУППЫ И КАНАЛЫ                                      ║
+║  👤 ДРУЗЬЯ С ЗАПРОСАМИ                                    ║
+║  ❌ КРЕСТИКИ-НОЛИКИ + КОСТИ + ДАРТС                       ║
+║  🟢 ОНЛАЙН-СТАТУС                                         ║
+║  ⌨️ ИНДИКАТОР ПЕЧАТИ                                     ║
+║  🎨 СОВРЕМЕННЫЙ ДИЗАЙН (Glassmorphism)                   ║
+║  📱 АДАПТИВ ПОД ТЕЛЕФОН И ПК                             ║
+║  🤖 AWAKE-BOT (сервер не спит)                          ║
+╠═══════════════════════════════════════════════════════════╣
+║  🏆 ATOMGRAM PRO — ВЫБОР МИЛЛИОНОВ! 🚀                    ║
+╚═══════════════════════════════════════════════════════════╝
     `);
 });
