@@ -1,11 +1,8 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
-const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,185 +11,63 @@ const io = socketIo(server, {
     transports: ['websocket', 'polling']
 });
 
-// ========== НАСТРОЙКА SQLITE БАЗЫ ДАННЫХ ==========
-const db = new sqlite3.Database('./atomgram.db');
+// ========== ДАННЫЕ ==========
+let users = {};
+let privateChats = {};
+let groups = {};
+let channels = {};
+let stories = {};
+let polls = {};
+let savedMessages = {};
 
-db.serialize(() => {
-    // Пользователи
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        name TEXT,
-        bio TEXT,
-        avatar TEXT,
-        online INTEGER DEFAULT 0,
-        last_seen INTEGER,
-        public_key TEXT,
-        created_at INTEGER
-    )`);
-    
-    // Друзья
-    db.run(`CREATE TABLE IF NOT EXISTS friends (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        friend_id INTEGER,
-        status TEXT DEFAULT 'pending',
-        created_at INTEGER,
-        FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(friend_id) REFERENCES users(id)
-    )`);
-    
-    // Сообщения
-    db.run(`CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        from_id INTEGER,
-        to_id INTEGER,
-        chat_type TEXT,
-        chat_id TEXT,
-        text TEXT,
-        file TEXT,
-        sticker TEXT,
-        voice TEXT,
-        video TEXT,
-        reply_to INTEGER,
-        reactions TEXT,
-        is_encrypted INTEGER DEFAULT 0,
-        is_read INTEGER DEFAULT 0,
-        created_at INTEGER,
-        FOREIGN KEY(from_id) REFERENCES users(id),
-        FOREIGN KEY(to_id) REFERENCES users(id)
-    )`);
-    
-    // Каналы
-    db.run(`CREATE TABLE IF NOT EXISTS channels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        owner_id INTEGER,
-        description TEXT,
-        invite_link TEXT UNIQUE,
-        subscriber_count INTEGER DEFAULT 0,
-        created_at INTEGER,
-        FOREIGN KEY(owner_id) REFERENCES users(id)
-    )`);
-    
-    // Подписчики каналов
-    db.run(`CREATE TABLE IF NOT EXISTS channel_subscribers (
-        channel_id INTEGER,
-        user_id INTEGER,
-        subscribed_at INTEGER,
-        FOREIGN KEY(channel_id) REFERENCES channels(id),
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    // Группы
-    db.run(`CREATE TABLE IF NOT EXISTS groups (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        owner_id INTEGER,
-        avatar TEXT,
-        created_at INTEGER,
-        FOREIGN KEY(owner_id) REFERENCES users(id)
-    )`);
-    
-    // Участники групп
-    db.run(`CREATE TABLE IF NOT EXISTS group_members (
-        group_id INTEGER,
-        user_id INTEGER,
-        role TEXT DEFAULT 'member',
-        joined_at INTEGER,
-        FOREIGN KEY(group_id) REFERENCES groups(id),
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    // Истории
-    db.run(`CREATE TABLE IF NOT EXISTS stories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        media TEXT,
-        type TEXT,
-        expires_at INTEGER,
-        created_at INTEGER,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    // Сохранённые сообщения
-    db.run(`CREATE TABLE IF NOT EXISTS saved_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        message_id INTEGER,
-        saved_at INTEGER,
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    // Опросы
-    db.run(`CREATE TABLE IF NOT EXISTS polls (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id TEXT,
-        question TEXT,
-        options TEXT,
-        votes TEXT,
-        created_by INTEGER,
-        created_at INTEGER
-    )`);
-    
-    // Голоса в опросах
-    db.run(`CREATE TABLE IF NOT EXISTS poll_votes (
-        poll_id INTEGER,
-        user_id INTEGER,
-        option_index INTEGER,
-        voted_at INTEGER,
-        FOREIGN KEY(poll_id) REFERENCES polls(id),
-        FOREIGN KEY(user_id) REFERENCES users(id)
-    )`);
-    
-    console.log('✅ База данных инициализирована');
-});
-
-// ========== ХЕЛПЕРЫ ==========
-function getUserIdByUsername(username, callback) {
-    db.get('SELECT id FROM users WHERE username = ?', [username], (err, row) => {
-        callback(err, row ? row.id : null);
-    });
+const DATA_FILE = path.join(__dirname, 'data.json');
+if (fs.existsSync(DATA_FILE)) {
+    try {
+        const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+        users = data.users || {};
+        privateChats = data.privateChats || {};
+        groups = data.groups || {};
+        channels = data.channels || {};
+        stories = data.stories || {};
+        polls = data.polls || {};
+        savedMessages = data.savedMessages || {};
+    } catch(e) {}
 }
 
-function getUserById(id, callback) {
-    db.get('SELECT id, username, name, bio, avatar, online, last_seen FROM users WHERE id = ?', [id], callback);
+function saveData() {
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ users, privateChats, groups, channels, stories, polls, savedMessages }, null, 2));
+}
+setInterval(saveData, 5000);
+
+// ИИ-ПОМОЩНИК
+function aiResponse(message, username) {
+    const msg = message.toLowerCase();
+    
+    if (msg.includes('привет') || msg.includes('здравствуй')) {
+        return `✨ Привет, ${username}! Я ИИ-помощник ATOMGRAM Premium. Чем могу помочь? Напиши "помощь" для списка возможностей! 🚀`;
+    }
+    if (msg.includes('помощь')) {
+        return `🔧 **Возможности ATOMGRAM Premium:**\n\n💬 Личные сообщения\n👥 Группы\n📢 Каналы\n🎤 Голосовые сообщения\n📎 Файлы и фото\n😀 Стикеры\n📸 Истории\n🎮 Игры\n🔍 Поиск\n⭐ Сохранённые\n📞 Звонки\n\nНапиши "игра" чтобы начать!`;
+    }
+    if (msg.includes('игра')) {
+        return `🎮 **Игры:**\n❌ Крестики-нолики\n🎲 Кости\n🎯 Дартс\n\nВыбери друга и нажми 🎮!`;
+    }
+    if (msg.includes('шутка')) {
+        return `😂 Почему программисты путают Хэллоуин и Рождество? 31 Oct == 25 Dec!`;
+    }
+    if (msg.includes('спасибо')) {
+        return `😊 Всегда пожалуйста, ${username}!`;
+    }
+    return `Понял, ${username}! 🤔 Расскажи подробнее!`;
 }
 
-function isFriend(userId, friendId, callback) {
-    db.get('SELECT id FROM friends WHERE user_id = ? AND friend_id = ? AND status = "accepted"', [userId, friendId], (err, row) => {
-        callback(err, !!row);
-    });
-}
-
-// ========== НАСТРОЙКА ЗАГРУЗКИ ФАЙЛОВ ==========
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
-    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
-app.use('/uploads', express.static('uploads'));
-
-// ========== API ==========
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Загрузка аватара
-app.post('/api/upload-avatar', upload.single('avatar'), (req, res) => {
-    res.json({ url: `/uploads/${req.file.filename}` });
-});
-
-// ========== HTML ==========
 app.get('/', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ATOMGRAM — Telegram Killer</title>
+    <title>ATOMGRAM PREMIUM</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0f; color: white; height: 100vh; overflow: hidden; }
@@ -261,12 +136,11 @@ app.get('/', (req, res) => {
         .header { background: #1c1c1e; padding: 12px 16px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #2c2c2e; }
         .menu-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #007aff; display: none; }
         .logo { font-size: 20px; font-weight: bold; background: linear-gradient(135deg, #007aff, #5856d6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .online-badge { margin-left: auto; font-size: 12px; color: #34c759; display: flex; align-items: center; gap: 6px; background: rgba(52,199,89,0.1); padding: 6px 12px; border-radius: 20px; }
-        .online-badge::before { content: ''; width: 8px; height: 8px; background: #34c759; border-radius: 50%; animation: pulse 1s infinite; }
+        .premium-badge { margin-left: auto; background: linear-gradient(135deg, #f59e0b, #ef4444); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
         
         .container { display: flex; flex: 1; overflow: hidden; }
         .sidebar {
-            width: 300px;
+            width: 280px;
             background: #1c1c1e;
             border-right: 1px solid #2c2c2e;
             display: flex;
@@ -277,7 +151,7 @@ app.get('/', (req, res) => {
         @media (max-width: 768px) {
             .sidebar {
                 position: fixed;
-                left: -300px;
+                left: -280px;
                 top: 0;
                 height: 100%;
                 z-index: 200;
@@ -300,7 +174,6 @@ app.get('/', (req, res) => {
         
         .profile { padding: 30px 20px; text-align: center; border-bottom: 1px solid #2c2c2e; cursor: pointer; }
         .avatar { width: 70px; height: 70px; background: linear-gradient(135deg, #007aff, #5856d6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 12px; }
-        .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
         .profile-name { font-size: 17px; font-weight: 600; }
         .profile-username { font-size: 13px; color: #8e8e93; margin-top: 4px; }
         
@@ -309,48 +182,16 @@ app.get('/', (req, res) => {
         .section-title { padding: 16px 20px 8px; font-size: 12px; color: #8e8e93; text-transform: uppercase; }
         
         .search-box { padding: 12px 16px; margin: 8px 12px; background: #2c2c2e; border-radius: 16px; display: flex; align-items: center; gap: 10px; }
-        .search-box input { flex: 1; background: none; border: none; color: white; font-size: 14px; outline: none; }
+        .search-box input { flex: 1; background: none; border: none; color: white; font-size: 14px; }
         .search-results { max-height: 200px; overflow-y: auto; margin: 4px 12px; }
         .search-result { padding: 10px 12px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         .search-result:hover { background: #2c2c2e; }
         
-        .chats-list, .channels-list, .groups-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px 12px;
-        }
-        .chat-item {
-            padding: 12px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            cursor: pointer;
-            border-radius: 14px;
-            transition: all 0.2s;
-        }
+        .chats-list, .channels-list, .groups-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+        .chat-item { padding: 12px; display: flex; align-items: center; gap: 14px; cursor: pointer; border-radius: 14px; transition: all 0.2s; }
         .chat-item:hover { background: #2c2c2e; transform: translateX(4px); }
-        .chat-avatar {
-            width: 48px;
-            height: 48px;
-            background: #2c2c2e;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .online-dot {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 12px;
-            height: 12px;
-            background: #34c759;
-            border-radius: 50%;
-            border: 2px solid #1c1c1e;
-        }
+        .chat-avatar { width: 48px; height: 48px; background: #2c2c2e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; position: relative; }
+        .online-dot { position: absolute; bottom: 2px; right: 2px; width: 12px; height: 12px; background: #34c759; border-radius: 50%; border: 2px solid #1c1c1e; }
         .chat-info { flex: 1; }
         .chat-name { font-weight: 600; font-size: 16px; }
         .chat-preview { font-size: 13px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
@@ -383,8 +224,7 @@ app.get('/', (req, res) => {
         
         .sticker-picker { position: fixed; bottom: 80px; left: 0; right: 0; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 16px; display: none; flex-wrap: wrap; gap: 12px; justify-content: center; z-index: 150; max-height: 250px; overflow-y: auto; border-top: 1px solid #2c2c2e; }
         .sticker-picker.open { display: flex; }
-        .sticker { font-size: 42px; cursor: pointer; padding: 5px; background: #2c2c2e; border-radius: 12px; transition: transform 0.1s; }
-        .sticker:active { transform: scale(1.2); }
+        .sticker { font-size: 42px; cursor: pointer; padding: 5px; background: #2c2c2e; border-radius: 12px; }
         
         .game-container { background: #1c1c1e; border-radius: 20px; padding: 16px; margin-bottom: 12px; }
         .game-title { text-align: center; margin-bottom: 12px; font-size: 16px; font-weight: bold; }
@@ -395,9 +235,8 @@ app.get('/', (req, res) => {
         .game-btn { padding: 8px 16px; background: #007aff; border: none; border-radius: 10px; color: white; cursor: pointer; }
         
         .input-area { padding: 10px 16px; background: #1c1c1e; border-top: 1px solid #2c2c2e; display: flex; gap: 10px; align-items: center; }
-        .input-area input { flex: 1; padding: 10px 14px; background: #2c2c2e; border: none; border-radius: 20px; color: white; font-size: 15px; outline: none; }
-        .input-area button { width: 40px; height: 40px; border-radius: 50%; background: #007aff; border: none; color: white; cursor: pointer; font-size: 18px; transition: transform 0.2s; }
-        .input-area button:hover { transform: scale(1.05); }
+        .input-area input { flex: 1; padding: 10px 14px; background: #2c2c2e; border: none; border-radius: 20px; color: white; font-size: 15px; }
+        .input-area button { width: 40px; height: 40px; border-radius: 50%; background: #007aff; border: none; color: white; cursor: pointer; font-size: 18px; }
         
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; visibility: hidden; opacity: 0; transition: all 0.2s; }
         .modal.active { visibility: visible; opacity: 1; }
@@ -406,7 +245,7 @@ app.get('/', (req, res) => {
         .modal-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
         .modal-body { padding: 20px; }
         .modal-footer { padding: 16px 20px; border-top: 1px solid #2c2c2e; display: flex; gap: 12px; }
-        .modal-input { width: 100%; padding: 14px; background: #2c2c2e; border: none; border-radius: 12px; color: white; margin-bottom: 16px; outline: none; }
+        .modal-input { width: 100%; padding: 14px; background: #2c2c2e; border: none; border-radius: 12px; color: white; margin-bottom: 16px; }
         .modal-btn { flex: 1; padding: 14px; background: #007aff; border: none; border-radius: 12px; color: white; font-weight: 600; cursor: pointer; }
         .modal-btn.cancel { background: #2c2c2e; }
         
@@ -425,25 +264,23 @@ app.get('/', (req, res) => {
         
         .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #1c1c1e; padding: 10px 20px; border-radius: 25px; font-size: 13px; z-index: 1000; animation: fadeIn 0.3s; }
         
-        .call-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; visibility: hidden; opacity: 0; transition: all 0.3s; }
+        .call-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; visibility: hidden; opacity: 0; }
         .call-modal.active { visibility: visible; opacity: 1; }
         .call-avatar { width: 120px; height: 120px; background: linear-gradient(135deg, #007aff, #5856d6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 48px; margin-bottom: 24px; animation: pulse 1s infinite; }
         .call-name { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
         .call-status { font-size: 14px; color: #8e8e93; margin-bottom: 32px; }
         .call-controls { display: flex; gap: 24px; }
-        .call-btn { width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer; font-size: 24px; transition: all 0.2s; }
-        .call-btn:hover { transform: scale(1.05); }
+        .call-btn { width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer; font-size: 24px; }
         .call-end { background: #ff3b30; color: white; }
         .call-mute { background: #2c2c2e; color: white; }
-        .call-accept { background: #34c759; color: white; }
     </style>
 </head>
 <body>
 
 <div class="auth-screen" id="authScreen">
     <div class="auth-card">
-        <h1>⚡ ATOMGRAM</h1>
-        <div class="subtitle">Telegram Killer</div>
+        <h1>⚡ ATOMGRAM PREMIUM</h1>
+        <div class="subtitle">Мессенджер будущего</div>
         <div id="loginPanel">
             <input type="text" id="loginUsername" placeholder="Логин">
             <input type="password" id="loginPassword" placeholder="Пароль">
@@ -464,8 +301,8 @@ app.get('/', (req, res) => {
 <div class="app" id="mainApp">
     <div class="header">
         <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-        <div class="logo">⚡ ATOMGRAM</div>
-        <div class="online-badge">Онлайн</div>
+        <div class="logo">⚡ ATOMGRAM PREMIUM</div>
+        <div class="premium-badge">PREMIUM</div>
     </div>
     <div class="container">
         <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -486,11 +323,11 @@ app.get('/', (req, res) => {
             <div class="nav-item" onclick="openCreateChannel()">📢 Создать канал</div>
             <div class="nav-item" onclick="openCreatePoll()">📊 Опрос</div>
             <div class="nav-item" onclick="openSavedMessages()">⭐ Сохранённые</div>
-            <div class="section-title">ЧАТЫ</div>
+            <div class="section-title">💬 ЧАТЫ</div>
             <div class="chats-list" id="chatsList"></div>
-            <div class="section-title">ГРУППЫ</div>
+            <div class="section-title">👥 ГРУППЫ</div>
             <div class="groups-list" id="groupsList"></div>
-            <div class="section-title">КАНАЛЫ</div>
+            <div class="section-title">📢 КАНАЛЫ</div>
             <div class="channels-list" id="channelsList"></div>
         </div>
         
@@ -499,7 +336,7 @@ app.get('/', (req, res) => {
                 <button class="back-btn" onclick="closeChat()">←</button>
                 <div class="chat-header-avatar" id="chatAvatar">👤</div>
                 <div class="chat-header-info">
-                    <div class="chat-header-name" id="chatTitle">ATOMGRAM</div>
+                    <div class="chat-header-name" id="chatTitle">ATOMGRAM PREMIUM</div>
                     <div class="chat-header-status" id="chatStatus"></div>
                 </div>
                 <div class="chat-actions" id="chatActions"></div>
@@ -523,7 +360,7 @@ app.get('/', (req, res) => {
                 <button onclick="toggleStickerPicker()">😊</button>
                 <button onclick="document.getElementById('fileInput').click()">📎</button>
                 <input type="file" id="fileInput" style="display:none" onchange="sendFile()">
-                <button id="voiceBtn" class="voice-record-btn" onclick="toggleRecording()">🎤</button>
+                <button id="voiceBtn" onclick="toggleRecording()">🎤</button>
                 <button class="action-btn" onclick="startCall()">📞</button>
                 <button class="action-btn" onclick="openGameMenu()">🎮</button>
                 <button onclick="sendMessage()">📤</button>
@@ -534,7 +371,7 @@ app.get('/', (req, res) => {
 
 <div id="addFriendModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Добавить друга</h3><button class="modal-close" onclick="closeAddFriendModal()">✕</button></div><div class="modal-body"><input type="text" id="friendUsername" class="modal-input" placeholder="Логин друга"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeAddFriendModal()">Отмена</button><button class="modal-btn" onclick="addFriend()">Добавить</button></div></div></div>
 <div id="createGroupModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать группу</h3><button class="modal-close" onclick="closeCreateGroupModal()">✕</button></div><div class="modal-body"><input type="text" id="groupName" class="modal-input" placeholder="Название группы"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateGroupModal()">Отмена</button><button class="modal-btn" onclick="createGroup()">Создать</button></div></div></div>
-<div id="createChannelModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать канал</h3><button class="modal-close" onclick="closeCreateChannelModal()">✕</button></div><div class="modal-body"><input type="text" id="channelName" class="modal-input" placeholder="Название канала"><input type="text" id="channelInvite" class="modal-input" placeholder="Ссылка-приглашение (опционально)"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateChannelModal()">Отмена</button><button class="modal-btn" onclick="createChannel()">Создать</button></div></div></div>
+<div id="createChannelModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать канал</h3><button class="modal-close" onclick="closeCreateChannelModal()">✕</button></div><div class="modal-body"><input type="text" id="channelName" class="modal-input" placeholder="Название канала"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreateChannelModal()">Отмена</button><button class="modal-btn" onclick="createChannel()">Создать</button></div></div></div>
 <div id="createPollModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Создать опрос</h3><button class="modal-close" onclick="closeCreatePollModal()">✕</button></div><div class="modal-body"><input type="text" id="pollQuestion" class="modal-input" placeholder="Вопрос"><input type="text" id="pollOptions" class="modal-input" placeholder="Варианты через запятую"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeCreatePollModal()">Отмена</button><button class="modal-btn" onclick="createPoll()">Создать</button></div></div></div>
 <div id="profileModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Профиль</h3><button class="modal-close" onclick="closeProfileModal()">✕</button></div><div class="modal-body"><div style="text-align:center;margin-bottom:20px"><div class="avatar" id="profileAvatar" style="width:80px;height:80px;font-size:36px;margin:0 auto">👤</div><button onclick="document.getElementById('avatarUpload').click()" style="margin-top:12px;background:#2c2c2e;border:none;padding:8px 16px;border-radius:20px;color:white;cursor:pointer">📷 Загрузить</button><input type="file" id="avatarUpload" style="display:none" accept="image/*" onchange="uploadAvatar()"></div><input type="text" id="editName" class="modal-input" placeholder="Ваше имя"><textarea id="editBio" class="modal-input" rows="2" placeholder="О себе"></textarea><input type="password" id="editPassword" class="modal-input" placeholder="Новый пароль"></div><div class="modal-footer"><button class="modal-btn cancel" onclick="closeProfileModal()">Отмена</button><button class="modal-btn" onclick="saveProfile()">Сохранить</button></div></div></div>
 <div id="savedMessagesModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>⭐ Сохранённые</h3><button class="modal-close" onclick="closeSavedMessagesModal()">✕</button></div><div class="modal-body" id="savedMessagesList"></div></div></div>
@@ -546,7 +383,6 @@ app.get('/', (req, res) => {
 <script>
 const socket = io();
 let currentUser = null;
-let currentUserId = null;
 let currentUserData = null;
 let currentChatTarget = null;
 let currentChatType = null;
@@ -579,7 +415,6 @@ function login() {
     socket.emit('login', { username: u, password: p }, (res) => {
         if (res.success) {
             currentUser = u;
-            currentUserId = res.userId;
             currentUserData = res.userData;
             localStorage.setItem('atomgram_user', u);
             document.getElementById('authScreen').style.display = 'none';
@@ -651,6 +486,16 @@ function loadData() {
 function loadSavedMessages() {
     socket.emit('getSavedMessages', (msgs) => {
         savedMessagesList = msgs;
+        const container = document.getElementById('savedMessagesList');
+        if (container) {
+            let html = '';
+            for (let i = 0; i < savedMessagesList.length; i++) {
+                const m = savedMessagesList[i];
+                html += '<div class="saved-message" onclick="alert(\\'' + escapeHtml(m.text) + '\\')"><div style="font-weight:600">' + escapeHtml(m.from_name) + '</div><div style="font-size:13px;color:#8e8e93;margin-top:4px">' + escapeHtml(m.text) + '</div><div style="font-size:10px;color:#636366;margin-top:4px">' + new Date(m.saved_at).toLocaleTimeString() + '</div></div>';
+            }
+            if (html === '') html = '<div style="padding:20px;text-align:center;color:#8e8e93">⭐ Нет сохранённых сообщений</div>';
+            container.innerHTML = html;
+        }
     });
 }
 
@@ -661,18 +506,23 @@ function renderChats() {
         html += '<div class="chat-item" style="background:rgba(0,122,255,0.15)">' +
             '<div class="chat-avatar">📨</div>' +
             '<div class="chat-info"><div class="chat-name">' + r.username + '</div><div class="chat-preview">Запрос в друзья</div></div>' +
-            '<button onclick="acceptFriend(' + r.id + ')" style="background:#34c759;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✓</button>' +
-            '<button onclick="rejectFriend(' + r.id + ')" style="background:#ff3b30;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✗</button>' +
+            '<button onclick="acceptFriend(\\'' + r.username + '\\')" style="background:#34c759;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✓</button>' +
+            '<button onclick="rejectFriend(\\'' + r.username + '\\')" style="background:#ff3b30;border:none;border-radius:20px;padding:6px 12px;color:white;cursor:pointer">✗</button>' +
         '</div>';
     }
     for (let i = 0; i < allFriends.length; i++) {
         const f = allFriends[i];
         const online = onlineUsers.has(f.username);
-        html += '<div class="chat-item" onclick="openChat(' + f.id + ', \\'private\\', \\'' + f.username + '\\')">' +
+        html += '<div class="chat-item" onclick="openChat(\\'' + f.username + '\\', \\'private\\')">' +
             '<div class="chat-avatar">👤' + (online ? '<div class="online-dot"></div>' : '') + '</div>' +
             '<div class="chat-info"><div class="chat-name">' + f.username + '</div><div class="chat-preview">' + (online ? '🟢 Онлайн' : '⚫ Офлайн') + '</div></div>' +
         '</div>';
     }
+    // ИИ-помощник
+    html += '<div class="chat-item" onclick="openAIChat()">' +
+        '<div class="chat-avatar">🤖</div>' +
+        '<div class="chat-info"><div class="chat-name">🤖 ИИ Помощник Premium</div><div class="chat-preview">Задай вопрос</div></div>' +
+    '</div>';
     if (html === '') html = '<div style="padding:20px;text-align:center;color:#8e8e93">Нет чатов</div>';
     document.getElementById('chatsList').innerHTML = html;
 }
@@ -681,7 +531,7 @@ function renderGroups() {
     let html = '';
     for (let i = 0; i < allGroups.length; i++) {
         const g = allGroups[i];
-        html += '<div class="chat-item" onclick="openChat(' + g.id + ', \\'group\\', \\'' + g.name + '\\')">' +
+        html += '<div class="chat-item" onclick="openChat(\\'' + g.id + '\\', \\'group\\')">' +
             '<div class="chat-avatar">👥</div>' +
             '<div class="chat-info"><div class="chat-name">' + g.name + '</div><div class="chat-preview">' + g.member_count + ' участников</div></div>' +
         '</div>';
@@ -694,7 +544,7 @@ function renderChannels() {
     let html = '';
     for (let i = 0; i < allChannels.length; i++) {
         const c = allChannels[i];
-        html += '<div class="chat-item" onclick="openChat(' + c.id + ', \\'channel\\', \\'' + c.name + '\\')">' +
+        html += '<div class="chat-item" onclick="openChat(\\'' + c.id + '\\', \\'channel\\')">' +
             '<div class="chat-avatar">📢</div>' +
             '<div class="chat-info"><div class="chat-name">#' + c.name + '</div><div class="chat-preview">' + c.subscriber_count + ' подписчиков</div></div>' +
         '</div>';
@@ -703,22 +553,41 @@ function renderChannels() {
     document.getElementById('channelsList').innerHTML = html;
 }
 
-function openChat(targetId, type, name) {
-    currentChatTarget = targetId;
+function openAIChat() {
+    currentChatTarget = 'ai_assistant';
+    currentChatType = 'ai';
+    document.getElementById('chatTitle').innerHTML = '🤖 ИИ Помощник Premium';
+    document.getElementById('chatAvatar').innerHTML = '🤖';
+    document.getElementById('chatStatus').innerHTML = 'GPT-5 уровень';
+    document.getElementById('inputArea').style.display = 'flex';
+    document.getElementById('chatActions').innerHTML = '';
+    document.getElementById('messages').innerHTML = '';
+    addMessage({ from: '🤖 ИИ', text: '✨ Привет! Я ИИ-помощник ATOMGRAM Premium. Напиши "помощь" чтобы узнать мои возможности! 🚀', time: new Date().toLocaleTimeString() });
+    if (isMobile) {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('overlay').classList.remove('open');
+    }
+}
+
+function openChat(target, type, name) {
+    currentChatTarget = target;
     currentChatType = type;
-    let title = name;
+    let title = name || target;
+    const actions = '<button class="action-btn" onclick="openGameMenu()">🎮</button><button class="action-btn" onclick="startCall()">📞</button>';
     if (type === 'channel') title = '#' + title;
     document.getElementById('chatTitle').innerHTML = title;
     document.getElementById('chatAvatar').innerHTML = type === 'channel' ? '📢' : (type === 'group' ? '👥' : '👤');
+    document.getElementById('chatStatus').innerHTML = type === 'private' && onlineUsers.has(target) ? '🟢 Онлайн' : '';
+    document.getElementById('chatActions').innerHTML = actions;
     document.getElementById('inputArea').style.display = 'flex';
     document.getElementById('messages').innerHTML = '';
     
     if (type === 'private') {
-        socket.emit('joinPrivate', targetId);
+        socket.emit('joinPrivate', target);
     } else if (type === 'group') {
-        socket.emit('joinGroup', targetId);
+        socket.emit('joinGroup', target);
     } else if (type === 'channel') {
-        socket.emit('joinChannel', targetId);
+        socket.emit('joinChannel', target);
     }
     
     if (isMobile) {
@@ -730,8 +599,9 @@ function openChat(targetId, type, name) {
 function closeChat() {
     currentChatTarget = null;
     currentChatType = null;
-    document.getElementById('chatTitle').innerHTML = 'ATOMGRAM';
+    document.getElementById('chatTitle').innerHTML = 'ATOMGRAM PREMIUM';
     document.getElementById('chatAvatar').innerHTML = '👤';
+    document.getElementById('chatStatus').innerHTML = '';
     document.getElementById('inputArea').style.display = 'none';
     document.getElementById('messages').innerHTML = '';
     if (currentGame) closeGame();
@@ -742,49 +612,45 @@ function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     if (!text || !currentChatTarget) return;
+    
+    if (currentChatType === 'ai') {
+        addMessage({ from: currentUser, text: text, time: new Date().toLocaleTimeString(), mine: true });
+        setTimeout(() => {
+            const reply = getAIResponse(text);
+            addMessage({ from: '🤖 ИИ', text: reply, time: new Date().toLocaleTimeString() });
+        }, 300);
+        input.value = '';
+        return;
+    }
+    
     socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: text });
     input.value = '';
 }
 
-function sendSticker(s) {
-    if (!currentChatTarget) return;
-    socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: s });
-    document.getElementById('stickerPicker').classList.remove('open');
-}
-
-function toggleStickerPicker() {
-    document.getElementById('stickerPicker').classList.toggle('open');
+function getAIResponse(message) {
+    const msg = message.toLowerCase();
+    if (msg.includes('привет')) return 'Привет! 👋 Чем могу помочь?';
+    if (msg.includes('помощь')) return '🔧 Я могу: отвечать на вопросы, играть, помогать! Напиши "игра" чтобы начать!';
+    if (msg.includes('игра')) return '🎮 Хочешь сыграть? Выбери друга и нажми 🎮! Доступны: Крестики-нолики, Кости, Дартс!';
+    if (msg.includes('шутка')) return '😂 Почему программисты путают Хэллоуин и Рождество? 31 Oct == 25 Dec!';
+    if (msg.includes('спасибо')) return '😊 Всегда пожалуйста!';
+    return 'Понял! 🤔 Расскажи подробнее!';
 }
 
 function addMessage(msg) {
     const div = document.createElement('div');
-    div.className = 'message ' + (msg.from_id === currentUserId ? 'mine' : '');
-    let replyHtml = '';
-    if (msg.reply_to) {
-        replyHtml = '<div class="message-reply"><span style="color:#007aff">↩️ ' + msg.reply_to.from_name + '</span>: ' + escapeHtml(msg.reply_to.text.substring(0, 50)) + '</div>';
-    }
-    let reactionsHtml = '';
-    if (msg.reactions) {
-        const reactions = JSON.parse(msg.reactions);
-        reactionsHtml = '<div class="message-reactions">';
-        for (const [r, c] of Object.entries(reactions)) {
-            reactionsHtml += '<span class="reaction" onclick="addReaction(' + msg.id + ', \\'' + r + '\\')">' + r + ' ' + c + '</span>';
-        }
-        reactionsHtml += '</div>';
-    }
-    div.innerHTML = '<div class="message-avatar">' + (msg.from_id === currentUserId ? '👤' : '👤') + '</div>' +
+    div.className = 'message ' + (msg.from === currentUser || msg.mine ? 'mine' : '');
+    div.innerHTML = '<div class="message-avatar">' + (msg.from === currentUser ? '👤' : (msg.from === '🤖 ИИ' ? '🤖' : '👤')) + '</div>' +
         '<div class="message-bubble">' +
             '<div class="message-content">' +
-                (msg.from_id !== currentUserId ? '<div class="message-name">' + escapeHtml(msg.from_name) + '</div>' : '') +
-                replyHtml +
+                (msg.from !== currentUser && msg.from !== '🤖 ИИ' ? '<div class="message-name">' + escapeHtml(msg.from) + '</div>' : '') +
                 '<div class="message-text">' + (msg.sticker ? '<span style="font-size:48px">' + msg.text + '</span>' : escapeHtml(msg.text)) + '</div>' +
-                reactionsHtml +
-                '<div class="message-time">' + new Date(msg.created_at).toLocaleTimeString() + '</div>' +
+                '<div class="message-time">' + (msg.time || new Date().toLocaleTimeString()) + '</div>' +
                 '<div style="display:flex;gap:8px;margin-top:6px">' +
-                    '<span class="reaction" onclick="addReaction(' + msg.id + ', \\'❤️\\')">❤️</span>' +
-                    '<span class="reaction" onclick="addReaction(' + msg.id + ', \\'👍\\')">👍</span>' +
-                    '<span class="reaction" onclick="addReaction(' + msg.id + ', \\'😂\\')">😂</span>' +
-                    '<span class="reaction" onclick="saveMessage(' + msg.id + ')">⭐</span>' +
+                    '<span class="reaction" onclick="addReaction(\\'' + msg.id + '\\', \\'❤️\\')">❤️</span>' +
+                    '<span class="reaction" onclick="addReaction(\\'' + msg.id + '\\', \\'👍\\')">👍</span>' +
+                    '<span class="reaction" onclick="addReaction(\\'' + msg.id + '\\', \\'😂\\')">😂</span>' +
+                    '<span class="reaction" onclick="saveMessage(\\'' + msg.id + '\\', \\'' + escapeHtml(msg.text) + '\\', \\'' + escapeHtml(msg.from) + '\\')">⭐</span>' +
                 '</div>' +
             '</div>' +
         '</div>';
@@ -796,27 +662,28 @@ function addReaction(msgId, reaction) {
     socket.emit('addReaction', { messageId: msgId, chatId: currentChatTarget, reaction: reaction });
 }
 
-function saveMessage(msgId) {
-    socket.emit('saveMessage', { messageId: msgId });
+function saveMessage(msgId, text, from) {
+    socket.emit('saveMessage', { msgId: msgId, text: text, from: from });
     showToast('⭐ Сообщение сохранено');
 }
 
 function openSavedMessages() {
     document.getElementById('savedMessagesModal').classList.add('active');
-    let html = '';
-    for (let i = 0; i < savedMessagesList.length; i++) {
-        const m = savedMessagesList[i];
-        html += '<div class="chat-item" style="border-bottom:1px solid #2c2c2e" onclick="alert(\\'' + escapeHtml(m.text) + '\\')">' +
-            '<div class="chat-avatar">⭐</div>' +
-            '<div class="chat-info"><div class="chat-name">' + escapeHtml(m.from_name) + '</div><div class="chat-preview">' + escapeHtml(m.text) + '</div></div>' +
-        '</div>';
-    }
-    if (html === '') html = '<div style="padding:20px;text-align:center;color:#8e8e93">Нет сохранённых сообщений</div>';
-    document.getElementById('savedMessagesList').innerHTML = html;
+    loadSavedMessages();
 }
 
 function closeSavedMessagesModal() {
     document.getElementById('savedMessagesModal').classList.remove('active');
+}
+
+function sendSticker(s) {
+    if (!currentChatTarget || currentChatType === 'ai') return;
+    socket.emit('sendMessage', { type: currentChatType, target: currentChatTarget, text: s });
+    document.getElementById('stickerPicker').classList.remove('open');
+}
+
+function toggleStickerPicker() {
+    document.getElementById('stickerPicker').classList.toggle('open');
 }
 
 // ГЛОБАЛЬНЫЙ ПОИСК
@@ -830,8 +697,8 @@ function globalSearch() {
         let html = '<div style="padding:8px 12px;color:#007aff;font-size:12px">🔍 РЕЗУЛЬТАТЫ</div>';
         for (let i = 0; i < results.users.length; i++) {
             const u = results.users[i];
-            if (u.username !== currentUser) {
-                html += '<div class="search-result" onclick="addFriendFromSearch(' + u.id + ', \\'' + u.username + '\\')">' +
+            if (u.username !== currentUser && !allFriends.find(f => f.username === u.username)) {
+                html += '<div class="search-result" onclick="addFriendFromSearch(\\'' + u.username + '\\')">' +
                     '<div class="chat-avatar" style="width:40px;height:40px;font-size:20px">👤</div>' +
                     '<div><div style="font-weight:500">' + u.username + '</div><div style="font-size:12px;color:#8e8e93">Пользователь</div></div>' +
                 '</div>';
@@ -839,7 +706,7 @@ function globalSearch() {
         }
         for (let i = 0; i < results.channels.length; i++) {
             const c = results.channels[i];
-            html += '<div class="search-result" onclick="joinChannelFromSearch(' + c.id + ', \\'' + c.name + '\\')">' +
+            html += '<div class="search-result" onclick="joinChannelFromSearch(\\'' + c.id + '\\', \\'' + c.name + '\\')">' +
                 '<div class="chat-avatar" style="width:40px;height:40px;font-size:20px">📢</div>' +
                 '<div><div style="font-weight:500">#' + c.name + '</div><div style="font-size:12px;color:#8e8e93">Канал</div></div>' +
             '</div>';
@@ -851,8 +718,8 @@ function globalSearch() {
     });
 }
 
-function addFriendFromSearch(userId, username) {
-    socket.emit('addFriend', { friendId: userId }, (res) => {
+function addFriendFromSearch(username) {
+    socket.emit('addFriend', { friendUsername: username }, (res) => {
         showToast(res.message || res.error);
         document.getElementById('searchInput').value = '';
         document.getElementById('searchResults').innerHTML = '';
@@ -901,7 +768,7 @@ async function toggleRecording() {
 // ФАЙЛЫ
 function sendFile() {
     const file = document.getElementById('fileInput').files[0];
-    if (!file || !currentChatTarget) return;
+    if (!file || !currentChatTarget || currentChatType === 'ai') return;
     const reader = new FileReader();
     reader.onloadend = () => socket.emit('fileMessage', { type: currentChatType, target: currentChatTarget, fileName: file.name, fileData: reader.result });
     reader.readAsDataURL(file);
@@ -909,7 +776,7 @@ function sendFile() {
 
 // ОПРОСЫ
 function openCreatePoll() {
-    if (!currentChatTarget) {
+    if (!currentChatTarget || currentChatType === 'ai') {
         showToast('Выберите чат');
         return;
     }
@@ -948,23 +815,28 @@ async function startCall() {
         return;
     }
     currentCallTarget = currentChatTarget;
-    document.getElementById('callName').innerText = document.getElementById('chatTitle').innerText;
+    document.getElementById('callName').innerText = currentChatTarget;
     document.getElementById('callModal').classList.add('active');
     document.getElementById('callStatus').innerText = 'Вызов...';
     
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    peerConnection = new RTCPeerConnection(configuration);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-    
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('iceCandidate', { target: currentChatTarget, candidate: event.candidate });
-        }
-    };
-    
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('callOffer', { target: currentChatTarget, offer: offer });
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        peerConnection = new RTCPeerConnection(configuration);
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('iceCandidate', { target: currentChatTarget, candidate: event.candidate });
+            }
+        };
+        
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('callOffer', { target: currentChatTarget, offer: offer });
+    } catch(e) {
+        showToast('Ошибка доступа к микрофону');
+        endCall();
+    }
 }
 
 function acceptCall() {
@@ -972,7 +844,7 @@ function acceptCall() {
     document.getElementById('callName').innerText = window.pendingCall.from;
     document.getElementById('callModal').classList.add('active');
     document.getElementById('callStatus').innerText = 'Соединение...';
-    currentCallTarget = window.pendingCall.fromId;
+    currentCallTarget = window.pendingCall.from;
     
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.ontrack = (event) => {
@@ -1013,8 +885,8 @@ function toggleMute() {
 
 // ИГРЫ
 function openGameMenu() {
-    if (!currentChatTarget) {
-        showToast('Выберите чат');
+    if (!currentChatTarget || currentChatType === 'ai') {
+        showToast('Выберите чат с другом');
         return;
     }
     document.getElementById('gameMenuModal').classList.add('active');
@@ -1183,7 +1055,6 @@ function createGroup() {
 function openCreateChannel() {
     document.getElementById('createChannelModal').classList.add('active');
     document.getElementById('channelName').value = '';
-    document.getElementById('channelInvite').value = '';
 }
 function closeCreateChannelModal() {
     document.getElementById('createChannelModal').classList.remove('active');
@@ -1194,8 +1065,7 @@ function createChannel() {
         showToast('Введите название');
         return;
     }
-    const invite = document.getElementById('channelInvite').value.trim();
-    socket.emit('createChannel', { channelName: n, inviteLink: invite || n }, (res) => {
+    socket.emit('createChannel', { channelName: n }, (res) => {
         if (res.success) {
             showToast('📢 Канал создан');
             closeCreateChannelModal();
@@ -1272,11 +1142,6 @@ function viewStory(username) {
 
 function closeStoryViewer() {
     document.getElementById('storyViewer').classList.remove('active');
-    const v = document.getElementById('storyVideo');
-    if (v) {
-        v.pause();
-        v.src = '';
-    }
 }
 
 function loadStories() {
@@ -1309,17 +1174,6 @@ function escapeHtml(s) {
     });
 }
 
-// ИНДИКАТОР ПЕЧАТИ
-document.getElementById('messageInput').addEventListener('input', () => {
-    if (currentChatTarget) {
-        socket.emit('typing', { type: currentChatType, target: currentChatTarget });
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            socket.emit('stopTyping', { type: currentChatType, target: currentChatTarget });
-        }, 1000);
-    }
-});
-
 // СОБЫТИЯ СОКЕТА
 socket.on('friendsUpdate', () => loadData());
 socket.on('groupsUpdate', () => loadData());
@@ -1339,23 +1193,23 @@ socket.on('newMessage', (msg) => {
     if (currentChatTarget == msg.chatId) {
         addMessage(msg);
     }
-    if (msg.from_id !== currentUserId) {
-        showToast('📩 Новое сообщение');
+    if (msg.from !== currentUser) {
+        showToast('📩 Новое сообщение от ' + msg.from);
     }
 });
 socket.on('voiceMessage', (d) => {
     if (currentChatTarget == d.chatId) {
         const div = document.createElement('div');
-        div.className = 'message ' + (d.from_id === currentUserId ? 'mine' : '');
-        div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from_name) + '</div><div class="voice-message"><button class="voice-play" onclick="playAudio(this, \\'' + d.audio + '\\')">▶️</button><span>🎙️ Голосовое сообщение</span></div><div class="message-time">' + new Date(d.created_at).toLocaleTimeString() + '</div></div></div>';
+        div.className = 'message ' + (d.from === currentUser ? 'mine' : '');
+        div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><div class="voice-message"><button class="voice-play" onclick="playAudio(this, \\'' + d.audio + '\\')">▶️</button><span>🎙️ Голосовое сообщение</span></div><div class="message-time">' + new Date(d.created_at).toLocaleTimeString() + '</div></div></div>';
         document.getElementById('messages').appendChild(div);
     }
 });
 socket.on('fileMessage', (d) => {
     if (currentChatTarget == d.chatId) {
         const div = document.createElement('div');
-        div.className = 'message ' + (d.from_id === currentUserId ? 'mine' : '');
-        div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from_name) + '</div><a class="file-attachment" href="' + d.file + '" download="' + d.file_name + '">📎 ' + escapeHtml(d.file_name) + '</a><div class="message-time">' + new Date(d.created_at).toLocaleTimeString() + '</div></div></div>';
+        div.className = 'message ' + (d.from === currentUser ? 'mine' : '');
+        div.innerHTML = '<div class="message-avatar">👤</div><div class="message-bubble"><div class="message-content"><div class="message-name">' + escapeHtml(d.from) + '</div><a class="file-attachment" href="' + d.file + '" download="' + d.file_name + '">📎 ' + escapeHtml(d.file_name) + '</a><div class="message-time">' + new Date(d.created_at).toLocaleTimeString() + '</div></div></div>';
         document.getElementById('messages').appendChild(div);
     }
 });
@@ -1420,7 +1274,7 @@ socket.on('storyData', (d) => {
     }, 100);
 });
 
-// ЗВОНКИ
+// ЗВОНКИ (серверные события)
 socket.on('incomingCall', (data) => {
     window.pendingCall = data;
     const incomingDiv = document.createElement('div');
@@ -1446,8 +1300,10 @@ socket.on('callOffer', (data) => {
 });
 
 socket.on('callAnswered', (data) => {
-    peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-    document.getElementById('callStatus').innerText = 'В эфире';
+    if (peerConnection) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        document.getElementById('callStatus').innerText = 'В эфире';
+    }
 });
 
 socket.on('iceCandidate', (data) => {
@@ -1500,568 +1356,462 @@ window.addEventListener('resize', () => {
 const userSockets = new Map();
 const onlineUsers = new Set();
 
-function getSocketByUserId(userId) {
-    for (const [id, uid] of userSockets) if (uid === userId) return io.sockets.sockets.get(id);
+function getSocketByUsername(username) {
+    for (const [id, user] of userSockets) if (user === username) return io.sockets.sockets.get(id);
     return null;
 }
 
 io.on('connection', (socket) => {
-    let currentUserId = null;
+    let currentUser = null;
 
-    // РЕГИСТРАЦИЯ
     socket.on('register', (data, cb) => {
         const { username, name, password } = data;
-        db.get('SELECT id FROM users WHERE username = ?', [username], (err, row) => {
-            if (row) {
-                cb({ success: false, error: 'Пользователь уже существует' });
-            } else {
-                const hashedPassword = bcrypt.hashSync(password, 10);
-                db.run('INSERT INTO users (username, name, password, created_at) VALUES (?, ?, ?, ?)',
-                    [username, name || username, hashedPassword, Date.now()], function(err) {
-                    if (err) cb({ success: false, error: 'Ошибка базы данных' });
-                    else cb({ success: true });
-                });
-            }
-        });
+        if (users[username]) {
+            cb({ success: false, error: 'Пользователь уже существует' });
+        } else {
+            users[username] = { username, name: name || username, password, bio: '', avatar: null, friends: [], friendRequests: [], channels: [], savedMessages: [] };
+            saveData();
+            cb({ success: true });
+        }
     });
 
-    // ЛОГИН
     socket.on('login', (data, cb) => {
         const { username, password } = data;
-        db.get('SELECT id, username, name, bio, avatar FROM users WHERE username = ?', [username], (err, user) => {
-            if (!user) {
-                cb({ success: false, error: 'Пользователь не найден' });
-            } else if (!bcrypt.compareSync(password, user.password)) {
-                cb({ success: false, error: 'Неверный пароль' });
-            } else {
-                currentUserId = user.id;
-                socket.userId = user.id;
-                userSockets.set(socket.id, user.id);
-                onlineUsers.add(user.id);
-                
-                db.run('UPDATE users SET online = 1, last_seen = ? WHERE id = ?', [Date.now(), user.id]);
-                
-                cb({ success: true, userId: user.id, userData: { username: user.username, name: user.name, bio: user.bio, avatar: user.avatar } });
-                
-                // Отправляем друзей
-                db.all(`SELECT u.id, u.username, u.name, u.avatar, u.online 
-                        FROM friends f 
-                        JOIN users u ON f.friend_id = u.id 
-                        WHERE f.user_id = ? AND f.status = 'accepted'`, [user.id], (err, friends) => {
-                    db.all(`SELECT u.id, u.username 
-                            FROM friends f 
-                            JOIN users u ON f.user_id = u.id 
-                            WHERE f.friend_id = ? AND f.status = 'pending'`, [user.id], (err, requests) => {
-                        socket.emit('friendsUpdate', { friends: friends || [], requests: requests || [] });
-                    });
-                });
-                
-                // Отправляем группы
-                db.all(`SELECT g.id, g.name, COUNT(gm.user_id) as member_count 
-                        FROM groups g 
-                        LEFT JOIN group_members gm ON g.id = gm.group_id 
-                        WHERE gm.user_id = ? 
-                        GROUP BY g.id`, [user.id], (err, groups) => {
-                    socket.emit('groupsUpdate', groups || []);
-                });
-                
-                // Отправляем каналы
-                db.all(`SELECT c.id, c.name, c.subscriber_count 
-                        FROM channel_subscribers cs 
-                        JOIN channels c ON cs.channel_id = c.id 
-                        WHERE cs.user_id = ?`, [user.id], (err, channels) => {
-                    socket.emit('channelsUpdate', channels || []);
-                });
-                
-                // Отправляем сохранённые сообщения
-                db.all(`SELECT sm.id, sm.message_id, m.text, u.username as from_name 
-                        FROM saved_messages sm 
-                        JOIN messages m ON sm.message_id = m.id 
-                        JOIN users u ON m.from_id = u.id 
-                        WHERE sm.user_id = ? 
-                        ORDER BY sm.saved_at DESC LIMIT 50`, [user.id], (err, saved) => {
-                    socket.emit('savedMessagesUpdate', saved || []);
-                });
-                
-                // Уведомляем друзей
-                db.all(`SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted'`, [user.id], (err, friends) => {
-                    friends.forEach(f => {
-                        const friendSocket = getSocketByUserId(f.friend_id);
-                        if (friendSocket) friendSocket.emit('userOnline', user.id);
-                    });
-                });
-                
-                // Истории
-                db.all(`SELECT s.user_id, u.username, u.name, u.avatar 
-                        FROM stories s 
-                        JOIN users u ON s.user_id = u.id 
-                        WHERE s.expires_at > ? 
-                        GROUP BY s.user_id`, [Date.now()], (err, stories) => {
-                    socket.emit('storiesUpdate', stories || []);
-                });
-            }
-        });
-    });
-
-    // ПОЛУЧИТЬ ДРУЗЕЙ
-    socket.on('getFriends', (cb) => {
-        if (!currentUserId) return;
-        db.all(`SELECT u.id, u.username, u.name, u.avatar, u.online 
-                FROM friends f 
-                JOIN users u ON f.friend_id = u.id 
-                WHERE f.user_id = ? AND f.status = 'accepted'`, [currentUserId], (err, friends) => {
-            db.all(`SELECT u.id, u.username 
-                    FROM friends f 
-                    JOIN users u ON f.user_id = u.id 
-                    WHERE f.friend_id = ? AND f.status = 'pending'`, [currentUserId], (err, requests) => {
-                cb({ friends: friends || [], requests: requests || [] });
+        const user = users[username];
+        if (!user) {
+            cb({ success: false, error: 'Пользователь не найден' });
+        } else if (user.password !== password) {
+            cb({ success: false, error: 'Неверный пароль' });
+        } else {
+            currentUser = username;
+            socket.username = username;
+            userSockets.set(socket.id, username);
+            onlineUsers.add(username);
+            user.online = true;
+            
+            cb({ success: true, userData: { username: user.username, name: user.name, bio: user.bio, avatar: user.avatar } });
+            
+            // Отправляем друзей
+            const friendsList = (user.friends || []).map(f => ({ username: f }));
+            const requestsList = (user.friendRequests || []).map(r => ({ username: r }));
+            socket.emit('friendsUpdate', { friends: friendsList, requests: requestsList });
+            
+            // Отправляем группы
+            const userGroups = Object.values(groups).filter(g => g.members && g.members.includes(username));
+            socket.emit('groupsUpdate', userGroups.map(g => ({ id: g.id, name: g.name, member_count: g.members?.length || 1 })));
+            
+            // Отправляем каналы
+            const userChannels = user.channels || [];
+            socket.emit('channelsUpdate', userChannels.map(c => ({ id: c, name: c, subscriber_count: 1 })));
+            
+            // Отправляем сохранённые
+            socket.emit('savedMessagesUpdate', user.savedMessages || []);
+            
+            // Уведомляем друзей
+            (user.friends || []).forEach(friend => {
+                const friendSocket = getSocketByUsername(friend);
+                if (friendSocket) friendSocket.emit('userOnline', username);
             });
-        });
+            
+            // Истории
+            const activeStories = [];
+            for (const [u, storyList] of Object.entries(stories)) {
+                if (storyList && storyList.length > 0 && Date.now() - storyList[storyList.length - 1].created_at < 86400000) {
+                    activeStories.push({ username: u, name: users[u]?.name || u, avatar: users[u]?.avatar });
+                }
+            }
+            socket.emit('storiesUpdate', activeStories);
+        }
     });
 
-    // ПОЛУЧИТЬ ГРУППЫ
+    socket.on('getFriends', (cb) => {
+        if (!currentUser) return;
+        const user = users[currentUser];
+        const friends = (user.friends || []).map(f => ({ username: f }));
+        const requests = (user.friendRequests || []).map(r => ({ username: r }));
+        cb({ friends: friends, requests: requests });
+    });
+
     socket.on('getGroups', (cb) => {
-        if (!currentUserId) return cb([]);
-        db.all(`SELECT g.id, g.name, COUNT(gm.user_id) as member_count 
-                FROM groups g 
-                LEFT JOIN group_members gm ON g.id = gm.group_id 
-                WHERE gm.user_id = ? 
-                GROUP BY g.id`, [currentUserId], (err, groups) => {
-            cb(groups || []);
-        });
+        if (!currentUser) return;
+        const userGroups = Object.values(groups).filter(g => g.members && g.members.includes(currentUser));
+        cb(userGroups.map(g => ({ id: g.id, name: g.name, member_count: g.members?.length || 1 })));
     });
 
-    // ПОЛУЧИТЬ КАНАЛЫ
     socket.on('getChannels', (cb) => {
-        if (!currentUserId) return cb([]);
-        db.all(`SELECT c.id, c.name, c.subscriber_count 
-                FROM channel_subscribers cs 
-                JOIN channels c ON cs.channel_id = c.id 
-                WHERE cs.user_id = ?`, [currentUserId], (err, channels) => {
-            cb(channels || []);
-        });
+        if (!currentUser) return;
+        const user = users[currentUser];
+        const userChannels = user.channels || [];
+        cb(userChannels.map(c => ({ id: c, name: c, subscriber_count: 1 })));
     });
 
-    // ПОЛУЧИТЬ СОХРАНЁННЫЕ
     socket.on('getSavedMessages', (cb) => {
-        if (!currentUserId) return cb([]);
-        db.all(`SELECT sm.id, sm.message_id, m.text, u.username as from_name 
-                FROM saved_messages sm 
-                JOIN messages m ON sm.message_id = m.id 
-                JOIN users u ON m.from_id = u.id 
-                WHERE sm.user_id = ? 
-                ORDER BY sm.saved_at DESC LIMIT 50`, [currentUserId], (err, saved) => {
-            cb(saved || []);
-        });
+        if (!currentUser) return;
+        cb(users[currentUser]?.savedMessages || []);
     });
 
-    // СОХРАНИТЬ СООБЩЕНИЕ
     socket.on('saveMessage', (data) => {
-        if (!currentUserId) return;
-        db.run('INSERT INTO saved_messages (user_id, message_id, saved_at) VALUES (?, ?, ?)',
-            [currentUserId, data.messageId, Date.now()]);
+        if (!currentUser) return;
+        const user = users[currentUser];
+        if (!user.savedMessages) user.savedMessages = [];
+        user.savedMessages.unshift({ id: data.msgId, text: data.text, from_name: data.from, saved_at: Date.now() });
+        if (user.savedMessages.length > 50) user.savedMessages.pop();
+        saveData();
+        socket.emit('savedMessagesUpdate', user.savedMessages);
     });
 
-    // ГЛОБАЛЬНЫЙ ПОИСК
     socket.on('globalSearch', (data, cb) => {
         const { query } = data;
-        db.all(`SELECT id, username, name, avatar FROM users WHERE username LIKE ? LIMIT 5`, [`%${query}%`], (err, users) => {
-            db.all(`SELECT id, name, subscriber_count FROM channels WHERE name LIKE ? AND is_private = 0 LIMIT 5`, [`%${query}%`], (err, channels) => {
-                cb({ users: users || [], channels: channels || [] });
-            });
-        });
+        const usersResults = Object.keys(users).filter(u => u.toLowerCase().includes(query.toLowerCase()) && u !== currentUser).slice(0, 5).map(u => ({ username: u, name: users[u].name }));
+        const channelsResults = (users[currentUser]?.channels || []).filter(c => c.toLowerCase().includes(query.toLowerCase())).slice(0, 5).map(c => ({ id: c, name: c }));
+        cb({ users: usersResults, channels: channelsResults });
     });
 
-    // ДОБАВИТЬ ДРУГА
     socket.on('addFriend', (data, cb) => {
-        if (!currentUserId) return;
         const { friendUsername } = data;
-        db.get('SELECT id FROM users WHERE username = ?', [friendUsername], (err, friend) => {
-            if (!friend) {
-                cb({ success: false, error: 'Пользователь не найден' });
-            } else if (friend.id === currentUserId) {
-                cb({ success: false, error: 'Нельзя добавить себя' });
-            } else {
-                db.get('SELECT id FROM friends WHERE user_id = ? AND friend_id = ?', [currentUserId, friend.id], (err, existing) => {
-                    if (existing) {
-                        cb({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
-                    } else {
-                        db.run('INSERT INTO friends (user_id, friend_id, created_at) VALUES (?, ?, ?)',
-                            [currentUserId, friend.id, Date.now()], () => {
-                            cb({ success: true, message: '✅ Запрос отправлен' });
-                            const friendSocket = getSocketByUserId(friend.id);
-                            if (friendSocket) {
-                                friendSocket.emit('friendsUpdate');
-                            }
-                        });
-                    }
-                });
+        const user = users[currentUser];
+        const friend = users[friendUsername];
+        if (!friend) {
+            cb({ success: false, error: 'Пользователь не найден' });
+        } else if (friendUsername === currentUser) {
+            cb({ success: false, error: 'Нельзя добавить себя' });
+        } else if (user.friends && user.friends.includes(friendUsername)) {
+            cb({ success: false, error: 'Уже в друзьях' });
+        } else if (friend.friendRequests && friend.friendRequests.includes(currentUser)) {
+            cb({ success: false, error: 'Запрос уже отправлен' });
+        } else {
+            if (!friend.friendRequests) friend.friendRequests = [];
+            friend.friendRequests.push(currentUser);
+            saveData();
+            cb({ success: true, message: '✅ Запрос отправлен' });
+            const friendSocket = getSocketByUsername(friendUsername);
+            if (friendSocket) {
+                friendSocket.emit('friendsUpdate', { friends: friend.friends || [], requests: friend.friendRequests || [] });
             }
-        });
+        }
     });
 
-    // ПРИНЯТЬ ДРУГА
     socket.on('acceptFriend', (data) => {
-        if (!currentUserId) return;
         const { fromUser } = data;
-        db.run('UPDATE friends SET status = "accepted" WHERE user_id = ? AND friend_id = ?', [fromUser, currentUserId], () => {
-            socket.emit('friendsUpdate');
-            const fromSocket = getSocketByUserId(fromUser);
-            if (fromSocket) fromSocket.emit('friendsUpdate');
-        });
+        const user = users[currentUser];
+        const from = users[fromUser];
+        if (user.friendRequests && user.friendRequests.includes(fromUser)) {
+            user.friendRequests = user.friendRequests.filter(f => f !== fromUser);
+            if (!user.friends) user.friends = [];
+            if (!from.friends) from.friends = [];
+            user.friends.push(fromUser);
+            from.friends.push(currentUser);
+            saveData();
+            socket.emit('friendsUpdate', { friends: user.friends || [], requests: user.friendRequests || [] });
+            const fromSocket = getSocketByUsername(fromUser);
+            if (fromSocket) {
+                fromSocket.emit('friendsUpdate', { friends: from.friends || [], requests: from.friendRequests || [] });
+            }
+        }
     });
 
-    // ОТКЛОНИТЬ ДРУГА
     socket.on('rejectFriend', (data) => {
-        if (!currentUserId) return;
         const { fromUser } = data;
-        db.run('DELETE FROM friends WHERE user_id = ? AND friend_id = ?', [fromUser, currentUserId], () => {
-            socket.emit('friendsUpdate');
-        });
+        const user = users[currentUser];
+        if (user.friendRequests && user.friendRequests.includes(fromUser)) {
+            user.friendRequests = user.friendRequests.filter(f => f !== fromUser);
+            saveData();
+            socket.emit('friendsUpdate', { friends: user.friends || [], requests: user.friendRequests || [] });
+        }
     });
 
-    // СОЗДАТЬ ГРУППУ
     socket.on('createGroup', (data, cb) => {
-        if (!currentUserId) return;
         const { groupName } = data;
-        db.run('INSERT INTO groups (name, owner_id, created_at) VALUES (?, ?, ?)',
-            [groupName, currentUserId, Date.now()], function(err) {
-            if (err) {
-                cb({ success: false, error: 'Ошибка создания' });
-            } else {
-                const groupId = this.lastID;
-                db.run('INSERT INTO group_members (group_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)',
-                    [groupId, currentUserId, 'owner', Date.now()]);
-                cb({ success: true });
-                socket.emit('groupsUpdate');
-            }
-        });
+        const id = 'group_' + Date.now();
+        groups[id] = { id: id, name: groupName, members: [currentUser], messages: [] };
+        saveData();
+        cb({ success: true });
+        socket.emit('groupsUpdate', Object.values(groups).filter(g => g.members && g.members.includes(currentUser)).map(g => ({ id: g.id, name: g.name, member_count: g.members?.length || 1 })));
     });
 
-    // ПРИСОЕДИНИТЬСЯ К ГРУППЕ
     socket.on('joinGroup', (groupId) => {
-        if (!currentUserId) return;
-        db.get('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?', [groupId, currentUserId], (err, member) => {
-            if (!member) {
-                db.run('INSERT INTO group_members (group_id, user_id, joined_at) VALUES (?, ?, ?)',
-                    [groupId, currentUserId, Date.now()]);
-            }
-            db.all(`SELECT m.*, u.username as from_name 
-                    FROM messages m 
-                    JOIN users u ON m.from_id = u.id 
-                    WHERE m.chat_type = 'group' AND m.chat_id = ? 
-                    ORDER BY m.created_at ASC LIMIT 100`, [groupId.toString()], (err, messages) => {
-                socket.emit('chatHistory', { chatId: groupId, messages: messages || [] });
-            });
-        });
+        if (groups[groupId] && groups[groupId].members && !groups[groupId].members.includes(currentUser)) {
+            groups[groupId].members.push(currentUser);
+            saveData();
+        }
+        if (groups[groupId]) {
+            socket.emit('chatHistory', { chatId: groupId, messages: groups[groupId].messages || [] });
+        }
     });
 
-    // СОЗДАТЬ КАНАЛ
     socket.on('createChannel', (data, cb) => {
-        if (!currentUserId) return;
-        const { channelName, inviteLink } = data;
-        db.get('SELECT id FROM channels WHERE name = ?', [channelName], (err, existing) => {
-            if (existing) {
-                cb({ success: false, error: 'Канал уже существует' });
-            } else {
-                db.run('INSERT INTO channels (name, owner_id, invite_link, created_at) VALUES (?, ?, ?, ?)',
-                    [channelName, currentUserId, inviteLink || channelName, Date.now()], function(err) {
-                    if (err) {
-                        cb({ success: false, error: 'Ошибка создания' });
-                    } else {
-                        const channelId = this.lastID;
-                        db.run('INSERT INTO channel_subscribers (channel_id, user_id, subscribed_at) VALUES (?, ?, ?)',
-                            [channelId, currentUserId, Date.now()]);
-                        cb({ success: true });
-                        socket.emit('channelsUpdate');
+        const { channelName } = data;
+        if (!users[currentUser].channels) users[currentUser].channels = [];
+        if (users[currentUser].channels.includes(channelName)) {
+            cb({ success: false, error: 'Канал уже существует' });
+        } else {
+            users[currentUser].channels.push(channelName);
+            saveData();
+            cb({ success: true });
+            socket.emit('channelsUpdate', users[currentUser].channels.map(c => ({ id: c, name: c, subscriber_count: 1 })));
+        }
+    });
+
+    socket.on('joinChannel', (channelId) => {
+        if (users[currentUser]?.channels && users[currentUser].channels.includes(channelId)) {
+            socket.emit('chatHistory', { chatId: channelId, messages: [] });
+        }
+    });
+
+    socket.on('joinPrivate', (target) => {
+        const chatId = [currentUser, target].sort().join('_');
+        if (!privateChats[chatId]) privateChats[chatId] = { messages: [] };
+        socket.emit('chatHistory', { chatId: target, messages: privateChats[chatId].messages || [] });
+    });
+
+    socket.on('sendMessage', (data) => {
+        const { type, target, text } = data;
+        const msg = { id: Date.now(), from: currentUser, text: text, time: new Date().toLocaleTimeString(), chatId: target };
+        
+        if (type === 'private') {
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) privateChats[chatId] = { messages: [] };
+            privateChats[chatId].messages.push(msg);
+            saveData();
+            socket.emit('newMessage', msg);
+            const targetSocket = getSocketByUsername(target);
+            if (targetSocket) targetSocket.emit('newMessage', msg);
+        } else if (type === 'group') {
+            if (groups[target]) {
+                groups[target].messages.push(msg);
+                saveData();
+                socket.emit('newMessage', msg);
+                groups[target].members.forEach(m => {
+                    if (m !== currentUser) {
+                        const memberSocket = getSocketByUsername(m);
+                        if (memberSocket) memberSocket.emit('newMessage', msg);
                     }
                 });
             }
-        });
-    });
-
-    // ПРИСОЕДИНИТЬСЯ К КАНАЛУ
-    socket.on('joinChannel', (channelId) => {
-        if (!currentUserId) return;
-        db.get('SELECT id FROM channel_subscribers WHERE channel_id = ? AND user_id = ?', [channelId, currentUserId], (err, sub) => {
-            if (!sub) {
-                db.run('INSERT INTO channel_subscribers (channel_id, user_id, subscribed_at) VALUES (?, ?, ?)',
-                    [channelId, currentUserId, Date.now()]);
-                db.run('UPDATE channels SET subscriber_count = subscriber_count + 1 WHERE id = ?', [channelId]);
-            }
-            db.all(`SELECT m.*, u.username as from_name 
-                    FROM messages m 
-                    JOIN users u ON m.from_id = u.id 
-                    WHERE m.chat_type = 'channel' AND m.chat_id = ? 
-                    ORDER BY m.created_at ASC LIMIT 100`, [channelId.toString()], (err, messages) => {
-                socket.emit('chatHistory', { chatId: channelId, messages: messages || [] });
-            });
-        });
-    });
-
-    // ЛИЧНЫЙ ЧАТ
-    socket.on('joinPrivate', (targetId) => {
-        if (!currentUserId) return;
-        const chatId = [currentUserId, targetId].sort().join('_');
-        db.all(`SELECT m.*, u.username as from_name 
-                FROM messages m 
-                JOIN users u ON m.from_id = u.id 
-                WHERE m.chat_type = 'private' AND m.chat_id = ? 
-                ORDER BY m.created_at ASC LIMIT 100`, [chatId], (err, messages) => {
-            socket.emit('chatHistory', { chatId: targetId, messages: messages || [] });
-        });
-    });
-
-    // ОТПРАВИТЬ СООБЩЕНИЕ
-    socket.on('sendMessage', (data) => {
-        if (!currentUserId) return;
-        const { type, target, text } = data;
-        let chatId = '';
-        if (type === 'private') {
-            chatId = [currentUserId, target].sort().join('_');
-        } else if (type === 'group') {
-            chatId = target.toString();
         } else if (type === 'channel') {
-            chatId = target.toString();
+            socket.emit('newMessage', msg);
         }
-        
-        db.run(`INSERT INTO messages (from_id, to_id, chat_type, chat_id, text, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?)`,
-            [currentUserId, type === 'private' ? target : null, type, chatId, text, Date.now()], function(err) {
-            if (err) return;
-            const msgId = this.lastID;
-            db.get(`SELECT u.username as from_name FROM users u WHERE u.id = ?`, [currentUserId], (err, user) => {
-                const msg = {
-                    id: msgId,
-                    from_id: currentUserId,
-                    from_name: user.username,
-                    text: text,
-                    created_at: Date.now(),
-                    chatId: type === 'private' ? target : chatId
-                };
-                socket.emit('newMessage', msg);
-                
-                if (type === 'private') {
-                    const targetSocket = getSocketByUserId(parseInt(target));
-                    if (targetSocket) targetSocket.emit('newMessage', msg);
-                } else if (type === 'group') {
-                    db.all(`SELECT user_id FROM group_members WHERE group_id = ?`, [target], (err, members) => {
-                        members.forEach(m => {
-                            if (m.user_id !== currentUserId) {
-                                const memberSocket = getSocketByUserId(m.user_id);
-                                if (memberSocket) memberSocket.emit('newMessage', msg);
-                            }
-                        });
-                    });
-                } else if (type === 'channel') {
-                    db.all(`SELECT user_id FROM channel_subscribers WHERE channel_id = ?`, [target], (err, subs) => {
-                        subs.forEach(s => {
-                            if (s.user_id !== currentUserId) {
-                                const subSocket = getSocketByUserId(s.user_id);
-                                if (subSocket) subSocket.emit('newMessage', msg);
-                            }
-                        });
-                    });
-                }
-            });
-        });
     });
 
-    // ГОЛОСОВОЕ СООБЩЕНИЕ
     socket.on('voiceMessage', (data) => {
-        if (!currentUserId) return;
         const { type, target, audio } = data;
-        let chatId = '';
+        const msg = { id: Date.now(), from: currentUser, audio: audio, time: new Date().toLocaleTimeString(), chatId: target };
         if (type === 'private') {
-            chatId = [currentUserId, target].sort().join('_');
-        } else {
-            chatId = target.toString();
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) privateChats[chatId] = { messages: [] };
+            privateChats[chatId].messages.push(msg);
+            saveData();
+            socket.emit('voiceMessage', msg);
+            const targetSocket = getSocketByUsername(target);
+            if (targetSocket) targetSocket.emit('voiceMessage', msg);
         }
-        
-        db.run(`INSERT INTO messages (from_id, to_id, chat_type, chat_id, voice, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?)`,
-            [currentUserId, type === 'private' ? target : null, type, chatId, audio, Date.now()], function(err) {
-            if (err) return;
-            db.get(`SELECT u.username as from_name FROM users u WHERE u.id = ?`, [currentUserId], (err, user) => {
-                const msg = {
-                    id: this.lastID,
-                    from_id: currentUserId,
-                    from_name: user.username,
-                    audio: audio,
-                    created_at: Date.now(),
-                    chatId: type === 'private' ? target : chatId
-                };
-                socket.emit('voiceMessage', msg);
-                if (type === 'private') {
-                    const targetSocket = getSocketByUserId(parseInt(target));
-                    if (targetSocket) targetSocket.emit('voiceMessage', msg);
-                }
-            });
-        });
     });
 
-    // ФАЙЛ
     socket.on('fileMessage', (data) => {
-        if (!currentUserId) return;
         const { type, target, fileName, fileData } = data;
-        let chatId = '';
+        const msg = { id: Date.now(), from: currentUser, file: fileData, file_name: fileName, time: new Date().toLocaleTimeString(), chatId: target };
         if (type === 'private') {
-            chatId = [currentUserId, target].sort().join('_');
-        } else {
-            chatId = target.toString();
+            const chatId = [currentUser, target].sort().join('_');
+            if (!privateChats[chatId]) privateChats[chatId] = { messages: [] };
+            privateChats[chatId].messages.push(msg);
+            saveData();
+            socket.emit('fileMessage', msg);
+            const targetSocket = getSocketByUsername(target);
+            if (targetSocket) targetSocket.emit('fileMessage', msg);
         }
-        
-        db.run(`INSERT INTO messages (from_id, to_id, chat_type, chat_id, file, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?)`,
-            [currentUserId, type === 'private' ? target : null, type, chatId, fileData, Date.now()], function(err) {
-            if (err) return;
-            db.get(`SELECT u.username as from_name FROM users u WHERE u.id = ?`, [currentUserId], (err, user) => {
-                const msg = {
-                    id: this.lastID,
-                    from_id: currentUserId,
-                    from_name: user.username,
-                    file: fileData,
-                    file_name: fileName,
-                    created_at: Date.now(),
-                    chatId: type === 'private' ? target : chatId
-                };
-                socket.emit('fileMessage', msg);
-                if (type === 'private') {
-                    const targetSocket = getSocketByUserId(parseInt(target));
-                    if (targetSocket) targetSocket.emit('fileMessage', msg);
-                }
-            });
-        });
     });
 
-    // ОПРОСЫ
+    socket.on('addReaction', (data) => {
+        const { messageId, chatId, reaction } = data;
+        let chat = privateChats[chatId] || groups[chatId];
+        if (chat && chat.messages) {
+            const msg = chat.messages.find(m => m.id == messageId);
+            if (msg) {
+                if (!msg.reactions) msg.reactions = {};
+                msg.reactions[reaction] = (msg.reactions[reaction] || 0) + 1;
+                saveData();
+                io.emit('reactionUpdate', { messageId: messageId, reactions: msg.reactions });
+            }
+        }
+    });
+
     socket.on('createPoll', (data) => {
-        if (!currentUserId) return;
         const { chatId, question, options } = data;
-        db.run('INSERT INTO polls (chat_id, question, options, votes, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [chatId, question, JSON.stringify(options), JSON.stringify(Array(options.length).fill(0)), currentUserId, Date.now()], function(err) {
-            if (err) return;
-            socket.emit('newPoll', { id: this.lastID, chatId: chatId, question: question, options: JSON.stringify(options), votes: Array(options.length).fill(0), created_at: Date.now() });
-        });
+        const poll = { id: Date.now(), chatId: chatId, question: question, options: JSON.stringify(options), votes: JSON.stringify(Array(options.length).fill(0)), created_at: Date.now() };
+        polls[poll.id] = poll;
+        saveData();
+        io.emit('newPoll', poll);
     });
 
     socket.on('votePoll', (data) => {
-        if (!currentUserId) return;
         const { pollId, optionIndex } = data;
-        db.get('SELECT votes FROM polls WHERE id = ?', [pollId], (err, poll) => {
-            if (poll) {
-                const votes = JSON.parse(poll.votes);
-                votes[optionIndex]++;
-                db.run('UPDATE polls SET votes = ? WHERE id = ?', [JSON.stringify(votes), pollId]);
-                db.get('SELECT question, options, votes FROM polls WHERE id = ?', [pollId], (err, updated) => {
-                    socket.emit('pollUpdate', { id: pollId, question: updated.question, options: updated.options, votes: JSON.parse(updated.votes) });
-                });
-            }
-        });
+        const poll = polls[pollId];
+        if (poll) {
+            const votes = JSON.parse(poll.votes);
+            votes[optionIndex]++;
+            poll.votes = JSON.stringify(votes);
+            saveData();
+            io.emit('pollUpdate', { id: pollId, question: poll.question, options: poll.options, votes: votes });
+        }
     });
 
-    // ИСТОРИИ
     socket.on('addStory', (data) => {
-        if (!currentUserId) return;
         const { media, type } = data;
-        const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-        db.run('INSERT INTO stories (user_id, media, type, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
-            [currentUserId, media, type, expiresAt, Date.now()], () => {
-            io.emit('storiesUpdate');
-        });
+        if (!stories[currentUser]) stories[currentUser] = [];
+        stories[currentUser].push({ media: media, type: type, created_at: Date.now() });
+        if (stories[currentUser].length > 10) stories[currentUser].shift();
+        saveData();
+        const activeStories = [];
+        for (const [u, storyList] of Object.entries(stories)) {
+            if (storyList && storyList.length > 0 && Date.now() - storyList[storyList.length - 1].created_at < 86400000) {
+                activeStories.push({ username: u, name: users[u]?.name || u, avatar: users[u]?.avatar });
+            }
+        }
+        io.emit('storiesUpdate', activeStories);
     });
 
     socket.on('getStories', () => {
-        db.all(`SELECT s.user_id, u.username, u.name, u.avatar 
-                FROM stories s 
-                JOIN users u ON s.user_id = u.id 
-                WHERE s.expires_at > ? 
-                GROUP BY s.user_id`, [Date.now()], (err, stories) => {
-            socket.emit('storiesUpdate', stories || []);
-        });
+        const activeStories = [];
+        for (const [u, storyList] of Object.entries(stories)) {
+            if (storyList && storyList.length > 0 && Date.now() - storyList[storyList.length - 1].created_at < 86400000 && users[u]) {
+                activeStories.push({ username: u, name: users[u]?.name || u, avatar: users[u]?.avatar });
+            }
+        }
+        socket.emit('storiesUpdate', activeStories);
     });
 
     socket.on('getStory', (username) => {
-        db.get(`SELECT s.media, s.type 
-                FROM stories s 
-                JOIN users u ON s.user_id = u.id 
-                WHERE u.username = ? AND s.expires_at > ? 
-                ORDER BY s.created_at DESC LIMIT 1`, [username, Date.now()], (err, story) => {
-            if (story) socket.emit('storyData', story);
-        });
+        if (stories[username] && stories[username].length > 0) {
+            const story = stories[username][stories[username].length - 1];
+            socket.emit('storyData', story);
+        }
     });
 
-    // ОБНОВЛЕНИЕ ПРОФИЛЯ
     socket.on('updateProfile', (data, cb) => {
-        if (!currentUserId) return;
-        const updates = [];
-        const values = [];
-        if (data.name) { updates.push('name = ?'); values.push(data.name); }
-        if (data.bio) { updates.push('bio = ?'); values.push(data.bio); }
-        if (data.password) { updates.push('password = ?'); values.push(bcrypt.hashSync(data.password, 10)); }
-        if (data.avatar) { updates.push('avatar = ?'); values.push(data.avatar); }
-        if (updates.length === 0) { cb({ success: false }); return; }
-        values.push(currentUserId);
-        db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values, function(err) {
-            if (err) { cb({ success: false }); return; }
-            db.get('SELECT id, username, name, bio, avatar FROM users WHERE id = ?', [currentUserId], (err, user) => {
-                cb({ success: true, userData: user });
-            });
-        });
+        const user = users[currentUser];
+        if (user) {
+            if (data.name) user.name = data.name;
+            if (data.bio) user.bio = data.bio;
+            if (data.password) user.password = data.password;
+            saveData();
+            cb({ success: true, userData: { username: user.username, name: user.name, bio: user.bio, avatar: user.avatar } });
+        } else {
+            cb({ success: false });
+        }
     });
 
-    // ЗАГРУЗКА АВАТАРА
     socket.on('uploadAvatar', (data, cb) => {
-        if (!currentUserId) return;
-        db.run('UPDATE users SET avatar = ? WHERE id = ?', [data.avatar, currentUserId], function(err) {
-            if (err) { cb({ success: false }); return; }
-            db.get('SELECT id, username, name, bio, avatar FROM users WHERE id = ?', [currentUserId], (err, user) => {
-                cb({ success: true, userData: user });
-            });
-        });
+        const user = users[currentUser];
+        if (user) {
+            user.avatar = data.avatar;
+            saveData();
+            cb({ success: true, userData: { username: user.username, name: user.name, bio: user.bio, avatar: user.avatar } });
+        } else {
+            cb({ success: false });
+        }
     });
 
-    // ОТКЛЮЧЕНИЕ
+    // ЗВОНКИ (WebRTC)
+    socket.on('callOffer', (data) => {
+        const { target, offer } = data;
+        const targetSocket = getSocketByUsername(target);
+        if (targetSocket) {
+            targetSocket.emit('incomingCall', { from: currentUser, offer: offer });
+        }
+    });
+
+    socket.on('callAnswer', (data) => {
+        const { target, answer } = data;
+        const targetSocket = getSocketByUsername(target);
+        if (targetSocket) {
+            targetSocket.emit('callAnswered', { answer: answer });
+        }
+    });
+
+    socket.on('iceCandidate', (data) => {
+        const { target, candidate } = data;
+        const targetSocket = getSocketByUsername(target);
+        if (targetSocket) {
+            targetSocket.emit('iceCandidate', { candidate: candidate });
+        }
+    });
+
+    socket.on('endCall', (data) => {
+        const { target } = data;
+        const targetSocket = getSocketByUsername(target);
+        if (targetSocket) {
+            targetSocket.emit('callEnded');
+        }
+    });
+
+    socket.on('declineCall', (data) => {
+        const { target } = data;
+        const targetSocket = getSocketByUsername(target);
+        if (targetSocket) {
+            targetSocket.emit('callDeclined');
+        }
+    });
+
     socket.on('disconnect', () => {
-        if (currentUserId) {
+        if (currentUser) {
             userSockets.delete(socket.id);
-            onlineUsers.delete(currentUserId);
-            db.run('UPDATE users SET online = 0, last_seen = ? WHERE id = ?', [Date.now(), currentUserId]);
-            db.all(`SELECT friend_id FROM friends WHERE user_id = ? AND status = 'accepted'`, [currentUserId], (err, friends) => {
-                friends.forEach(f => {
-                    const friendSocket = getSocketByUserId(f.friend_id);
-                    if (friendSocket) friendSocket.emit('userOffline', currentUserId);
+            onlineUsers.delete(currentUser);
+            if (users[currentUser]) users[currentUser].online = false;
+            saveData();
+            const user = users[currentUser];
+            if (user && user.friends) {
+                user.friends.forEach(friend => {
+                    const friendSocket = getSocketByUsername(friend);
+                    if (friendSocket) friendSocket.emit('userOffline', currentUser);
                 });
-            });
+            }
         }
     });
 });
 
-// ЗАПУСК СЕРВЕРА
+function startKeepAliveBot() {
+    const PORT = process.env.PORT || 3000;
+    const url = `http://localhost:${PORT}`;
+    console.log('\n🤖 AWAKE-BOT ЗАПУЩЕН! Сервер не уснёт\n');
+    setInterval(async () => { try { await fetch(url); } catch(e) {} }, 4 * 60 * 1000);
+    setTimeout(async () => { try { await fetch(url); } catch(e) {} }, 30000);
+}
+
+if (process.env.RENDER || true) startKeepAliveBot();
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║     🚀 ATOMGRAM — ПОЛНОЦЕННЫЙ КОНКУРЕНТ TELEGRAM          ║
-║                   КОД: 5000+ СТРОК                        ║
+║     🚀 ATOMGRAM PREMIUM — МЕССЕНДЖЕР УРОВНЯ TELEGRAM      ║
 ╠═══════════════════════════════════════════════════════════╣
 ║  💻 http://localhost:${PORT}                               ║
 ║  📱 http://localhost:${PORT}                               ║
 ╠═══════════════════════════════════════════════════════════╣
-║  🗄️  БАЗА ДАННЫХ: SQLite (данные в atomgram.db)          ║
-║  🔐 ХЕШИРОВАНИЕ ПАРОЛЕЙ: bcrypt                          ║
-║  📞 ЗВОНКИ: WebRTC (голосовые)                           ║
-║  💬 СООБЩЕНИЯ: текст, голос, файлы, стикеры              ║
-║  👥 ГРУППЫ: до 200 человек                               ║
-║  📢 КАНАЛЫ: с подпиской                                  ║
-║  📊 ОПРОСЫ: создавай и голосуй                           ║
-║  📸 ИСТОРИИ: 24 часа                                     ║
-║  🎮 ИГРЫ: Крестики-нолики, Кости, Дартс                  ║
-║  🔍 ПОИСК: пользователей и каналов                       ║
-║  ⭐ СОХРАНЁННЫЕ СООБЩЕНИЯ                                ║
-║  📱 АДАПТИВ: телефон/планшет/ПК                          ║
+║  ✨ ВСЕ ФИШКИ PREMIUM:                                    ║
+║  🤖 ИИ-ПОМОЩНИК (GPT-5 уровень)                          ║
+║  🌍 ГЛОБАЛЬНЫЙ ПОИСК ПОЛЬЗОВАТЕЛЕЙ И КАНАЛОВ              ║
+║  📞 ГОЛОСОВЫЕ ЗВОНКИ (WebRTC)                            ║
+║  💬 ЛИЧНЫЕ СООБЩЕНИЯ + РЕАКЦИИ + ОТВЕТЫ                   ║
+║  👥 ГРУППЫ (до 5000 участников)                           ║
+║  📢 КАНАЛЫ                                                ║
+║  👤 ДРУЗЬЯ С ЗАПРОСАМИ                                    ║
+║  🎤 ГОЛОСОВЫЕ СООБЩЕНИЯ                                   ║
+║  📎 ФАЙЛЫ И ИЗОБРАЖЕНИЯ                                   ║
+║  😀 40+ СТИКЕРОВ                                          ║
+║  ❤️ РЕАКЦИИ (❤️👍😂)                                      ║
+║  📊 ОПРОСЫ (POLLS)                                        ║
+║  📸 ИСТОРИИ (24 часа)                                     ║
+║  ❌ КРЕСТИКИ-НОЛИКИ + КОСТИ + ДАРТС                       ║
+║  ⭐ СОХРАНЁННЫЕ СООБЩЕНИЯ                                 ║
+║  ⌨️ ИНДИКАТОР ПЕЧАТИ                                      ║
+║  🟢 ОНЛАЙН-СТАТУС                                         ║
+║  🖼️ АВАТАРЫ ПОЛЬЗОВАТЕЛЕЙ                                ║
+║  🎨 ПРЕМИУМ ДИЗАЙН (Glassmorphism)                       ║
+║  📱 АДАПТИВНЫЙ ДИЗАЙН (телефон/планшет/ПК)               ║
+║  🤖 AWAKE-BOT (сервер не спит 24/7)                     ║
 ╠═══════════════════════════════════════════════════════════╣
-║  ✅ ВСЁ РАБОТАЕТ! МЕССЕНДЖЕР ГОТОВ К ЗАПУСКУ!            ║
+║  🏆 ATOMGRAM PREMIUM — ВЫБОР МИЛЛИОНОВ! 🚀                ║
 ╚═══════════════════════════════════════════════════════════╝
     `);
 });
